@@ -1,0 +1,63 @@
+{
+  "name": "@google-cloud/cloud-sql-connector",
+  "version": "0.0.0",
+  "description": "A JavaScript library for connecting securely to your Cloud SQL instances",
+  "author": "Google Inc.",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/mjs/index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/mjs/index.d.ts",
+        "default": "./dist/mjs/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "Apache-2.0",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "compile": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json",
+    "preprepare": "rm -rf dist",
+    "prepare": "npm run compile",
+    "postprepare": "node ./scripts/fixup.cjs",
+    "pretest": "npm run prepare",
+    "presnap": "npm run prepare",
+    "test": "c8 tap",
+    "snap": "c8 tap",
+    "lint": "gts check",
+    "fix": "gts fix",
+    "posttest": "npm run lint"
+  },
+  "tap": {
+    "coverage": false,
+    "node-arg": [
+      "--no-warnings",
+      "--loader",
+      "ts-node/esm"
+    ],
+    "ts": false
+  },
+  "devDependencies": {
+    "@types/node": "^14.11.2",
+    "@types/tap": "^15.0.7",
+    "c8": "^7.12.0",
+    "gts": "^3.1.1",
+    "tap": "^16.3.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.4"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector"
+  }
+}
