@@ -38,7 +38,7 @@ jobs:
         run: npm run compile
 
       - name: Run Tests
-        run: npm --ignore-scripts test -- -c -t0
+        run: npx c8 tap -c -t0
         timeout-minutes: 5
 
   lint:
