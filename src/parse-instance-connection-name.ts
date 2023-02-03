@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-interface InstanceConnectionInfo {
-  projectId: string;
-  regionId: string;
-  instanceId: string;
-}
+import {InstanceConnectionInfo} from './instance-connection-info';
 
 const missingInstanceConnectionNameError = () =>
   Object.assign(
