@@ -2,7 +2,7 @@
   "extends": "./tsconfig-base.json",
   "exclude": ["./test", "./tap-snapshots"],
   "compilerOptions": {
-    "module": "esnext",
+    "module": "node16",
     "outDir": "dist/mjs"
   }
 }
