@@ -38,6 +38,18 @@ const setupCredentials = (test: Tap.Test): void => {
     .reply(200, {access_token: 'abc123', expires_in: 1});
 };
 
+const certResponse = (instance: string) => ({
+  kind: 'sql#sslCert',
+  certSerialNumber: '0',
+  cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
+  commonName:
+    'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=1234',
+  sha1Fingerprint: '004fe8623f02cb953bb5addbd0309f3b8f136c00',
+  instance,
+  createTime: '2023-01-01T10:00:00.232Z',
+  expirationTime: '2033-01-06T10:00:00.232Z',
+});
+
 const mockRequest = (
   instanceInfo: InstanceConnectionInfo,
   overrides?: sqladmin_v1beta4.Schema$ConnectSettings
@@ -48,17 +60,7 @@ const mockRequest = (
     .get(`/${projectId}/instances/${instanceId}/connectSettings`)
     .reply(200, {
       kind: 'sql#connectSettings',
-      serverCaCert: {
-        kind: 'sql#sslCert',
-        certSerialNumber: '0',
-        cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
-        commonName:
-          'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=1234',
-        sha1Fingerprint: '004fe8623f02cb953bb5addbd0309f3b8f136c00',
-        instance: instanceId,
-        createTime: '2023-01-01T10:00:00.232Z',
-        expirationTime: '2033-01-06T10:00:00.232Z',
-      },
+      serverCaCert: certResponse(instanceId),
       ipAddresses: [
         {
           type: 'PRIMARY',
@@ -270,5 +272,90 @@ t.test('getInstanceMetadata invalid region', async t => {
       code: 'EBADSQLADMINREGION',
     },
     'should throw invalid region error'
+  );
+});
+
+const mockGenerateEphemeralCertRequest = (
+  instanceInfo: InstanceConnectionInfo,
+  overrides?: sqladmin_v1beta4.Schema$GenerateEphemeralCertResponse
+): void => {
+  const {projectId, instanceId} = instanceInfo;
+
+  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
+    .post(`/${projectId}/instances/${instanceId}:generateEphemeralCert`)
+    .reply(200, {
+      ephemeralCert: certResponse(instanceId),
+      // overrides any properties from the base mock
+      ...overrides,
+    });
+};
+
+t.test('getEphemeralCertificate', async t => {
+  setupCredentials(t);
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'my-project',
+    regionId: 'us-east1',
+    instanceId: 'my-instance',
+  };
+  mockGenerateEphemeralCertRequest(instanceConnectionInfo);
+
+  const fetcher = new SQLAdminFetcher();
+  const ephemeralCert = await fetcher.getEphemeralCertificate(
+    instanceConnectionInfo,
+    'key'
+  );
+  t.same(
+    ephemeralCert,
+    {
+      cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
+      expirationTime: '2033-01-06T10:00:00.232Z',
+    },
+    'should return expected ssl cert'
+  );
+});
+
+t.test('getEphemeralCertificate no certificate', async t => {
+  setupCredentials(t);
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'no-cert-project',
+    regionId: 'us-east1',
+    instanceId: 'no-cert-instance',
+  };
+  mockGenerateEphemeralCertRequest(instanceConnectionInfo, {
+    ephemeralCert: undefined,
+  });
+
+  const fetcher = new SQLAdminFetcher();
+  t.rejects(
+    fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key'),
+    {
+      code: 'ENOSQLADMINEPH',
+    },
+    'should throw no response data error on no ephemeral cert response data'
+  );
+});
+
+t.test('getEphemeralCertificate no response data', async t => {
+  setupCredentials(t);
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'no-response-data-project',
+    regionId: 'us-east1',
+    instanceId: 'no-response-data-instance',
+  };
+  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
+    .post(
+      '/no-response-data-project/instances/no-response-data-instance:generateEphemeralCert'
+    )
+    .reply(200, '');
+
+  const fetcher = new SQLAdminFetcher();
+  t.rejects(
+    fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key'),
+    {
+      message:
+        'Failed to find metadata on project id: no-response-data-project and instance id: no-response-data-instance. Ensure network connectivity and validate the provided `instanceConnectionName` config value',
+      code: 'ENOSQLADMIN',
+    },
+    'should throw no response data error on no ephemeral cert response data'
   );
 });
