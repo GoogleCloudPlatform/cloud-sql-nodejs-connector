@@ -73,6 +73,16 @@ const regionMismatchError = (regionResult: string, regionId: string) =>
     }
   );
 
+const noEphemeralCertError = () =>
+  Object.assign(
+    new Error(
+      'Cannot connect to instance, failed to retrieve an ephemeral certificate'
+    ),
+    {
+      code: 'ENOSQLADMINEPH',
+    }
+  );
+
 const parseIpAddresses = (
   ipResponse: sqladmin_v1beta4.Schema$IpMapping[]
 ): IpAdresses => {
@@ -141,6 +151,33 @@ export class SQLAdminFetcher {
         cert: serverCaCert.cert,
         expirationTime: serverCaCert.expirationTime,
       },
+    };
+  }
+
+  async getEphemeralCertificate(
+    {projectId, instanceId}: InstanceConnectionInfo,
+    publicKey: string
+  ): Promise<SslCert> {
+    const res = await this.client.connect.generateEphemeralCert({
+      project: projectId,
+      instance: instanceId,
+      requestBody: {
+        public_key: publicKey,
+      },
+    });
+
+    if (!res.data) {
+      throw noResponseDataError(projectId, instanceId);
+    }
+
+    const {ephemeralCert} = res.data;
+    if (!ephemeralCert) {
+      throw noEphemeralCertError();
+    }
+
+    return {
+      cert: ephemeralCert.cert,
+      expirationTime: ephemeralCert.expirationTime,
     };
   }
 }
