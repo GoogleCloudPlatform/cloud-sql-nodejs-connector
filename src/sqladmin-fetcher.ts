@@ -16,13 +16,12 @@ import {GoogleAuth} from 'google-auth-library';
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 const {Sqladmin} = sqladmin_v1beta4;
 import {InstanceConnectionInfo} from './instance-connection-info';
+import {SslCert} from './ssl-cert';
 
 interface IpAdresses {
   public?: string;
   private?: string;
 }
-
-type SslCert = Pick<sqladmin_v1beta4.Schema$SslCert, 'cert' | 'expirationTime'>;
 
 interface InstanceMetadata {
   ipAddresses: IpAdresses;
@@ -133,7 +132,7 @@ export class SQLAdminFetcher {
     const ipAddresses = parseIpAddresses(res.data.ipAddresses);
 
     const {serverCaCert} = res.data;
-    if (!serverCaCert || !serverCaCert.cert) {
+    if (!serverCaCert || !serverCaCert.cert || !serverCaCert.expirationTime) {
       throw noCertError();
     }
 
@@ -171,7 +170,11 @@ export class SQLAdminFetcher {
     }
 
     const {ephemeralCert} = res.data;
-    if (!ephemeralCert) {
+    if (
+      !ephemeralCert ||
+      !ephemeralCert.cert ||
+      !ephemeralCert.expirationTime
+    ) {
       throw noEphemeralCertError();
     }
 
