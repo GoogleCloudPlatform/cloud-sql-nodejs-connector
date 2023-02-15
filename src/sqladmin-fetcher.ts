@@ -17,11 +17,7 @@ import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 const {Sqladmin} = sqladmin_v1beta4;
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
-
-interface IpAdresses {
-  public?: string;
-  private?: string;
-}
+import {IpAdresses, parseIpAddresses} from './ip-addresses';
 
 interface InstanceMetadata {
   ipAddresses: IpAdresses;
@@ -43,14 +39,6 @@ const noCertError = () =>
     new Error('Cannot connect to instance, no valid CA certificate found'),
     {
       code: 'ENOSQLADMINCERT',
-    }
-  );
-
-const noIpAddressError = () =>
-  Object.assign(
-    new Error('Cannot connect to instance, it has no supported IP addresses'),
-    {
-      code: 'ENOSQLADMINIPADDRESS',
     }
   );
 
@@ -82,26 +70,6 @@ const noEphemeralCertError = () =>
     }
   );
 
-const parseIpAddresses = (
-  ipResponse: sqladmin_v1beta4.Schema$IpMapping[]
-): IpAdresses => {
-  const ipAddresses: IpAdresses = {};
-  for (const ip of ipResponse) {
-    if (ip.type === 'PRIMARY' && ip.ipAddress) {
-      ipAddresses.public = ip.ipAddress;
-    }
-    if (ip.type === 'PRIVATE' && ip.ipAddress) {
-      ipAddresses.private = ip.ipAddress;
-    }
-  }
-
-  if (!ipAddresses.public && !ipAddresses.private) {
-    throw noIpAddressError();
-  }
-
-  return ipAddresses;
-};
-
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
 
@@ -126,9 +94,6 @@ export class SQLAdminFetcher {
       throw noResponseDataError(projectId, instanceId);
     }
 
-    if (!res.data.ipAddresses) {
-      throw noIpAddressError();
-    }
     const ipAddresses = parseIpAddresses(res.data.ipAddresses);
 
     const {serverCaCert} = res.data;
