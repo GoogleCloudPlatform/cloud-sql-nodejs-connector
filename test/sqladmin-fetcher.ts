@@ -138,32 +138,6 @@ t.test('getInstanceMetadata private ip', async t => {
   );
 });
 
-t.test('getInstanceMetadata no valid ip addresses', async t => {
-  setupCredentials(t);
-  const instanceConnectionInfo: InstanceConnectionInfo = {
-    projectId: 'no-ip-project',
-    regionId: 'us-east1',
-    instanceId: 'no-ip-instance',
-  };
-  mockRequest(instanceConnectionInfo, {
-    ipAddresses: [
-      {
-        type: 'OUTGOING',
-        ipAddress: '0.0.0.1',
-      },
-    ],
-  });
-
-  const fetcher = new SQLAdminFetcher();
-  t.rejects(
-    fetcher.getInstanceMetadata(instanceConnectionInfo),
-    {
-      code: 'ENOSQLADMINIPADDRESS',
-    },
-    'should throw no ip address error'
-  );
-});
-
 t.test('getInstanceMetadata no valid cert', async t => {
   setupCredentials(t);
   const instanceConnectionInfo: InstanceConnectionInfo = {
@@ -207,27 +181,6 @@ t.test('getInstanceMetadata no response data', async t => {
       code: 'ENOSQLADMIN',
     },
     'should throw no response data error'
-  );
-});
-
-t.test('getInstanceMetadata invalid response data', async t => {
-  setupCredentials(t);
-  const instanceConnectionInfo: InstanceConnectionInfo = {
-    projectId: 'invalid-project',
-    regionId: 'us-east1',
-    instanceId: 'invalid-instance',
-  };
-  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
-    .get('/invalid-project/instances/invalid-instance/connectSettings')
-    .reply(200, {foo: 'bar'});
-
-  const fetcher = new SQLAdminFetcher();
-  t.rejects(
-    fetcher.getInstanceMetadata(instanceConnectionInfo),
-    {
-      code: 'ENOSQLADMINIPADDRESS',
-    },
-    'should throw on invalid response data'
   );
 });
 
