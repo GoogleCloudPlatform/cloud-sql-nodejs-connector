@@ -19,7 +19,7 @@ import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
 import {IpAdresses, parseIpAddresses} from './ip-addresses';
 
-interface InstanceMetadata {
+export interface InstanceMetadata {
   ipAddresses: IpAdresses;
   serverCaCert: SslCert;
 }

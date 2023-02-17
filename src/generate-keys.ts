@@ -14,7 +14,7 @@
 
 import {promisify} from 'node:util';
 
-interface RSAKeys {
+export interface RSAKeys {
   privateKey: string;
   publicKey: string;
 }
