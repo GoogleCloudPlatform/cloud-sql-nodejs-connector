@@ -12,31 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {resolve} from 'node:path';
 import t from 'tap';
 import nock from 'nock';
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 import {SQLAdminFetcher} from '../src/sqladmin-fetcher';
 import {InstanceConnectionInfo} from '../src/instance-connection-info';
-
-const setupCredentials = (test: Tap.Test): void => {
-  const path = test.testdir({
-    credentials: JSON.stringify({
-      client_secret: 'privatekey',
-      client_id: 'client123',
-      refresh_token: 'refreshtoken',
-      type: 'authorized_user',
-    }),
-  });
-  process.env.GOOGLE_APPLICATION_CREDENTIALS = resolve(path, 'credentials');
-  test.teardown(() => {
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = undefined;
-  });
-
-  nock('https://oauth2.googleapis.com')
-    .post('/token')
-    .reply(200, {access_token: 'abc123', expires_in: 1});
-};
+import {setupCredentials} from './fixtures/setup-credentials';
 
 const certResponse = (instance: string) => ({
   kind: 'sql#sslCert',
