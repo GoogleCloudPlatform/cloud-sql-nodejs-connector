@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import t from 'tap';
-import {parseIpAddresses} from '../src/ip-addresses';
+import {
+  IpAdressesTypes,
+  parseIpAddresses,
+  selectIpAddress,
+} from '../src/ip-addresses';
 
 t.throws(
   () => parseIpAddresses(undefined),
@@ -94,4 +98,45 @@ t.same(
     public: '0.0.0.0',
   },
   'should return a both public and private ips if available'
+);
+
+t.throws(
+  () => selectIpAddress({}, IpAdressesTypes.PUBLIC),
+  {code: 'ENOPUBLICSQLADMINIPADDRESS'},
+  'should throw if no public ip defined'
+);
+
+t.throws(
+  () => selectIpAddress({}, IpAdressesTypes.PRIVATE),
+  {code: 'ENOPRIVATESQLADMINIPADDRESS'},
+  'should throw if no private ip defined'
+);
+
+t.throws(
+  () => selectIpAddress({}, undefined),
+  {code: 'ENOSQLADMINIPADDRESS'},
+  'should throw if no ips defined'
+);
+
+t.same(
+  selectIpAddress(
+    {
+      public: '0.0.0.0',
+      private: '0.0.0.2',
+    },
+    IpAdressesTypes.PUBLIC
+  ),
+  '0.0.0.0',
+  'should select public ip'
+);
+
+t.same(
+  selectIpAddress(
+    {
+      private: '0.0.0.2',
+    },
+    IpAdressesTypes.PRIVATE
+  ),
+  '0.0.0.2',
+  'should select private ip'
 );

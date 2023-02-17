@@ -14,18 +14,53 @@
 
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 
+export enum IpAdressesTypes {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
 export interface IpAdresses {
   public?: string;
   private?: string;
 }
 
-export const noIpAddressError = () =>
+const noPublicIpAddressError = () =>
+  Object.assign(
+    new Error('Cannot connect to instance, public Ip address not found'),
+    {
+      code: 'ENOPUBLICSQLADMINIPADDRESS',
+    }
+  );
+
+const noPrivateIpAddressError = () =>
+  Object.assign(
+    new Error('Cannot connect to instance, private Ip address not found'),
+    {
+      code: 'ENOPRIVATESQLADMINIPADDRESS',
+    }
+  );
+
+const noIpAddressError = () =>
   Object.assign(
     new Error('Cannot connect to instance, it has no supported IP addresses'),
     {
       code: 'ENOSQLADMINIPADDRESS',
     }
   );
+
+const getPublicIpAddress = (ipAddresses: IpAdresses) => {
+  if (!ipAddresses.public) {
+    throw noPublicIpAddressError();
+  }
+  return ipAddresses.public;
+};
+
+const getPrivateIpAddress = (ipAddresses: IpAdresses) => {
+  if (!ipAddresses.private) {
+    throw noPrivateIpAddressError();
+  }
+  return ipAddresses.private;
+};
 
 export function parseIpAddresses(
   ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined
@@ -49,4 +84,18 @@ export function parseIpAddresses(
   }
 
   return ipAddresses;
+}
+
+export function selectIpAddress(
+  ipAddresses: IpAdresses,
+  type: IpAdressesTypes | unknown
+): string {
+  switch (type) {
+    case IpAdressesTypes.PUBLIC:
+      return getPublicIpAddress(ipAddresses);
+    case IpAdressesTypes.PRIVATE:
+      return getPrivateIpAddress(ipAddresses);
+    default:
+      throw noIpAddressError();
+  }
 }
