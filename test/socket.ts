@@ -12,39 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {createServer} from 'node:https';
 import tls from 'node:tls';
 import t from 'tap';
 import {getSocket, validateCertificate} from '../src/socket';
-import {
-  CA_CERT,
-  CLIENT_CERT,
-  CLIENT_KEY,
-  SERVER_CERT,
-  SERVER_KEY,
-} from './fixtures/certs';
+import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
+import {setupTLSServer} from './fixtures/setup-tls-server';
 
 t.test('getSocket', async t => {
-  const server = createServer(
-    {
-      ca: CA_CERT,
-      key: SERVER_KEY,
-      cert: SERVER_CERT,
-      minVersion: 'TLSv1.3',
-    },
-    (req, res) => {
-      res.writeHead(200);
-      res.end('ok');
-    }
-  );
-  await new Promise((res): void => {
-    server.listen(3307, () => {
-      res(null);
-    });
-  });
-  t.teardown(() => {
-    server.close();
-  });
+  await setupTLSServer(t);
 
   await new Promise((res, rej): void => {
     const socket = getSocket({
