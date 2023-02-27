@@ -12,13 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {CloudSQLConnectorOptionsInterface} from './cloud-sql-connector-options-interface';
+import {Connector, ConnectionOptions, DriverOptions} from './connector';
+import {IpAdressesTypes} from './ip-addresses';
 
-export class Connector {
-  getOptions(opts: any): CloudSQLConnectorOptionsInterface {
-    return {
-      ...opts,
-      ssl: false,
-    };
-  }
-}
+export {Connector, ConnectionOptions, DriverOptions};
+export {IpAdressesTypes};
