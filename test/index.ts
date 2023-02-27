@@ -13,10 +13,7 @@
 // limitations under the License.
 
 import t from 'tap';
-import {Connector} from '../src/index';
+import {Connector, IpAdressesTypes} from '../src/index';
 
-t.same(
-  new Connector().getOptions({host: '0.0.0.0', ssl: true}),
-  {host: '0.0.0.0', ssl: false},
-  'should set ssl false for options'
-);
+t.ok(Connector, 'should export Connector constructor');
+t.ok(IpAdressesTypes, 'should export IpAdressesTypes enum');

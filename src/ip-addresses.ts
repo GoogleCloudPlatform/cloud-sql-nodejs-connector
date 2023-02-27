@@ -19,7 +19,7 @@ export enum IpAdressesTypes {
   PRIVATE = 'PRIVATE',
 }
 
-export interface IpAdresses {
+export declare interface IpAdresses {
   public?: string;
   private?: string;
 }
