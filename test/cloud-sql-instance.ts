@@ -48,6 +48,11 @@ t.test('CloudSQLInstance', async t => {
         privateKey: CLIENT_KEY,
       }),
     },
+    '../src/time': {
+      getRefreshInterval() {
+        return 50; // defaults to 50ms in unit tests
+      },
+    },
   });
 
   const instance = await CloudSQLInstance.getCloudSQLInstance({
@@ -81,4 +86,34 @@ t.test('CloudSQLInstance', async t => {
     CA_CERT,
     'should have expected serverCaCert'
   );
+
+  instance.close();
+
+  await new Promise(res => {
+    const start = Date.now();
+    let refreshCount = 0;
+    const refreshInstance = new CloudSQLInstance({
+      connectionType: IpAdressesTypes.PUBLIC,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+      sqlAdminFetcher: fetcher,
+    });
+    refreshInstance._refresh = refreshInstance.refresh;
+    refreshInstance.refresh = () => {
+      if (refreshCount === 3) {
+        refreshInstance.close();
+        const end = Date.now();
+        const duration = end - start;
+        t.ok(
+          duration >= 150,
+          `should respect refresh delay time, ${duration}ms elapsed`
+        );
+        return res(undefined);
+      }
+      refreshCount++;
+      t.ok(refreshCount, `should refresh ${refreshCount} times`);
+      refreshInstance._refresh();
+    };
+    // starts out refresh logic
+    refreshInstance.refresh();
+  });
 });
