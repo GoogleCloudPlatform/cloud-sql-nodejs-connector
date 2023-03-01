@@ -18,6 +18,7 @@ import {parseInstanceConnectionName} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
 import {generateKeys, RSAKeys} from './generate-keys';
 import {SslCert} from './ssl-cert';
+import {getRefreshInterval} from './time';
 
 interface Fetcher {
   getInstanceMetadata({
@@ -42,12 +43,14 @@ export class CloudSQLInstance {
     options: CloudSQLInstanceOptions
   ): Promise<CloudSQLInstance> {
     const instance = new CloudSQLInstance(options);
-    await instance.init();
+    await instance.refresh();
     return instance;
   }
 
   private readonly connectionType: IpAdressesTypes;
   private readonly sqlAdminFetcher: Fetcher;
+  private refreshTimeoutID?: ReturnType<typeof setTimeout>;
+  private closed = false;
   public readonly connectionInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
@@ -64,10 +67,11 @@ export class CloudSQLInstance {
     this.sqlAdminFetcher = sqlAdminFetcher;
   }
 
-  async init(): Promise<void> {
+  async refresh(): Promise<void> {
     const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
       await this.sqlAdminFetcher.getInstanceMetadata(this.connectionInfo);
+
     this.ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
       this.connectionInfo,
       rsaKeys.publicKey
@@ -75,5 +79,18 @@ export class CloudSQLInstance {
     this.host = selectIpAddress(metadata.ipAddresses, this.connectionType);
     this.privateKey = rsaKeys.privateKey;
     this.serverCaCert = metadata.serverCaCert;
+
+    if (!this.closed) {
+      this.refreshTimeoutID = setTimeout(() => {
+        this.refresh();
+      }, getRefreshInterval(this.ephemeralCert.expirationTime));
+    }
+  }
+
+  close(): void {
+    if (this.refreshTimeoutID) {
+      clearTimeout(this.refreshTimeoutID);
+    }
+    this.closed = true;
   }
 }
