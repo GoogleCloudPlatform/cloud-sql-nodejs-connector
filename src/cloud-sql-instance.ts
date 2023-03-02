@@ -51,7 +51,7 @@ export class CloudSQLInstance {
   private readonly sqlAdminFetcher: Fetcher;
   private refreshTimeoutID?: ReturnType<typeof setTimeout>;
   private closed = false;
-  public readonly connectionInfo: InstanceConnectionInfo;
+  public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
   public privateKey?: string;
@@ -63,17 +63,17 @@ export class CloudSQLInstance {
     sqlAdminFetcher,
   }: CloudSQLInstanceOptions) {
     this.connectionType = connectionType;
-    this.connectionInfo = parseInstanceConnectionName(instanceConnectionName);
+    this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
     this.sqlAdminFetcher = sqlAdminFetcher;
   }
 
   async refresh(): Promise<void> {
     const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
-      await this.sqlAdminFetcher.getInstanceMetadata(this.connectionInfo);
+      await this.sqlAdminFetcher.getInstanceMetadata(this.instanceInfo);
 
     this.ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
-      this.connectionInfo,
+      this.instanceInfo,
       rsaKeys.publicKey
     );
     this.host = selectIpAddress(metadata.ipAddresses, this.connectionType);
