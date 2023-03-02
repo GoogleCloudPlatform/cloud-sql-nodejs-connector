@@ -68,7 +68,7 @@ t.test('CloudSQLInstance', async t => {
   );
 
   t.same(
-    instance.connectionInfo,
+    instance.instanceInfo,
     {
       projectId: 'my-project',
       regionId: 'us-east1',
