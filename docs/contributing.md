@@ -31,3 +31,35 @@ All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
+
+## Project Setup
+
+Here's how to setup a development environment to work on the Cloud SQL Node.js
+Connector.
+
+Start by clonning this repo to your local file system. Once that's ready, from
+the command line, navigate to the cloned repo folder and run `npm install`
+in order to install all the project's dependencies. e.g:
+
+```sh
+cd <path-to-cloned-repo>
+npm install
+```
+
+### Running Tests
+
+Make sure you have all dependencies installed as outlined in the **Project
+Setup**.
+
+To run tests, run `npm test`, e.g:
+
+```sh
+npm test
+```
+
+It's also possible to run a single test file with no need for a test runner.
+Here's an example of how to run the connector integration tests directly:
+
+```sh
+node --loader ts-node/esm test/serial/connector-integration.ts
+```
