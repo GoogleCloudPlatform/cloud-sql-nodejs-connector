@@ -40,7 +40,13 @@ const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   type: 'PUBLIC'
 });
-const pool = new Pool({ ...clientOpts, max: 5 });
+const pool = new Pool({
+  ...clientOpts,
+  user: 'my-user',
+  password: 'my-password',
+  database: 'db-name',
+  max: 5
+});
 const result = await pool.query('SELECT NOW()');
 
 await pool.end();
