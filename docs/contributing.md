@@ -63,3 +63,22 @@ Here's an example of how to run the connector integration tests directly:
 ```sh
 node --loader ts-node/esm test/serial/connector-integration.ts
 ```
+
+### Running System Tests
+
+A holistic end-to-end test suite is also available to ensure that the connector
+is able to reach out to a Cloud SQL environment and stablish a secure
+connection.
+
+To run the **System Tests**, run `npm system-test`. Please note that you need
+to provide the information of the Cloud SQL environment to connect to via
+environment variables, e.g:
+
+```sh
+POSTGRES_USER=my-user POSTGRES_PASS=my-password POSTGRES_DB=db-name POSTGRES_CONNECTION_NAME=my-project:region:my-instance npm run system-test
+```
+
+If you're an external collaborator, don't worry about not having a Cloud SQL
+environment available to validate your changes. These end-to-end tests are part
+of CI and tests will run on GitHub Actions once your Pull Request is open and
+CI run is approved by a member of the team.

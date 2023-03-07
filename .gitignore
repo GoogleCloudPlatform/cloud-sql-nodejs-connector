@@ -9,6 +9,7 @@
 !/LICENSE{,.*}
 !/example
 !/scripts
+!/system-test
 !/tap-snapshots
 !/test
 !/.editorconfig
