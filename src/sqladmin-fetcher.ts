@@ -17,6 +17,7 @@ import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 const {Sqladmin} = sqladmin_v1beta4;
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
+import {parseCert} from './crypto';
 import {IpAdresses, parseIpAddresses} from './ip-addresses';
 
 export interface InstanceMetadata {
@@ -135,17 +136,16 @@ export class SQLAdminFetcher {
     }
 
     const {ephemeralCert} = res.data;
-    if (
-      !ephemeralCert ||
-      !ephemeralCert.cert ||
-      !ephemeralCert.expirationTime
-    ) {
+    if (!ephemeralCert || !ephemeralCert.cert) {
       throw noEphemeralCertError();
     }
 
+    // NOTE: If the SQL Admin generateEphemeralCert API starts returning
+    // the expirationTime info, this certificate parsing is no longer needed
+    const {cert, expirationTime} = await parseCert(ephemeralCert.cert);
     return {
-      cert: ephemeralCert.cert,
-      expirationTime: ephemeralCert.expirationTime,
+      cert,
+      expirationTime,
     };
   }
 }

@@ -46,7 +46,7 @@ t.test('Connector', async t => {
       },
     },
     '../src/cloud-sql-instance': t.mock('../src/cloud-sql-instance', {
-      '../src/generate-keys': {
+      '../src/crypto': {
         generateKeys: async () => ({
           publicKey: '-----BEGIN PUBLIC KEY-----',
           privateKey: CLIENT_KEY,
