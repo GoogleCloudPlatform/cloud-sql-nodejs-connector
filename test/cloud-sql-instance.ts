@@ -42,7 +42,7 @@ t.test('CloudSQLInstance', async t => {
 
   // mocks generateKeys module so that it can return a deterministic result
   const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
-    '../src/generate-keys': {
+    '../src/crypto': {
       generateKeys: async () => ({
         publicKey: '-----BEGIN PUBLIC KEY-----',
         privateKey: CLIENT_KEY,

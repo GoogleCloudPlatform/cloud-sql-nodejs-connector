@@ -16,7 +16,8 @@ import {IpAdressesTypes, selectIpAddress} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {parseInstanceConnectionName} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
-import {generateKeys, RSAKeys} from './generate-keys';
+import {generateKeys} from './crypto';
+import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {getRefreshInterval} from './time';
 

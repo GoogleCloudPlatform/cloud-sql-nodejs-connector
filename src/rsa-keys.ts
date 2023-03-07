@@ -12,17 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import t from 'tap';
-import {generateKeys} from '../src/generate-keys';
-
-t.test('generateKeys', async t => {
-  const {privateKey, publicKey} = await generateKeys();
-  t.ok(
-    privateKey.startsWith('-----BEGIN RSA PRIVATE KEY-----'),
-    'should return a private key string'
-  );
-  t.ok(
-    publicKey.startsWith('-----BEGIN PUBLIC KEY-----'),
-    'should return a public key string'
-  );
-});
+export interface RSAKeys {
+  privateKey: string;
+  publicKey: string;
+}

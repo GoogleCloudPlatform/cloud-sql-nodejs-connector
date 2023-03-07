@@ -12,20 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {promisify} from 'node:util';
-
-export interface RSAKeys {
-  privateKey: string;
-  publicKey: string;
-}
-
 /* c8 ignore next 4 */
 const noCryptoModuleError = () =>
   Object.assign(new Error('Support to node crypto module is required'), {
     code: 'ENOCRYPTOMODULE',
   });
 
-export async function generateKeys(): Promise<RSAKeys> {
+type Crypto = typeof import('node:crypto');
+export async function cryptoModule(): Promise<Crypto> {
   // check for availability of crypto module and throws an error otherwise
   // ref: https://nodejs.org/dist/latest-v18.x/docs/api/crypto.html#determining-if-crypto-support-is-unavailable
   let crypto;
@@ -35,22 +29,5 @@ export async function generateKeys(): Promise<RSAKeys> {
   } catch (err) {
     throw noCryptoModuleError();
   }
-  const keygen = promisify(crypto.generateKeyPair);
-
-  const {privateKey, publicKey} = await keygen('rsa', {
-    modulusLength: 2048,
-    privateKeyEncoding: {
-      type: 'pkcs1',
-      format: 'pem',
-    },
-    publicKeyEncoding: {
-      type: 'spki',
-      format: 'pem',
-    },
-  });
-
-  return {
-    privateKey,
-    publicKey,
-  };
+  return crypto;
 }

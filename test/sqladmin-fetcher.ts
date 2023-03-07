@@ -18,8 +18,9 @@ import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 import {SQLAdminFetcher} from '../src/sqladmin-fetcher';
 import {InstanceConnectionInfo} from '../src/instance-connection-info';
 import {setupCredentials} from './fixtures/setup-credentials';
+import {CLIENT_CERT} from './fixtures/certs';
 
-const certResponse = (instance: string) => ({
+const serverCaCertResponse = (instance: string) => ({
   kind: 'sql#sslCert',
   certSerialNumber: '0',
   cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
@@ -31,6 +32,10 @@ const certResponse = (instance: string) => ({
   expirationTime: '2033-01-06T10:00:00.232Z',
 });
 
+const ephCertResponse = {
+  cert: CLIENT_CERT,
+};
+
 const mockRequest = (
   instanceInfo: InstanceConnectionInfo,
   overrides?: sqladmin_v1beta4.Schema$ConnectSettings
@@ -41,7 +46,7 @@ const mockRequest = (
     .get(`/${projectId}/instances/${instanceId}/connectSettings`)
     .reply(200, {
       kind: 'sql#connectSettings',
-      serverCaCert: certResponse(instanceId),
+      serverCaCert: serverCaCertResponse(instanceId),
       ipAddresses: [
         {
           type: 'PRIMARY',
@@ -218,7 +223,7 @@ const mockGenerateEphemeralCertRequest = (
   nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
     .post(`/${projectId}/instances/${instanceId}:generateEphemeralCert`)
     .reply(200, {
-      ephemeralCert: certResponse(instanceId),
+      ephemeralCert: ephCertResponse,
       // overrides any properties from the base mock
       ...overrides,
     });
@@ -241,8 +246,8 @@ t.test('getEphemeralCertificate', async t => {
   t.same(
     ephemeralCert,
     {
-      cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
-      expirationTime: '2033-01-06T10:00:00.232Z',
+      cert: CLIENT_CERT,
+      expirationTime: 'Mar 17 02:41:56 2023 GMT',
     },
     'should return expected ssl cert'
   );
