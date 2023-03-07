@@ -31,6 +31,7 @@
     "presnap": "npm run prepare",
     "test": "c8 tap",
     "snap": "c8 tap",
+    "system-test": "tap --no-coverage system-test",
     "lint": "gts check",
     "fix": "gts fix",
     "posttest": "npm run lint"
@@ -50,6 +51,7 @@
     "c8": "^7.12.0",
     "gts": "^3.1.1",
     "nock": "^13.3.0",
+    "pg": "^8.10.0",
     "tap": "^16.3.4",
     "ts-node": "^10.9.1",
     "typescript": "^4.9.4"
