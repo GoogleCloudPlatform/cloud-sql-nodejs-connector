@@ -4,6 +4,7 @@
   "description": "A JavaScript library for connecting securely to your Cloud SQL instances",
   "author": "Google Inc.",
   "main": "./dist/cjs/index.js",
+  "types": "./dist/cjs/index.d.ts",
   "module": "./dist/mjs/index.js",
   "exports": {
     ".": {
