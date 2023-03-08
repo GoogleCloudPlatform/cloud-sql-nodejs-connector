@@ -74,7 +74,11 @@ jobs:
         run: npm install
 
       - name: Transpile TypeScript
-        run: npm run compile
+        run: npm run prepare
+
+      - name: Fixup node14 only
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: node ./scripts/fixup.cjs
 
       - name: Run Tests
         run: npx c8 tap -c -t0
@@ -137,7 +141,11 @@ jobs:
         run: npm install
 
       - name: Transpile TypeScript
-        run: npm run compile
+        run: npm run prepare
+
+      - name: Fixup node14 only
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: node ./scripts/fixup.cjs
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
