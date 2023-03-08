@@ -14,7 +14,7 @@
 
 const t = require('tap');
 const pg = require('pg');
-const {Connector} = require('../dist/cjs/index.js');
+const {Connector} = require('@google-cloud/cloud-sql-connector');
 const {Client} = pg;
 
 t.test('open connection and retrieves standard pg tables', async t => {

@@ -15,19 +15,52 @@
 // This script adds the expected module system type info to
 // a package.json file defining each of the module targets.
 // Ref: https://nodejs.org/dist/latest-v18.x/docs/api/packages.html#determining-module-system
-const {resolve} = require('node:path')
-const {writeFile} = require('node:fs/promises')
+const {resolve} = require('node:path');
+const {readdir, readFile, writeFile} = require('node:fs/promises');
 
-async function main() {
+const cjsDistFolder = resolve(__dirname, '../dist/cjs');
+const mjsDistFolder = resolve(__dirname, '../dist/mjs');
+
+async function addModuleSystemTypeFile() {
   await writeFile(
-    resolve(__dirname, '../dist/cjs/package.json'),
+    resolve(cjsDistFolder, 'package.json'),
     JSON.stringify({ type: 'commonjs' })
-  )
+  );
 
   await writeFile(
-    resolve(__dirname, '../dist/mjs/package.json'),
+    resolve(mjsDistFolder, 'package.json'),
     JSON.stringify({ type: 'module' })
-  )
+  );
 }
 
-main()
+async function fixupImportFileExtensions() {
+  const mjsFilePaths = [];
+
+  const replaceExtension = source =>
+    source.replace(/(^import.*from '\.\/.*)(';)$/gm, '$1.js$2');
+
+  const recursiveReadDir = async path => {
+    const dirResults = await readdir(mjsDistFolder, {withFileTypes: true});
+    for (const entry of dirResults) {
+      const path = resolve(mjsDistFolder, entry.name);
+      if (entry.isDirectory()) {
+        recursiveReadDir(path);
+      } else if (path.endsWith('.js')) {
+        mjsFilePaths.push(path);
+      }
+    }
+  };
+  await recursiveReadDir(mjsDistFolder);
+
+  for (const filepath of mjsFilePaths) {
+    const contents = await readFile(filepath, { encoding: 'utf8' });
+    await writeFile(filepath, replaceExtension(contents));
+  }
+}
+
+async function main() {
+  await addModuleSystemTypeFile();
+  await fixupImportFileExtensions();
+}
+
+main();

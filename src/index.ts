@@ -15,5 +15,5 @@
 import {Connector, ConnectionOptions, DriverOptions} from './connector';
 import {IpAdressesTypes} from './ip-addresses';
 
-export {Connector, ConnectionOptions, DriverOptions};
+export {Connector, type ConnectionOptions, type DriverOptions};
 export {IpAdressesTypes};

@@ -31,6 +31,7 @@
     "presnap": "npm run prepare",
     "test": "c8 tap",
     "snap": "c8 tap",
+    "presystem-test": "npm run prepare",
     "system-test": "tap --no-coverage system-test",
     "lint": "gts check",
     "fix": "gts fix",
@@ -46,6 +47,7 @@
     "ts": false
   },
   "devDependencies": {
+    "@google-cloud/cloud-sql-connector": "file:",
     "@types/node": "^18.14.6",
     "@types/tap": "^15.0.8",
     "c8": "^7.12.0",
