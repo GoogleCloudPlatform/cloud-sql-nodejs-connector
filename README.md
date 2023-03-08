@@ -73,11 +73,7 @@ best-efforts basis with the following warnings:
 
 This library follows [Semantic Versioning](http://semver.org/).
 
-This library is considered to be **stable**. The code surface will not change
-in backwards-incompatible ways
-unless absolutely necessary (e.g. because of critical security issues) or with
-an extensive deprecation period. Issues and requests against **stable**
-libraries are addressed with the highest priority.
+This library is considered to be at **preview**, ready for testing by customers.
 
 More Information:
 [Google Cloud Platform Launch Stages](https://cloud.google.com/terms/launch-stages)
