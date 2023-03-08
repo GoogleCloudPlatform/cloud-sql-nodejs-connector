@@ -15,6 +15,7 @@
 import tls from 'node:tls';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
+import {CloudSQLConnectorError} from './errors';
 
 interface SocketOptions {
   ephemeralCert: SslCert;
@@ -24,25 +25,20 @@ interface SocketOptions {
   serverCaCert: SslCert;
 }
 
-const noCertValidationError = () =>
-  Object.assign(new Error('No certificate to verify'), {
-    code: 'ENOSQLADMINVERIFYCERT',
-  });
-
-const badCertValidationError = (certificateName: string, expected: string) =>
-  Object.assign(
-    new Error(`Certificate had CN ${certificateName}, expected ${expected}`),
-    {code: 'EBADSQLADMINVERIFYCERT'}
-  );
-
 export function validateCertificate(instanceInfo: InstanceConnectionInfo) {
   return (hostname: string, cert: tls.PeerCertificate): Error | undefined => {
     if (!cert || !cert.subject) {
-      return noCertValidationError();
+      return new CloudSQLConnectorError({
+        message: 'No certificate to verify',
+        code: 'ENOSQLADMINVERIFYCERT',
+      });
     }
     const expectedCN = `${instanceInfo.projectId}:${instanceInfo.instanceId}`;
     if (cert.subject.CN !== expectedCN) {
-      return badCertValidationError(cert.subject.CN, expectedCN);
+      return new CloudSQLConnectorError({
+        message: `Certificate had CN ${cert.subject.CN}, expected ${expectedCN}`,
+        code: 'EBADSQLADMINVERIFYCERT',
+      });
     }
     return undefined;
   };

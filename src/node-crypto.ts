@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/* c8 ignore next 4 */
-const noCryptoModuleError = () =>
-  Object.assign(new Error('Support to node crypto module is required'), {
-    code: 'ENOCRYPTOMODULE',
-  });
+import {CloudSQLConnectorError} from './errors';
 
 type Crypto = typeof import('node:crypto');
 export async function cryptoModule(): Promise<Crypto> {
@@ -25,9 +21,12 @@ export async function cryptoModule(): Promise<Crypto> {
   let crypto;
   try {
     crypto = await import('node:crypto');
-    /* c8 ignore next 3 */
+    /* c8 ignore next 6 */
   } catch (err) {
-    throw noCryptoModuleError();
+    throw new CloudSQLConnectorError({
+      message: 'Support to node crypto module is required',
+      code: 'ENOCRYPTOMODULE',
+    });
   }
   return crypto;
 }

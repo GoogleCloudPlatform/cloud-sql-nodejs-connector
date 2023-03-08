@@ -19,57 +19,12 @@ import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
 import {parseCert} from './crypto';
 import {IpAdresses, parseIpAddresses} from './ip-addresses';
+import {CloudSQLConnectorError} from './errors';
 
 export interface InstanceMetadata {
   ipAddresses: IpAdresses;
   serverCaCert: SslCert;
 }
-
-const noResponseDataError = (projectId: string, instanceId: string) =>
-  Object.assign(
-    new Error(
-      `Failed to find metadata on project id: ${projectId} ` +
-        `and instance id: ${instanceId}. Ensure network connectivity and ` +
-        'validate the provided `instanceConnectionName` config value'
-    ),
-    {code: 'ENOSQLADMIN'}
-  );
-
-const noCertError = () =>
-  Object.assign(
-    new Error('Cannot connect to instance, no valid CA certificate found'),
-    {
-      code: 'ENOSQLADMINCERT',
-    }
-  );
-
-const noRegionError = () =>
-  Object.assign(
-    new Error('Cannot connect to instance, no valid region found'),
-    {
-      code: 'ENOSQLADMINREGION',
-    }
-  );
-
-const regionMismatchError = (regionResult: string, regionId: string) =>
-  Object.assign(
-    new Error(
-      `Provided region was mismatched. Got ${regionResult}, want ${regionId}`
-    ),
-    {
-      code: 'EBADSQLADMINREGION',
-    }
-  );
-
-const noEphemeralCertError = () =>
-  Object.assign(
-    new Error(
-      'Cannot connect to instance, failed to retrieve an ephemeral certificate'
-    ),
-    {
-      code: 'ENOSQLADMINEPH',
-    }
-  );
 
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
@@ -92,22 +47,37 @@ export class SQLAdminFetcher {
     });
 
     if (!res.data) {
-      throw noResponseDataError(projectId, instanceId);
+      throw new CloudSQLConnectorError({
+        message:
+          `Failed to find metadata on project id: ${projectId} ` +
+          `and instance id: ${instanceId}. Ensure network connectivity and ` +
+          'validate the provided `instanceConnectionName` config value',
+        code: 'ENOSQLADMIN',
+      });
     }
 
     const ipAddresses = parseIpAddresses(res.data.ipAddresses);
 
     const {serverCaCert} = res.data;
     if (!serverCaCert || !serverCaCert.cert || !serverCaCert.expirationTime) {
-      throw noCertError();
+      throw new CloudSQLConnectorError({
+        message: 'Cannot connect to instance, no valid CA certificate found',
+        code: 'ENOSQLADMINCERT',
+      });
     }
 
     const {region} = res.data;
     if (!region) {
-      throw noRegionError();
+      throw new CloudSQLConnectorError({
+        message: 'Cannot connect to instance, no valid region found',
+        code: 'ENOSQLADMINREGION',
+      });
     }
     if (region !== regionId) {
-      throw regionMismatchError(region, regionId);
+      throw new CloudSQLConnectorError({
+        message: `Provided region was mismatched. Got ${region}, want ${regionId}`,
+        code: 'EBADSQLADMINREGION',
+      });
     }
 
     return {
@@ -132,12 +102,22 @@ export class SQLAdminFetcher {
     });
 
     if (!res.data) {
-      throw noResponseDataError(projectId, instanceId);
+      throw new CloudSQLConnectorError({
+        message:
+          `Failed to find metadata on project id: ${projectId} ` +
+          `and instance id: ${instanceId}. Ensure network connectivity and ` +
+          'validate the provided `instanceConnectionName` config value',
+        code: 'ENOSQLADMIN',
+      });
     }
 
     const {ephemeralCert} = res.data;
     if (!ephemeralCert || !ephemeralCert.cert) {
-      throw noEphemeralCertError();
+      throw new CloudSQLConnectorError({
+        message:
+          'Cannot connect to instance, failed to retrieve an ephemeral certificate',
+        code: 'ENOSQLADMINEPH',
+      });
     }
 
     // NOTE: If the SQL Admin generateEphemeralCert API starts returning

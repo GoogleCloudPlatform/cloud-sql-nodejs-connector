@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
+import {CloudSQLConnectorError} from './errors';
 
 export enum IpAdressesTypes {
   PUBLIC = 'PUBLIC',
@@ -24,40 +25,22 @@ export declare interface IpAdresses {
   private?: string;
 }
 
-const noPublicIpAddressError = () =>
-  Object.assign(
-    new Error('Cannot connect to instance, public Ip address not found'),
-    {
-      code: 'ENOPUBLICSQLADMINIPADDRESS',
-    }
-  );
-
-const noPrivateIpAddressError = () =>
-  Object.assign(
-    new Error('Cannot connect to instance, private Ip address not found'),
-    {
-      code: 'ENOPRIVATESQLADMINIPADDRESS',
-    }
-  );
-
-const noIpAddressError = () =>
-  Object.assign(
-    new Error('Cannot connect to instance, it has no supported IP addresses'),
-    {
-      code: 'ENOSQLADMINIPADDRESS',
-    }
-  );
-
 const getPublicIpAddress = (ipAddresses: IpAdresses) => {
   if (!ipAddresses.public) {
-    throw noPublicIpAddressError();
+    throw new CloudSQLConnectorError({
+      message: 'Cannot connect to instance, public Ip address not found',
+      code: 'ENOPUBLICSQLADMINIPADDRESS',
+    });
   }
   return ipAddresses.public;
 };
 
 const getPrivateIpAddress = (ipAddresses: IpAdresses) => {
   if (!ipAddresses.private) {
-    throw noPrivateIpAddressError();
+    throw new CloudSQLConnectorError({
+      message: 'Cannot connect to instance, private Ip address not found',
+      code: 'ENOPRIVATESQLADMINIPADDRESS',
+    });
   }
   return ipAddresses.private;
 };
@@ -66,7 +49,10 @@ export function parseIpAddresses(
   ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined
 ): IpAdresses {
   if (!ipResponse) {
-    throw noIpAddressError();
+    throw new CloudSQLConnectorError({
+      message: 'Cannot connect to instance, it has no supported IP addresses',
+      code: 'ENOSQLADMINIPADDRESS',
+    });
   }
 
   const ipAddresses: IpAdresses = {};
@@ -80,7 +66,10 @@ export function parseIpAddresses(
   }
 
   if (!ipAddresses.public && !ipAddresses.private) {
-    throw noIpAddressError();
+    throw new CloudSQLConnectorError({
+      message: 'Cannot connect to instance, it has no supported IP addresses',
+      code: 'ENOSQLADMINIPADDRESS',
+    });
   }
 
   return ipAddresses;
@@ -96,6 +85,9 @@ export function selectIpAddress(
     case IpAdressesTypes.PRIVATE:
       return getPrivateIpAddress(ipAddresses);
     default:
-      throw noIpAddressError();
+      throw new CloudSQLConnectorError({
+        message: 'Cannot connect to instance, it has no supported IP addresses',
+        code: 'ENOSQLADMINIPADDRESS',
+      });
   }
 }

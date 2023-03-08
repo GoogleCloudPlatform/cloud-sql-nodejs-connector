@@ -13,43 +13,39 @@
 // limitations under the License.
 
 import {InstanceConnectionInfo} from './instance-connection-info';
-
-const missingInstanceConnectionNameError = () =>
-  Object.assign(
-    new TypeError(
-      'Missing instance connection name, expected: "PROJECT:REGION:INSTANCE"'
-    ),
-    {code: 'ENOCONNECTIONNAME'}
-  );
-
-const malformedInstanceConnnectionNameError = (
-  instanceConnectionName: string
-) =>
-  Object.assign(
-    new TypeError(
-      'Malformed instance connection name provided: expected format ' +
-        `of "PROJECT:REGION:INSTANCE", got ${instanceConnectionName}`
-    ),
-    {code: 'EBADCONNECTIONNAME'}
-  );
+import {CloudSQLConnectorError} from './errors';
 
 export function parseInstanceConnectionName(
   instanceConnectionName: string | undefined
 ): InstanceConnectionInfo {
   if (!instanceConnectionName) {
-    throw missingInstanceConnectionNameError();
+    throw new CloudSQLConnectorError({
+      message:
+        'Missing instance connection name, expected: "PROJECT:REGION:INSTANCE"',
+      code: 'ENOCONNECTIONNAME',
+    });
   }
 
   const connectionNameRegex =
     /(?<projectId>[^:]+(:[^:]+)?):(?<regionId>[^:]+):(?<instanceId>[^:]+)/;
   const matches = String(instanceConnectionName).match(connectionNameRegex);
   if (!matches) {
-    throw malformedInstanceConnnectionNameError(instanceConnectionName);
+    throw new CloudSQLConnectorError({
+      message:
+        'Malformed instance connection name provided: expected format ' +
+        `of "PROJECT:REGION:INSTANCE", got ${instanceConnectionName}`,
+      code: 'EBADCONNECTIONNAME',
+    });
   }
 
   const unmatchedItems = matches[0] !== matches.input;
   if (unmatchedItems || !matches.groups) {
-    throw malformedInstanceConnnectionNameError(instanceConnectionName);
+    throw new CloudSQLConnectorError({
+      message:
+        'Malformed instance connection name provided: expected format ' +
+        `of "PROJECT:REGION:INSTANCE", got ${instanceConnectionName}`,
+      code: 'EBADCONNECTIONNAME',
+    });
   }
 
   return {

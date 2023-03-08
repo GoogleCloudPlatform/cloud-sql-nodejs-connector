@@ -17,6 +17,7 @@ import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
 import {IpAdressesTypes} from './ip-addresses';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
+import {CloudSQLConnectorError} from './errors';
 
 // ConnectionOptions are the arguments that the user can provide
 // to the Connector.getOptions method when calling it, e.g:
@@ -47,25 +48,6 @@ export declare interface DriverOptions {
   stream: StreamFunction;
 }
 
-const invalidConnectionTypeError = (input: string) =>
-  Object.assign(
-    new TypeError(`Invalid type: ${input}, expected PUBLIC or PRIVATE`),
-    {code: 'EBADCONNTYPE'}
-  );
-
-const noInstanceInfoError = (instanceConnectionName: string) =>
-  Object.assign(
-    new Error(`Cannot find info for instance: ${instanceConnectionName}`),
-    {
-      code: 'ENOINSTANCEINFO',
-    }
-  );
-
-const badInstanceInfoError = () =>
-  Object.assign(new Error('Invalid Cloud SQL Instance info'), {
-    code: 'EBADINSTANCEINFO',
-  });
-
 // Internal mapping of the CloudSQLInstances that
 // adds extra logic to async initialize items.
 class CloudSQLInstanceMap extends Map {
@@ -94,7 +76,10 @@ class CloudSQLInstanceMap extends Map {
   getInstance(instanceConnectionName: string): CloudSQLInstance {
     const connectionInstance = this.get(instanceConnectionName);
     if (!connectionInstance) {
-      throw noInstanceInfoError(instanceConnectionName);
+      throw new CloudSQLConnectorError({
+        message: `Cannot find info for instance: ${instanceConnectionName}`,
+        code: 'ENOINSTANCEINFO',
+      });
     }
     return connectionInstance;
   }
@@ -131,7 +116,10 @@ export class Connector {
   }: ConnectionOptions): Promise<DriverOptions> {
     const type = getIpAddressType(rawType);
     if (!type) {
-      throw invalidConnectionTypeError(String(rawType));
+      throw new CloudSQLConnectorError({
+        message: `Invalid type: ${String(rawType)}, expected PUBLIC or PRIVATE`,
+        code: 'EBADCONNTYPE',
+      });
     }
 
     const {instances} = this;
@@ -162,7 +150,10 @@ export class Connector {
           });
         }
 
-        throw badInstanceInfoError();
+        throw new CloudSQLConnectorError({
+          message: 'Invalid Cloud SQL Instance info',
+          code: 'EBADINSTANCEINFO',
+        });
       },
       ssl: false,
     };
