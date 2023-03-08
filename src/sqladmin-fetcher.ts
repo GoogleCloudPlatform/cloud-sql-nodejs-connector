@@ -33,7 +33,15 @@ export class SQLAdminFetcher {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
     });
-    this.client = new Sqladmin({auth});
+    this.client = new Sqladmin({
+      auth,
+      userAgentDirectives: [
+        {
+          product: 'cloud-sql-nodejs-connector',
+          version: '0.1.0',
+        },
+      ],
+    });
   }
 
   async getInstanceMetadata({
