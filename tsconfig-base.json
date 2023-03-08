@@ -3,6 +3,10 @@
   "exclude": ["./test", "./tap-snapshots"],
   "include": ["src/**/*.ts"],
   "compilerOptions": {
-    "esModuleInterop": true
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true
   }
 }
