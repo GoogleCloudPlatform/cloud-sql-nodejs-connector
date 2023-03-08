@@ -16,6 +16,7 @@ import {promisify} from 'node:util';
 import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {cryptoModule} from './node-crypto';
+import {CloudSQLConnectorError} from './errors';
 
 // The following is a fallback certificate parser for node14 to work around
 // its lack of support to the X509Certificate class parser, this block of code
@@ -38,8 +39,12 @@ const node14ParseCert = (cert: string): SslCert => {
       secureContext: tls.createSecureContext({cert}),
     });
     parsed = socket.getCertificate();
-  } catch (err) {
-    throw badCertError(err);
+  } catch (err: unknown) {
+    throw new CloudSQLConnectorError({
+      message: 'Failed to parse as X.509 certificate.',
+      code: 'EPARSESQLADMINEPH',
+      errors: [err as Error],
+    });
   }
 
   if (parsed && isPeerCertificate(parsed)) {
@@ -53,18 +58,13 @@ const node14ParseCert = (cert: string): SslCert => {
       expirationTime,
     };
   }
-  /* c8 ignore next 2 */
-  throw badCertError('Could not read ephemeral certificate.');
+  /* c8 ignore next 5 */
+  throw new CloudSQLConnectorError({
+    message: 'Could not read ephemeral certificate.',
+    code: 'EPARSESQLADMINEPH',
+  });
 };
 // --- node@14 cert parse fallback end
-
-const badCertError = (err: unknown) =>
-  Object.assign(
-    new Error(`Failed to parse as X.509 certificate: ${String(err)}`),
-    {
-      code: 'EPARSESQLADMINEPH',
-    }
-  );
 
 export async function generateKeys(): Promise<RSAKeys> {
   const crypto = await cryptoModule();
@@ -100,9 +100,16 @@ export async function parseCert(cert: string): Promise<SslCert> {
         };
       }
 
-      throw badCertError('Could not read ephemeral certificate.');
-    } catch (err) {
-      throw badCertError(err);
+      throw new CloudSQLConnectorError({
+        message: 'Could not read ephemeral certificate.',
+        code: 'EPARSESQLADMINEPH',
+      });
+    } catch (err: unknown) {
+      throw new CloudSQLConnectorError({
+        message: 'Failed to parse as X.509 certificate.',
+        code: 'EPARSESQLADMINEPH',
+        errors: [err as Error],
+      });
     }
   }
   return node14ParseCert(cert);
