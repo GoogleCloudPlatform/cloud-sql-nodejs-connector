@@ -20,7 +20,7 @@ driver. Currently supported drivers are:
 You can install the library using `npm install`:
 
 ```sh
-npm install GoogleCloudPlatform/cloud-sql-nodejs-connector
+npm install @google-cloud/cloud-sql-connector
 ```
 
 ## Usage
