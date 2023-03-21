@@ -33,7 +33,7 @@ t.test('parseCert', async t => {
   t.same(cert, CLIENT_CERT, 'should return original cert in response');
   t.same(
     expirationTime,
-    'Mar 17 02:41:56 2023 GMT',
+    'Jul 22 17:53:09 3022 GMT',
     'should return expiration time'
   );
 });
@@ -84,7 +84,7 @@ t.test('parseCert no x509 parser fallback', async t => {
   t.same(cert, CLIENT_CERT, 'should return original cert in response');
   t.same(
     expirationTime,
-    'Mar 17 02:41:56 2023 GMT',
+    'Jul 22 17:53:09 3022 GMT',
     'should return expiration time'
   );
 });
