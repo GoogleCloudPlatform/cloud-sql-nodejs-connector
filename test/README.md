@@ -2,8 +2,9 @@
 
 ## Creating the Server's Certificate and Keys
 
-Following is a quick how-to on regenerating the certificates used in tests.
-Note that for the current certs were generated using openssl@3.0.7 (installed
+The following is a quick how-to on regenerating the certificates used in tests.
+
+**Note:** the current certs were generated using openssl@3.0.7 (installed
 via homebrew) running on macos 12.6.3.
 
 1. Generate a private key for the CA:
