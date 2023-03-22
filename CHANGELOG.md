@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.1.2...v0.1.3) (2023-03-22)
+
+
+### Bug Fixes
+
+* esm dist target ([8320dec](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/8320decd8ae4926f70527c4ff7933b4e0e3589f1))
+
 ## [0.1.2](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.1.1...v0.1.2) (2023-03-15)
 
 
