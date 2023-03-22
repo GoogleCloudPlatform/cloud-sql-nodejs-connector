@@ -25,9 +25,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "compile": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json",
-    "preprepare": "rm -rf dist",
-    "prepare": "npm run compile",
-    "postprepare": "node ./scripts/fixup.cjs",
+    "prepare": "rm -rf dist && npm run compile && node ./scripts/fixup.cjs",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",
     "test": "c8 tap",
