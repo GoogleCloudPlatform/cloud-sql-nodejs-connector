@@ -4,6 +4,7 @@
     "docker:disable",
     ":disableDependencyDashboard"
   ],
+  "commitMessagePrefix": "deps: ",
   "pinVersions": false,
   "rebaseStalePrs": true,
   "schedule": [
