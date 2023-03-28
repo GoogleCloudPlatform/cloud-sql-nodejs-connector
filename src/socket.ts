@@ -17,6 +17,8 @@ import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
 import {CloudSQLConnectorError} from './errors';
 
+const DEFAULT_KEEP_ALIVE_DELAY_MS = 30 * 1000;
+
 interface SocketOptions {
   ephemeralCert: SslCert;
   host: string;
@@ -63,6 +65,7 @@ export function getSocket({
     checkServerIdentity: validateCertificate(instanceInfo),
   };
   const tlsSocket = tls.connect(socketOpts);
+  tlsSocket.setKeepAlive(true, DEFAULT_KEEP_ALIVE_DELAY_MS);
   // overrides the stream.connect method since the stream is already
   // connected and some drivers might try to call it internally
   tlsSocket.connect = () => tlsSocket;
