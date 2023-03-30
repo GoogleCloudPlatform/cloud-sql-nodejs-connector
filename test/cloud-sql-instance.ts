@@ -14,6 +14,7 @@
 
 import t from 'tap';
 import {IpAddressTypes} from '../src/ip-addresses';
+import { AuthTypes } from '../src/auth-types';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {setupCredentials} from './fixtures/setup-credentials';
 
@@ -57,6 +58,7 @@ t.test('CloudSQLInstance', async t => {
 
   const instance = await CloudSQLInstance.getCloudSQLInstance({
     ipType: IpAddressTypes.PUBLIC,
+    authType: AuthTypes.PASSWORD,
     instanceConnectionName: 'my-project:us-east1:my-instance',
     sqlAdminFetcher: fetcher,
   });
@@ -94,6 +96,7 @@ t.test('CloudSQLInstance', async t => {
     let refreshCount = 0;
     const refreshInstance = new CloudSQLInstance({
       ipType: IpAddressTypes.PUBLIC,
+      authType: AuthTypes.PASSWORD,
       instanceConnectionName: 'my-project:us-east1:my-instance',
       sqlAdminFetcher: fetcher,
     });
