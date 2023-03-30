@@ -16,8 +16,10 @@ import tls from 'node:tls';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
 import {IpAddressTypes} from './ip-addresses';
+import { AuthTypes } from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
+import { createHash } from 'node:crypto';
 
 // ConnectionOptions are the arguments that the user can provide
 // to the Connector.getOptions method when calling it, e.g:
@@ -29,6 +31,7 @@ import {CloudSQLConnectorError} from './errors';
 // await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
   ipType: IpAddressTypes;
+  authType: AuthTypes;
   instanceConnectionName: string;
 }
 
@@ -53,10 +56,12 @@ export declare interface DriverOptions {
 class CloudSQLInstanceMap extends Map {
   async loadInstance({
     ipType,
+    authType,
     instanceConnectionName,
     sqlAdminFetcher,
   }: {
     ipType: IpAddressTypes;
+    authType: AuthTypes;
     instanceConnectionName: string;
     sqlAdminFetcher: SQLAdminFetcher;
   }): Promise<void> {
@@ -77,6 +82,7 @@ class CloudSQLInstanceMap extends Map {
     }
     const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
       ipType,
+      authType,
       instanceConnectionName,
       sqlAdminFetcher: sqlAdminFetcher,
     });
@@ -86,9 +92,11 @@ class CloudSQLInstanceMap extends Map {
   getInstance({
     instanceConnectionName,
     ipType,
+    authType
   }: {
     instanceConnectionName: string;
     ipType: IpAddressTypes;
+    authType: AuthTypes
   }): CloudSQLInstance {
     const connectionInstance = this.get(instanceConnectionName);
     if (!connectionInstance) {
@@ -107,10 +115,27 @@ class CloudSQLInstanceMap extends Map {
     }
     return connectionInstance;
   }
+
+  getKey({
+    instanceConnectionName,
+    ipType,
+    authType
+  }: {
+    instanceConnectionName: string,
+    ipType: IpAddressTypes,
+    authType: AuthTypes
+  }) : string {
+    const settings = instanceConnectionName + ipType + authType;
+    return createHash('sha256').update(settings).digest('hex');
+  }
 }
 
 const getIpAddressType = (type: IpAddressTypes): IpAddressTypes | undefined =>
   Object.values(IpAddressTypes).find(x => x === type);
+
+const getAuthType = (type: AuthTypes): AuthTypes | undefined =>
+  Object.values(AuthTypes).find(x => x === type);
+
 
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
@@ -136,6 +161,7 @@ export class Connector {
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
     ipType: rawIpType,
+    authType: rawAuthType,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
     const ipType = getIpAddressType(rawIpType);
@@ -148,9 +174,18 @@ export class Connector {
       });
     }
 
+    const authType = getAuthType(rawAuthType);
+    if (!authType) {
+      throw new CloudSQLConnectorError({
+        message: `Invalid authentication type: ${String(rawAuthType)}, expected PASSWORD or IAM`,
+        code: 'EBADAUTHTYPE',
+      });
+    }
+
     const {instances} = this;
     await instances.loadInstance({
       ipType,
+      authType,
       instanceConnectionName,
       sqlAdminFetcher: this.sqlAdminFetcher,
     });
@@ -158,7 +193,7 @@ export class Connector {
     return {
       stream() {
         const {instanceInfo, ephemeralCert, host, privateKey, serverCaCert} =
-          instances.getInstance({instanceConnectionName, ipType});
+          instances.getInstance({instanceConnectionName, ipType, authType});
 
         if (
           instanceInfo &&

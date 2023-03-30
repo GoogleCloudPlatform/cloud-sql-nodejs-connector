@@ -17,6 +17,7 @@ import {Connector} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
 import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
+import { AuthTypes } from '../src/auth-types';
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
@@ -71,6 +72,7 @@ t.test('Connector invalid type error', async t => {
   t.rejects(
     connector.getOptions({
       ipType: 'foo' as IpAddressTypes,
+      authType: AuthTypes.PASSWORD,
       instanceConnectionName: 'my-project:us-east1:my-instance',
     }),
     {

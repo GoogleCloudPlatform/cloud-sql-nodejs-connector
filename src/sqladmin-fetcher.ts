@@ -99,14 +99,34 @@ export class SQLAdminFetcher {
 
   async getEphemeralCertificate(
     {projectId, instanceId}: InstanceConnectionInfo,
-    publicKey: string
+    publicKey: string,
+    auth?: GoogleAuth
   ): Promise<SslCert> {
+
+    type RequestBody = {
+      public_key: string,
+      access_token?: string
+    }
+    const requestBody: RequestBody = {
+      public_key: publicKey,
+    }
+    if (auth) {
+      const access_token = await auth.getAccessToken();
+      if (access_token) {
+        requestBody.access_token = access_token;
+      } else {
+        throw new CloudSQLConnectorError({
+          message:
+            `Failed to get access token for automatic IAM authentication. `,
+          code: 'ENOACCESSTOKEN',
+        });
+      }
+      
+    }
     const res = await this.client.connect.generateEphemeralCert({
       project: projectId,
       instance: instanceId,
-      requestBody: {
-        public_key: publicKey,
-      },
+      requestBody,
     });
 
     if (!res.data) {

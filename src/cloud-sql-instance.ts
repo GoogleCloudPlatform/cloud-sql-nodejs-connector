@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import {IpAddressTypes, selectIpAddress} from './ip-addresses';
+import {GoogleAuth} from 'google-auth-library';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {parseInstanceConnectionName} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
@@ -20,6 +21,7 @@ import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {getRefreshInterval} from './time';
+import { AuthTypes } from './auth-types';
 
 interface Fetcher {
   getInstanceMetadata({
@@ -35,6 +37,7 @@ interface Fetcher {
 
 interface CloudSQLInstanceOptions {
   ipType: IpAddressTypes;
+  authType: AuthTypes;
   instanceConnectionName: string;
   sqlAdminFetcher: Fetcher;
 }
@@ -49,10 +52,12 @@ export class CloudSQLInstance {
   }
 
   private readonly ipType: IpAddressTypes;
+  private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
   private refreshTimeoutID?: ReturnType<typeof setTimeout>;
   private closed = false;
   public readonly instanceInfo: InstanceConnectionInfo;
+  public auth?: GoogleAuth;
   public ephemeralCert?: SslCert;
   public host?: string;
   public privateKey?: string;
@@ -60,12 +65,20 @@ export class CloudSQLInstance {
 
   constructor({
     ipType,
+    authType,
     instanceConnectionName,
     sqlAdminFetcher,
   }: CloudSQLInstanceOptions) {
     this.ipType = ipType;
+    this.authType = authType;
     this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
     this.sqlAdminFetcher = sqlAdminFetcher;
+
+    if (authType === AuthTypes.IAM) {
+      this.auth = new GoogleAuth({
+        scopes: ["https://www.googleapis.com/auth/sqlservice.login"],
+      });
+    }
   }
 
   async refresh(): Promise<void> {
