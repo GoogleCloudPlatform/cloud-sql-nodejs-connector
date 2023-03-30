@@ -59,6 +59,7 @@ t.test('Connector', async t => {
   const connector = new Connector();
   const opts = await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
   t.same(opts.ssl, false, 'should not use driver ssl options');
@@ -122,6 +123,7 @@ t.test('Connector missing instance info error', async t => {
   const connector = new Connector();
   const opts = await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
   t.throws(
@@ -175,6 +177,7 @@ t.test('Connector bad instance info error', async t => {
   const connector = new Connector();
   const opts = await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
   t.throws(
@@ -234,10 +237,12 @@ t.test('start only a single instance info per connection name', async t => {
   const connector = new Connector();
   await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
   await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
 });
