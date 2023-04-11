@@ -83,9 +83,10 @@ class CloudSQLInstanceMap extends Map {
         });
       } else if (instance.authType !== authType) {
         throw new CloudSQLConnectorError({
-          message: (`getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` + 
-          `but was previously called with ipType ${instance.authType}. ` + 
-          `If you require both for your use case, please use a new connector object.`),
+          message:
+            `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
+            `but was previously called with ipType ${instance.authType}. ` +
+            'If you require both for your use case, please use a new connector object.',
           code: 'EBADINSTANCEINFO',
         });
       }
@@ -125,9 +126,10 @@ class CloudSQLInstanceMap extends Map {
       });
     } else if (connectionInstance.authType !== authType) {
       throw new CloudSQLConnectorError({
-        message: (`getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` + 
-        `but was previously called with ipType ${connectionInstance.authType}. ` + 
-        `If you require both for your use case, please use a new connector object.`),
+        message:
+          `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
+          `but was previously called with ipType ${connectionInstance.authType}. ` +
+          'If you require both for your use case, please use a new connector object.',
         code: 'EBADINSTANCEINFO',
       });
     }

@@ -247,7 +247,7 @@ t.test('getEphemeralCertificate', async t => {
     ephemeralCert,
     {
       cert: CLIENT_CERT,
-      expirationTime: 'Jul 22 17:53:09 3022 GMT',
+      expirationTime: '3022-07-22T17:53:09.000Z',
     },
     'should return expected ssl cert'
   );
