@@ -102,26 +102,29 @@ export class SQLAdminFetcher {
     publicKey: string,
     auth?: GoogleAuth
   ): Promise<SslCert> {
-
     type RequestBody = {
-      public_key: string,
-      access_token?: string
-    }
+      public_key: string;
+      access_token?: string;
+    };
     const requestBody: RequestBody = {
       public_key: publicKey,
-    }
+    };
+
+    let tokenExpiration;
     if (auth) {
       const access_token = await auth.getAccessToken();
-      if (access_token) {
+      const client = await auth.getClient();
+      if (access_token && 'getTokenInfo' in client) {
+        const info = await client.getTokenInfo(access_token);
+        tokenExpiration = info.expiry_date;
         requestBody.access_token = access_token;
       } else {
         throw new CloudSQLConnectorError({
           message:
-            `Failed to get access token for automatic IAM authentication. `,
+            'Failed to get access token for automatic IAM authentication. ',
           code: 'ENOACCESSTOKEN',
         });
       }
-      
     }
     const res = await this.client.connect.generateEphemeralCert({
       project: projectId,
@@ -151,9 +154,17 @@ export class SQLAdminFetcher {
     // NOTE: If the SQL Admin generateEphemeralCert API starts returning
     // the expirationTime info, this certificate parsing is no longer needed
     const {cert, expirationTime} = await parseCert(ephemeralCert.cert);
+
+    let nearestExpiration = Date.parse(expirationTime);
+    if (tokenExpiration) {
+      if (tokenExpiration < nearestExpiration) {
+        nearestExpiration = tokenExpiration;
+      }
+    }
+
     return {
       cert,
-      expirationTime,
+      expirationTime: new Date(nearestExpiration).toISOString(),
     };
   }
 }
