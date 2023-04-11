@@ -26,6 +26,11 @@ export interface InstanceMetadata {
   serverCaCert: SslCert;
 }
 
+interface RequestBody {
+  public_key: string;
+  access_token?: string;
+}
+
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
 
@@ -102,10 +107,6 @@ export class SQLAdminFetcher {
     publicKey: string,
     auth?: GoogleAuth
   ): Promise<SslCert> {
-    type RequestBody = {
-      public_key: string;
-      access_token?: string;
-    };
     const requestBody: RequestBody = {
       public_key: publicKey,
     };

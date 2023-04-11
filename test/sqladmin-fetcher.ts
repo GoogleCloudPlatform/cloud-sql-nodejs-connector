@@ -300,7 +300,6 @@ t.test('getEphemeralCertificate no response data', async t => {
   );
 });
 
-
 t.test('getEphemeralCertificate no access token', async t => {
   setupCredentials(t);
   const instanceConnectionInfo: InstanceConnectionInfo = {
@@ -313,15 +312,14 @@ t.test('getEphemeralCertificate no access token', async t => {
   const auth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
   });
-  auth.getAccessToken = async () => null
-  
+  auth.getAccessToken = async () => null;
+
   const fetcher = new SQLAdminFetcher();
 
   t.rejects(
     fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key', auth),
     {
-      message:
-      'Failed to get access token for automatic IAM authentication.',
+      message: 'Failed to get access token for automatic IAM authentication.',
       code: 'ENOACCESSTOKEN',
     },
     'should throw no access token error'
@@ -340,22 +338,27 @@ t.test('getEphemeralCertificate sets access token', async t => {
     scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
   });
 
-  nock('https://oauth2.googleapis.com')
-  .post('/tokeninfo')
-  .reply(200, {
-      expires_in: 3600,
-      scope: 'https://www.googleapis.com/auth/sqlservice.login'
-    });
+  nock('https://oauth2.googleapis.com').post('/tokeninfo').reply(200, {
+    expires_in: 3600,
+    scope: 'https://www.googleapis.com/auth/sqlservice.login',
+  });
 
   nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
-  .post(`/${projectId}/instances/${instanceId}:generateEphemeralCert`)
-  .reply((uri, reqBody) => {
-    // check that token is sent in the ephemeral cert request
-    t.hasProp(reqBody, 'access_token', 'should have access_token in request body')
-    return [200, {
-      ephemeralCert: ephCertResponse,
-    }]
-  });
+    .post(`/${projectId}/instances/${instanceId}:generateEphemeralCert`)
+    .reply((uri, reqBody) => {
+      // check that token is sent in the ephemeral cert request
+      t.hasProp(
+        reqBody,
+        'access_token',
+        'should have access_token in request body'
+      );
+      return [
+        200,
+        {
+          ephemeralCert: ephCertResponse,
+        },
+      ];
+    });
 
   const fetcher = new SQLAdminFetcher();
   const ephemeralCert = await fetcher.getEphemeralCertificate(
@@ -364,11 +367,7 @@ t.test('getEphemeralCertificate sets access token', async t => {
     auth
   );
 
-  t.same(
-    ephemeralCert.cert,
-    CLIENT_CERT,
-    'should return expected ssl cert'
-  );
+  t.same(ephemeralCert.cert, CLIENT_CERT, 'should return expected ssl cert');
   // check that it is using the earlier expiration time for the token
   t.notMatch(
     ephemeralCert.expirationTime,
