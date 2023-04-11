@@ -121,7 +121,7 @@ export class SQLAdminFetcher {
       } else {
         throw new CloudSQLConnectorError({
           message:
-            'Failed to get access token for automatic IAM authentication. ',
+            'Failed to get access token for automatic IAM authentication.',
           code: 'ENOACCESSTOKEN',
         });
       }
