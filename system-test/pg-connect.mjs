@@ -21,7 +21,7 @@ t.test('open connection and retrieves standard pg tables', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
     instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
   });
   const client = new Client({
     ...clientOpts,
