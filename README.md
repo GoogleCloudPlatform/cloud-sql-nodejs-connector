@@ -1,3 +1,9 @@
+<p align="center">
+    <a href="https://www.npmjs.com/package/@google-cloud/cloud-sql-connector">
+        <img src="https://raw.githubusercontent.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/main/docs/images/cloud-sql-nodejs-connector.png" alt="cloud-sql-nodejs-connector image">
+    </a>
+</p>
+
 # Cloud SQL Node.js Connector
 
 [![CI][ci-badge]][ci-build]
