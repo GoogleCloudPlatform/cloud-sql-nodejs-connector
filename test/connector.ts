@@ -221,6 +221,9 @@ t.test('start only a single instance info per connection name', async t => {
             throw new Error('should only initialize once');
           }
           hasInstance = true;
+          return {
+            connectionType: 'PUBLIC'
+          }
         },
       },
     },
