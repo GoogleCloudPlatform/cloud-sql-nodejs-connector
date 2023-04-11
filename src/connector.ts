@@ -117,7 +117,9 @@ export class Connector {
     const ipType = getIpAddressType(rawType);
     if (!ipType) {
       throw new CloudSQLConnectorError({
-        message: `Invalid IP type: ${String(rawType)}, expected PUBLIC or PRIVATE`,
+        message: `Invalid IP type: ${String(
+          rawType
+        )}, expected PUBLIC or PRIVATE`,
         code: 'EBADCONNTYPE',
       });
     }
