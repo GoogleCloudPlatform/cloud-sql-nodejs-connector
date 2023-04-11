@@ -4,7 +4,7 @@
     </a>
 </p>
 
-# Cloud SQL Node.js Connector
+<h1 align="center">Cloud SQL Node.js Connector</h1>
 
 [![CI][ci-badge]][ci-build]
 
