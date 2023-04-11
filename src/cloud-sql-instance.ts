@@ -21,7 +21,7 @@ import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {getRefreshInterval} from './time';
-import { AuthTypes } from './auth-types';
+import {AuthTypes} from './auth-types';
 
 interface Fetcher {
   getInstanceMetadata({
@@ -74,9 +74,9 @@ export class CloudSQLInstance {
     this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
     this.sqlAdminFetcher = sqlAdminFetcher;
 
-    if (authType === AuthTypes.IAM) {
+    if (this.authType === AuthTypes.IAM) {
       this.auth = new GoogleAuth({
-        scopes: ["https://www.googleapis.com/auth/sqlservice.login"],
+        scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
       });
     }
   }

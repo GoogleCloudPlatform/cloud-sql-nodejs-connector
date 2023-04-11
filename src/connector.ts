@@ -15,11 +15,15 @@
 import tls from 'node:tls';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
+<<<<<<< HEAD
 import {IpAddressTypes} from './ip-addresses';
 import { AuthTypes } from './auth-types';
+=======
+import {IpAdressesTypes} from './ip-addresses';
+import {AuthTypes} from './auth-types';
+>>>>>>> 0ad9dd1 (throw error if auth type or ip type mismatch)
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
-import { createHash } from 'node:crypto';
 
 // ConnectionOptions are the arguments that the user can provide
 // to the Connector.getOptions method when calling it, e.g:
@@ -77,6 +81,13 @@ class CloudSQLInstanceMap extends Map {
             'If you require both for your use case, please use a new connector object.',
           code: 'EBADINSTANCEINFO',
         });
+      } else if (instance.authType !== authType) {
+        throw new CloudSQLConnectorError({
+          message: (`getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` + 
+          `but was previously called with ipType ${instance.authType}. ` + 
+          `If you require both for your use case, please use a new connector object.`),
+          code: 'EBADINSTANCEINFO',
+        });
       }
       return;
     }
@@ -92,7 +103,7 @@ class CloudSQLInstanceMap extends Map {
   getInstance({
     instanceConnectionName,
     ipType,
-    authType
+    authType,
   }: {
     instanceConnectionName: string;
     ipType: IpAddressTypes;
@@ -112,21 +123,15 @@ class CloudSQLInstanceMap extends Map {
           'If you require both for your use case, please use a new connector object.',
         code: 'EBADINSTANCEINFO',
       });
+    } else if (connectionInstance.authType !== authType) {
+      throw new CloudSQLConnectorError({
+        message: (`getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` + 
+        `but was previously called with ipType ${connectionInstance.authType}. ` + 
+        `If you require both for your use case, please use a new connector object.`),
+        code: 'EBADINSTANCEINFO',
+      });
     }
     return connectionInstance;
-  }
-
-  getKey({
-    instanceConnectionName,
-    ipType,
-    authType
-  }: {
-    instanceConnectionName: string,
-    ipType: IpAddressTypes,
-    authType: AuthTypes
-  }) : string {
-    const settings = instanceConnectionName + ipType + authType;
-    return createHash('sha256').update(settings).digest('hex');
   }
 }
 
@@ -135,7 +140,6 @@ const getIpAddressType = (type: IpAddressTypes): IpAddressTypes | undefined =>
 
 const getAuthType = (type: AuthTypes): AuthTypes | undefined =>
   Object.values(AuthTypes).find(x => x === type);
-
 
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
@@ -177,7 +181,9 @@ export class Connector {
     const authType = getAuthType(rawAuthType);
     if (!authType) {
       throw new CloudSQLConnectorError({
-        message: `Invalid authentication type: ${String(rawAuthType)}, expected PASSWORD or IAM`,
+        message: `Invalid authentication type: ${String(
+          rawAuthType
+        )}, expected PASSWORD or IAM`,
         code: 'EBADAUTHTYPE',
       });
     }
