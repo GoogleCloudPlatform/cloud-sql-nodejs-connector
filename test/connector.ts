@@ -17,7 +17,7 @@ import {Connector} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
 import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
-import { AuthTypes } from '../src/auth-types';
+import {AuthTypes} from '../src/auth-types';
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
