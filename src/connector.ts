@@ -64,11 +64,11 @@ class CloudSQLInstanceMap extends Map {
     // been setup there's no need to set it up again
     if (this.has(instanceConnectionName)) {
       const instance = this.get(instanceConnectionName);
-      if (instance.connectionType !== ipType) {
+      if (instance.ipType !== ipType) {
         throw new CloudSQLConnectorError({
           message:
             `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
-            `but was previously called with ipType ${instance.connectionType}. ` +
+            `but was previously called with ipType ${instance.ipType}. ` +
             'If you require both for your use case, please use a new connector object.',
           code: 'EBADINSTANCEINFO',
         });
@@ -85,7 +85,7 @@ class CloudSQLInstanceMap extends Map {
 
   getInstance({
     instanceConnectionName,
-    ipType
+    ipType,
   }: {
     instanceConnectionName: string;
     ipType: IpAdressesTypes;
@@ -96,11 +96,11 @@ class CloudSQLInstanceMap extends Map {
         message: `Cannot find info for instance: ${instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
       });
-    } else if (connectionInstance.connectionType !== ipType) {
+    } else if (connectionInstance.ipType !== ipType) {
       throw new CloudSQLConnectorError({
         message:
           `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
-          `but was previously called with ipType ${connectionInstance.connectionType}. ` +
+          `but was previously called with ipType ${connectionInstance.ipType}. ` +
           'If you require both for your use case, please use a new connector object.',
         code: 'EBADINSTANCEINFO',
       });
