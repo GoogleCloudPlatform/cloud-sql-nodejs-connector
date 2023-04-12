@@ -12,31 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import t from 'tap';
-import pg from 'pg';
-import {Connector} from '@google-cloud/cloud-sql-connector';
-const {Client} = pg;
+const t = require('tap');
+const mysql = require('mysql2/promise');
+const {Connector} = require('@google-cloud/cloud-sql-connector');
 
-t.test('open connection and retrieves standard pg tables', async t => {
+t.test('open connection and run basic mysql commands', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
-    instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
-    ipType: 'PUBLIC',
+    instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
+    type: 'PUBLIC',
   });
-  const client = new Client({
+  const conn = await mysql.createConnection({
     ...clientOpts,
-    user: process.env.POSTGRES_USER,
-    password: process.env.POSTGRES_PASS,
-    database: process.env.POSTGRES_DB,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASS,
+    database: process.env.MYSQL_DB,
   });
-  client.connect();
 
-  const {
-    rows: [result],
-  } = await client.query('SELECT NOW();');
-  const returnedDate = result['now'];
+  const [[result]] = await conn.query('SELECT NOW();');
+  const returnedDate = result['NOW()'];
   t.ok(returnedDate.getTime(), 'should have valid returned date object');
 
-  await client.end();
+  await conn.end();
   connector.close();
 });

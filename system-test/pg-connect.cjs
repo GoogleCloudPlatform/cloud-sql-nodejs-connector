@@ -30,10 +30,12 @@ t.test('open connection and retrieves standard pg tables', async t => {
     database: process.env.POSTGRES_DB,
   });
   client.connect();
-  const result = await client.query('SELECT * FROM pg_catalog.pg_tables;');
 
-  t.same(result.command, 'SELECT', 'should list correct command in response');
-  t.ok(result.rowCount > 0, 'should be able to retrieve list of tables');
+  const {
+    rows: [result],
+  } = await client.query('SELECT NOW();');
+  const returnedDate = result['now'];
+  t.ok(returnedDate.getTime(), 'should have valid returned date object');
 
   await client.end();
   connector.close();

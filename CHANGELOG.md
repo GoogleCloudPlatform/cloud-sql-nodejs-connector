@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.1.3...v0.2.0) (2023-04-11)
+
+
+### Features
+
+* add mysql support ([9316804](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/93168049995520bc290368b0530fd768d052db38))
+
+
+### Bug Fixes
+
+* add default keep-alive delay ([c3eb3c9](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/c3eb3c96aa2452be5d64a125080d05308fd1a27f))
+
 ## [0.1.3](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.1.2...v0.1.3) (2023-03-22)
 
 

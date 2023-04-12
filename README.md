@@ -1,4 +1,10 @@
-# Cloud SQL Node.js Connector
+<p align="center">
+    <a href="https://www.npmjs.com/package/@google-cloud/cloud-sql-connector">
+        <img src="https://raw.githubusercontent.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/main/docs/images/cloud-sql-nodejs-connector.png" alt="cloud-sql-nodejs-connector image">
+    </a>
+</p>
+
+<h1 align="center">Cloud SQL Node.js Connector</h1>
 
 [![CI][ci-badge]][ci-build]
 
@@ -19,6 +25,7 @@ The Cloud SQL Node.js Connector is a package to be used alongside a database
 driver. Currently supported drivers are:
 
 - [`pg`](https://www.npmjs.com/package/pg) (PostgreSQL)
+- [`mysql2`](https://www.npmjs.com/package/mysql2) (MySQL)
 
 ## Installation
 
@@ -31,14 +38,18 @@ npm install @google-cloud/cloud-sql-connector
 ## Usage
 
 The connector package is meant to be used alongside a database driver, in the
-following example you can see how to create a new connector and get valid
-options that can then be used when starting a new
+following examples you can see how to create a new connector and get valid
+options that can then be used when starting a new connection.
+
+### Using with PostgreSQL
+
+Here is how to start a new
 [`pg`](https://www.npmjs.com/package/pg) connection pool.
 
 ```js
 import pg from 'pg';
 import {Connector} from '@google-cloud/cloud-sql-connector';
-const { Pool } = pg;
+const {Pool} = pg;
 
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
@@ -52,10 +63,39 @@ const pool = new Pool({
   database: 'db-name',
   max: 5
 });
-const result = await pool.query('SELECT NOW()');
+const {rows} = await pool.query('SELECT NOW()');
+console.table(rows); // prints returned time value from server
 
 await pool.end();
-connector.close()
+connector.close();
+```
+
+### Using with MySQL
+
+Here is how to start a new
+[`mysql2`](https://www.npmjs.com/package/mysql2) connection pool.
+
+```js
+import mysql from 'mysql2/promise';
+import {Connector} from '@google-cloud/cloud-sql-connector';
+
+const connector = new Connector();
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  type: 'PUBLIC',
+});
+const pool = await mysql.createPool({
+  ...clientOpts,
+  user: 'my-user',
+  password: 'my-password',
+  database: 'db-name',
+});
+const conn = await pool.getConnection();
+const [result] = await conn.query( `SELECT NOW();`);
+console.table(result); // prints returned time value from server
+
+await pool.end();
+connector.close();
 ```
 
 ## Supported Node.js Versions
