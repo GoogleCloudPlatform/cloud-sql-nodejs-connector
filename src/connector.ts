@@ -111,16 +111,16 @@ export class Connector {
   // const pool = new Pool(opts)
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
-    ipType: rawType,
+    ipType: rawIpType,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
-    const ipType = getIpAddressType(rawType);
+    const ipType = getIpAddressType(rawIpType);
     if (!ipType) {
       throw new CloudSQLConnectorError({
         message: `Invalid IP type: ${String(
-          rawType
+          rawIpType
         )}, expected PUBLIC or PRIVATE`,
-        code: 'EBADCONNTYPE',
+        code: 'EBADCONNIPTYPE',
       });
     }
 

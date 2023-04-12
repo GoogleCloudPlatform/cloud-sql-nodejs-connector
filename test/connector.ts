@@ -75,7 +75,7 @@ t.test('Connector invalid type error', async t => {
     }),
     {
       message: 'Invalid IP type: foo, expected PUBLIC or PRIVATE',
-      code: 'EBADCONNTYPE',
+      code: 'EBADCONNIPTYPE',
     },
     'should throw a invalid type error'
   );
