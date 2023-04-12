@@ -57,7 +57,7 @@ t.test('Connector', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
   t.same(opts.ssl, false, 'should not use driver ssl options');
@@ -70,12 +70,12 @@ t.test('Connector invalid type error', async t => {
   const connector = new Connector();
   t.rejects(
     connector.getOptions({
-      type: 'foo' as IpAdressesTypes,
+      ipType: 'foo' as IpAdressesTypes,
       instanceConnectionName: 'my-project:us-east1:my-instance',
     }),
     {
-      message: 'Invalid type: foo, expected PUBLIC or PRIVATE',
-      code: 'EBADCONNTYPE',
+      message: 'Invalid IP type: foo, expected PUBLIC or PRIVATE',
+      code: 'EBADCONNIPTYPE',
     },
     'should throw a invalid type error'
   );
@@ -119,7 +119,7 @@ t.test('Connector missing instance info error', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'foo:bar:baz',
   });
   t.throws(
@@ -172,7 +172,7 @@ t.test('Connector bad instance info error', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'foo:bar:baz',
   });
   t.throws(
@@ -228,11 +228,11 @@ t.test('start only a single instance info per connection name', async t => {
 
   const connector = new Connector();
   await connector.getOptions({
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'foo:bar:baz',
   });
   await connector.getOptions({
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'foo:bar:baz',
   });
 });

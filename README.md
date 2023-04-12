@@ -54,7 +54,7 @@ const {Pool} = pg;
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  type: 'PUBLIC'
+  ipType: 'PUBLIC'
 });
 const pool = new Pool({
   ...clientOpts,
@@ -82,7 +82,7 @@ import {Connector} from '@google-cloud/cloud-sql-connector';
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  type: 'PUBLIC',
+  ipType: 'PUBLIC',
 });
 const pool = await mysql.createPool({
   ...clientOpts,

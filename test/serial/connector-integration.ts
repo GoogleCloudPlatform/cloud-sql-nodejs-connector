@@ -81,7 +81,7 @@ t.test('Connector integration test', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
 
