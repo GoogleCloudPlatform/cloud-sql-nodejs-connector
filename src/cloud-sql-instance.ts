@@ -34,7 +34,7 @@ interface Fetcher {
 }
 
 interface CloudSQLInstanceOptions {
-  connectionType: IpAdressesTypes;
+  ipType: IpAdressesTypes;
   instanceConnectionName: string;
   sqlAdminFetcher: Fetcher;
 }
@@ -48,7 +48,7 @@ export class CloudSQLInstance {
     return instance;
   }
 
-  private readonly connectionType: IpAdressesTypes;
+  private readonly ipType: IpAdressesTypes;
   private readonly sqlAdminFetcher: Fetcher;
   private refreshTimeoutID?: ReturnType<typeof setTimeout>;
   private closed = false;
@@ -59,11 +59,11 @@ export class CloudSQLInstance {
   public serverCaCert?: SslCert;
 
   constructor({
-    connectionType,
+    ipType,
     instanceConnectionName,
     sqlAdminFetcher,
   }: CloudSQLInstanceOptions) {
-    this.connectionType = connectionType;
+    this.ipType = ipType;
     this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
     this.sqlAdminFetcher = sqlAdminFetcher;
   }
@@ -77,7 +77,7 @@ export class CloudSQLInstance {
       this.instanceInfo,
       rsaKeys.publicKey
     );
-    this.host = selectIpAddress(metadata.ipAddresses, this.connectionType);
+    this.host = selectIpAddress(metadata.ipAddresses, this.ipType);
     this.privateKey = rsaKeys.privateKey;
     this.serverCaCert = metadata.serverCaCert;
 

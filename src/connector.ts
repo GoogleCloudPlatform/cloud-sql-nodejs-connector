@@ -28,7 +28,7 @@ import {CloudSQLConnectorError} from './errors';
 // };
 // await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
-  type: IpAdressesTypes;
+  ipType: IpAdressesTypes;
   instanceConnectionName: string;
 }
 
@@ -52,11 +52,11 @@ export declare interface DriverOptions {
 // adds extra logic to async initialize items.
 class CloudSQLInstanceMap extends Map {
   async loadInstance({
-    type,
+    ipType,
     instanceConnectionName,
     sqlAdminFetcher,
   }: {
-    type: IpAdressesTypes;
+    ipType: IpAdressesTypes;
     instanceConnectionName: string;
     sqlAdminFetcher: SQLAdminFetcher;
   }): Promise<void> {
@@ -66,7 +66,7 @@ class CloudSQLInstanceMap extends Map {
       return;
     }
     const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
-      connectionType: type,
+      ipType,
       instanceConnectionName,
       sqlAdminFetcher: sqlAdminFetcher,
     });
@@ -111,20 +111,22 @@ export class Connector {
   // const pool = new Pool(opts)
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
-    type: rawType,
+    ipType: rawIpType,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
-    const type = getIpAddressType(rawType);
-    if (!type) {
+    const ipType = getIpAddressType(rawIpType);
+    if (!ipType) {
       throw new CloudSQLConnectorError({
-        message: `Invalid type: ${String(rawType)}, expected PUBLIC or PRIVATE`,
-        code: 'EBADCONNTYPE',
+        message: `Invalid IP type: ${String(
+          rawIpType
+        )}, expected PUBLIC or PRIVATE`,
+        code: 'EBADCONNIPTYPE',
       });
     }
 
     const {instances} = this;
     await instances.loadInstance({
-      type,
+      ipType,
       instanceConnectionName,
       sqlAdminFetcher: this.sqlAdminFetcher,
     });
