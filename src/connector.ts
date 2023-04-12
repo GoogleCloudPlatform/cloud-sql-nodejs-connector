@@ -66,7 +66,7 @@ class CloudSQLInstanceMap extends Map {
       return;
     }
     const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
-      connectionType: ipType,
+      ipType,
       instanceConnectionName,
       sqlAdminFetcher: sqlAdminFetcher,
     });

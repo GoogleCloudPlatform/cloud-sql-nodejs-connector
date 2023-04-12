@@ -56,7 +56,7 @@ t.test('CloudSQLInstance', async t => {
   });
 
   const instance = await CloudSQLInstance.getCloudSQLInstance({
-    connectionType: IpAdressesTypes.PUBLIC,
+    ipType: IpAdressesTypes.PUBLIC,
     instanceConnectionName: 'my-project:us-east1:my-instance',
     sqlAdminFetcher: fetcher,
   });
@@ -93,7 +93,7 @@ t.test('CloudSQLInstance', async t => {
     const start = Date.now();
     let refreshCount = 0;
     const refreshInstance = new CloudSQLInstance({
-      connectionType: IpAdressesTypes.PUBLIC,
+      ipType: IpAdressesTypes.PUBLIC,
       instanceConnectionName: 'my-project:us-east1:my-instance',
       sqlAdminFetcher: fetcher,
     });
