@@ -20,7 +20,7 @@ t.test('open connection and run basic mysql commands', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
     instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
-    type: 'PUBLIC',
+    ipType: 'PUBLIC',
   });
   const conn = await mysql.createConnection({
     ...clientOpts,
