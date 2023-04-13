@@ -63,6 +63,16 @@ class CloudSQLInstanceMap extends Map {
     // in case an instance to that connection name has already
     // been setup there's no need to set it up again
     if (this.has(instanceConnectionName)) {
+      const instance = this.get(instanceConnectionName);
+      if (instance.ipType !== ipType) {
+        throw new CloudSQLConnectorError({
+          message:
+            `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
+            `but was previously called with ipType ${instance.ipType}. ` +
+            'If you require both for your use case, please use a new connector object.',
+          code: 'EBADINSTANCEINFO',
+        });
+      }
       return;
     }
     const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
@@ -73,12 +83,26 @@ class CloudSQLInstanceMap extends Map {
     this.set(instanceConnectionName, connectionInstance);
   }
 
-  getInstance(instanceConnectionName: string): CloudSQLInstance {
+  getInstance({
+    instanceConnectionName,
+    ipType,
+  }: {
+    instanceConnectionName: string;
+    ipType: IpAdressesTypes;
+  }): CloudSQLInstance {
     const connectionInstance = this.get(instanceConnectionName);
     if (!connectionInstance) {
       throw new CloudSQLConnectorError({
         message: `Cannot find info for instance: ${instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
+      });
+    } else if (connectionInstance.ipType !== ipType) {
+      throw new CloudSQLConnectorError({
+        message:
+          `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
+          `but was previously called with ipType ${connectionInstance.ipType}. ` +
+          'If you require both for your use case, please use a new connector object.',
+        code: 'EBADINSTANCEINFO',
       });
     }
     return connectionInstance;
@@ -134,7 +158,7 @@ export class Connector {
     return {
       stream() {
         const {instanceInfo, ephemeralCert, host, privateKey, serverCaCert} =
-          instances.getInstance(instanceConnectionName);
+          instances.getInstance({instanceConnectionName, ipType});
 
         if (
           instanceInfo &&
