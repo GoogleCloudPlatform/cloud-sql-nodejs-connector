@@ -228,8 +228,8 @@ t.test('start only a single instance info per connection name', async t => {
           hasInstance = true;
           return {
             ipType: IpAdressesTypes.PUBLIC,
-            authType: AuthTypes.PASSWORD
-          }
+            authType: AuthTypes.PASSWORD,
+          };
         },
       },
     },
