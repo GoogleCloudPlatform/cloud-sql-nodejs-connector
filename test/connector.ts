@@ -247,3 +247,85 @@ t.test('start only a single instance info per connection name', async t => {
     instanceConnectionName: 'foo:bar:baz',
   });
 });
+
+t.test(
+  'throws error when there are conflicting settings for same instance name',
+  async t => {
+    setupCredentials(t);
+
+    // mocks sql admin fetcher and generateKeys modules
+    // so that they can return a deterministic result
+    const {Connector} = t.mock('../src/connector', {
+      '../src/sqladmin-fetcher': {
+        SQLAdminFetcher: class {
+          getInstanceMetadata() {
+            return Promise.resolve({
+              ipAddresses: {
+                public: '127.0.0.1',
+              },
+              serverCaCert: {
+                cert: CA_CERT,
+                expirationTime: '2033-01-06T10:00:00.232Z',
+              },
+            });
+          }
+          getEphemeralCertificate() {
+            return Promise.resolve({
+              cert: CLIENT_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            });
+          }
+        },
+      },
+      '../src/cloud-sql-instance': {
+        CloudSQLInstance: {
+          async getCloudSQLInstance() {
+            return {
+              ipType: IpAdressesTypes.PUBLIC,
+              authType: AuthTypes.PASSWORD,
+            };
+          },
+        },
+      },
+    });
+
+    const connector = new Connector();
+    await connector.getOptions({
+      ipType: 'PUBLIC',
+      authType: 'PASSWORD',
+      instanceConnectionName: 'foo:bar:baz',
+    });
+
+    t.rejects(
+      connector.getOptions({
+        ipType: 'PUBLIC',
+        authType: 'IAM',
+        instanceConnectionName: 'foo:bar:baz',
+      }),
+      {
+        message:
+          'getOptions called for instance foo:bar:baz' +
+          ' with authType IAM, but was previously called with authType PASSWORD.' +
+          ' If you require both for your use case, please use a new connector object.',
+        code: 'EBADINSTANCEINFO',
+      },
+      'should throw error'
+    );
+
+    t.rejects(
+      connector.getOptions({
+        ipType: 'PRIVATE',
+        authType: 'PASSWORD',
+        instanceConnectionName: 'foo:bar:baz',
+      }),
+      {
+        message:
+          'getOptions called for instance foo:bar:baz' +
+          ' with ipType PRIVATE, but was previously called with ipType PUBLIC.' +
+          ' If you require both for your use case, please use a new connector object.',
+        code: 'EBADINSTANCEINFO',
+      },
+      'should throw error'
+    );
+  }
+);
