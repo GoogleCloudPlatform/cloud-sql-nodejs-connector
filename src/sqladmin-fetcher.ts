@@ -20,6 +20,7 @@ import {SslCert} from './ssl-cert';
 import {parseCert} from './crypto';
 import {IpAddresses, parseIpAddresses} from './ip-addresses';
 import {CloudSQLConnectorError} from './errors';
+import {getNearestExpiration} from './time';
 
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
@@ -156,16 +157,14 @@ export class SQLAdminFetcher {
     // the expirationTime info, this certificate parsing is no longer needed
     const {cert, expirationTime} = await parseCert(ephemeralCert.cert);
 
-    let nearestExpiration = Date.parse(expirationTime);
-    if (tokenExpiration) {
-      if (tokenExpiration < nearestExpiration) {
-        nearestExpiration = tokenExpiration;
-      }
-    }
+    const nearestExpiration = getNearestExpiration(
+      Date.parse(expirationTime),
+      tokenExpiration
+    );
 
     return {
       cert,
-      expirationTime: new Date(nearestExpiration).toISOString(),
+      expirationTime: nearestExpiration,
     };
   }
 }
