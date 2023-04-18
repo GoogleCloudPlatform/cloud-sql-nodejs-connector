@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import t from 'tap';
-import {IpAdressesTypes} from '../src/ip-addresses';
+import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {setupCredentials} from './fixtures/setup-credentials';
 
@@ -56,7 +56,7 @@ t.test('CloudSQLInstance', async t => {
   });
 
   const instance = await CloudSQLInstance.getCloudSQLInstance({
-    ipType: IpAdressesTypes.PUBLIC,
+    ipType: IpAddressTypes.PUBLIC,
     instanceConnectionName: 'my-project:us-east1:my-instance',
     sqlAdminFetcher: fetcher,
   });
@@ -93,7 +93,7 @@ t.test('CloudSQLInstance', async t => {
     const start = Date.now();
     let refreshCount = 0;
     const refreshInstance = new CloudSQLInstance({
-      ipType: IpAdressesTypes.PUBLIC,
+      ipType: IpAddressTypes.PUBLIC,
       instanceConnectionName: 'my-project:us-east1:my-instance',
       sqlAdminFetcher: fetcher,
     });

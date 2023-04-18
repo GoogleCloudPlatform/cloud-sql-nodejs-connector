@@ -15,7 +15,7 @@
 import tls from 'node:tls';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
-import {IpAdressesTypes} from './ip-addresses';
+import {IpAddressTypes} from './ip-addresses';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
 
@@ -28,7 +28,7 @@ import {CloudSQLConnectorError} from './errors';
 // };
 // await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
-  ipType: IpAdressesTypes;
+  ipType: IpAddressTypes;
   instanceConnectionName: string;
 }
 
@@ -56,7 +56,7 @@ class CloudSQLInstanceMap extends Map {
     instanceConnectionName,
     sqlAdminFetcher,
   }: {
-    ipType: IpAdressesTypes;
+    ipType: IpAddressTypes;
     instanceConnectionName: string;
     sqlAdminFetcher: SQLAdminFetcher;
   }): Promise<void> {
@@ -88,7 +88,7 @@ class CloudSQLInstanceMap extends Map {
     ipType,
   }: {
     instanceConnectionName: string;
-    ipType: IpAdressesTypes;
+    ipType: IpAddressTypes;
   }): CloudSQLInstance {
     const connectionInstance = this.get(instanceConnectionName);
     if (!connectionInstance) {
@@ -109,8 +109,8 @@ class CloudSQLInstanceMap extends Map {
   }
 }
 
-const getIpAddressType = (type: IpAdressesTypes): IpAdressesTypes | undefined =>
-  Object.values(IpAdressesTypes).find(x => x === type);
+const getIpAddressType = (type: IpAddressTypes): IpAddressTypes | undefined =>
+  Object.values(IpAddressTypes).find(x => x === type);
 
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.

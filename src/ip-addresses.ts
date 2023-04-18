@@ -15,17 +15,17 @@
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 import {CloudSQLConnectorError} from './errors';
 
-export enum IpAdressesTypes {
+export enum IpAddressTypes {
   PUBLIC = 'PUBLIC',
   PRIVATE = 'PRIVATE',
 }
 
-export declare interface IpAdresses {
+export declare interface IpAddresses {
   public?: string;
   private?: string;
 }
 
-const getPublicIpAddress = (ipAddresses: IpAdresses) => {
+const getPublicIpAddress = (ipAddresses: IpAddresses) => {
   if (!ipAddresses.public) {
     throw new CloudSQLConnectorError({
       message: 'Cannot connect to instance, public Ip address not found',
@@ -35,7 +35,7 @@ const getPublicIpAddress = (ipAddresses: IpAdresses) => {
   return ipAddresses.public;
 };
 
-const getPrivateIpAddress = (ipAddresses: IpAdresses) => {
+const getPrivateIpAddress = (ipAddresses: IpAddresses) => {
   if (!ipAddresses.private) {
     throw new CloudSQLConnectorError({
       message: 'Cannot connect to instance, private Ip address not found',
@@ -47,7 +47,7 @@ const getPrivateIpAddress = (ipAddresses: IpAdresses) => {
 
 export function parseIpAddresses(
   ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined
-): IpAdresses {
+): IpAddresses {
   if (!ipResponse) {
     throw new CloudSQLConnectorError({
       message: 'Cannot connect to instance, it has no supported IP addresses',
@@ -55,7 +55,7 @@ export function parseIpAddresses(
     });
   }
 
-  const ipAddresses: IpAdresses = {};
+  const ipAddresses: IpAddresses = {};
   for (const ip of ipResponse) {
     if (ip.type === 'PRIMARY' && ip.ipAddress) {
       ipAddresses.public = ip.ipAddress;
@@ -76,13 +76,13 @@ export function parseIpAddresses(
 }
 
 export function selectIpAddress(
-  ipAddresses: IpAdresses,
-  type: IpAdressesTypes | unknown
+  ipAddresses: IpAddresses,
+  type: IpAddressTypes | unknown
 ): string {
   switch (type) {
-    case IpAdressesTypes.PUBLIC:
+    case IpAddressTypes.PUBLIC:
       return getPublicIpAddress(ipAddresses);
-    case IpAdressesTypes.PRIVATE:
+    case IpAddressTypes.PRIVATE:
       return getPrivateIpAddress(ipAddresses);
     default:
       throw new CloudSQLConnectorError({

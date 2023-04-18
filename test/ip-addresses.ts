@@ -14,7 +14,7 @@
 
 import t from 'tap';
 import {
-  IpAdressesTypes,
+  IpAddressTypes,
   parseIpAddresses,
   selectIpAddress,
 } from '../src/ip-addresses';
@@ -101,13 +101,13 @@ t.same(
 );
 
 t.throws(
-  () => selectIpAddress({}, IpAdressesTypes.PUBLIC),
+  () => selectIpAddress({}, IpAddressTypes.PUBLIC),
   {code: 'ENOPUBLICSQLADMINIPADDRESS'},
   'should throw if no public ip defined'
 );
 
 t.throws(
-  () => selectIpAddress({}, IpAdressesTypes.PRIVATE),
+  () => selectIpAddress({}, IpAddressTypes.PRIVATE),
   {code: 'ENOPRIVATESQLADMINIPADDRESS'},
   'should throw if no private ip defined'
 );
@@ -124,7 +124,7 @@ t.same(
       public: '0.0.0.0',
       private: '0.0.0.2',
     },
-    IpAdressesTypes.PUBLIC
+    IpAddressTypes.PUBLIC
   ),
   '0.0.0.0',
   'should select public ip'
@@ -135,7 +135,7 @@ t.same(
     {
       private: '0.0.0.2',
     },
-    IpAdressesTypes.PRIVATE
+    IpAddressTypes.PRIVATE
   ),
   '0.0.0.2',
   'should select private ip'
