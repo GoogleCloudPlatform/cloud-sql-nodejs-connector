@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {IpAdressesTypes, selectIpAddress} from './ip-addresses';
+import {IpAddressTypes, selectIpAddress} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {parseInstanceConnectionName} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
@@ -34,7 +34,7 @@ interface Fetcher {
 }
 
 interface CloudSQLInstanceOptions {
-  ipType: IpAdressesTypes;
+  ipType: IpAddressTypes;
   instanceConnectionName: string;
   sqlAdminFetcher: Fetcher;
 }
@@ -48,7 +48,7 @@ export class CloudSQLInstance {
     return instance;
   }
 
-  private readonly ipType: IpAdressesTypes;
+  private readonly ipType: IpAddressTypes;
   private readonly sqlAdminFetcher: Fetcher;
   private refreshTimeoutID?: ReturnType<typeof setTimeout>;
   private closed = false;

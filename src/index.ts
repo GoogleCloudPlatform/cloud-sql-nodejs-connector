@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import {Connector, ConnectionOptions, DriverOptions} from './connector';
-import {IpAdressesTypes} from './ip-addresses';
+import {IpAddressTypes} from './ip-addresses';
 
 export {Connector, type ConnectionOptions, type DriverOptions};
-export {IpAdressesTypes};
+export {IpAddressTypes};

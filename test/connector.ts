@@ -15,7 +15,7 @@
 import t from 'tap';
 import {Connector} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
-import {IpAdressesTypes} from '../src/ip-addresses';
+import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 
 t.test('Connector', async t => {
@@ -70,7 +70,7 @@ t.test('Connector invalid type error', async t => {
   const connector = new Connector();
   t.rejects(
     connector.getOptions({
-      ipType: 'foo' as IpAdressesTypes,
+      ipType: 'foo' as IpAddressTypes,
       instanceConnectionName: 'my-project:us-east1:my-instance',
     }),
     {
