@@ -227,7 +227,7 @@ t.test('start only a single instance info per connection name', async t => {
           }
           hasInstance = true;
           return {
-            ipType: IpAdressesTypes.PUBLIC,
+            ipType: IpAddressTypes.PUBLIC,
             authType: AuthTypes.PASSWORD,
           };
         },
@@ -281,7 +281,7 @@ t.test(
         CloudSQLInstance: {
           async getCloudSQLInstance() {
             return {
-              ipType: IpAdressesTypes.PUBLIC,
+              ipType: IpAddressTypes.PUBLIC,
               authType: AuthTypes.PASSWORD,
             };
           },
