@@ -337,11 +337,6 @@ t.test('getEphemeralCertificate sets access token', async t => {
   };
   const {projectId, instanceId} = instanceConnectionInfo;
 
-  nock('https://oauth2.googleapis.com').post('/tokeninfo').reply(200, {
-    expires_in: 3600,
-    scope: 'https://www.googleapis.com/auth/sqlservice.login',
-  });
-
   nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
     .post(`/${projectId}/instances/${instanceId}:generateEphemeralCert`)
     .reply((uri, reqBody) => {
