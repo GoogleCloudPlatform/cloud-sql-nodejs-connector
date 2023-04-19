@@ -21,7 +21,7 @@ import {parseCert} from './crypto';
 import {IpAddresses, parseIpAddresses} from './ip-addresses';
 import {CloudSQLConnectorError} from './errors';
 import {getNearestExpiration} from './time';
-import { AuthTypes } from './auth-types';
+import {AuthTypes} from './auth-types';
 
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
@@ -51,10 +51,11 @@ export class SQLAdminFetcher {
       ],
     });
 
-    this.auth = loginAuth || new GoogleAuth({
+    this.auth =
+      loginAuth ||
+      new GoogleAuth({
         scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
-    });
-    
+      });
   }
 
   async getInstanceMetadata({
@@ -120,7 +121,7 @@ export class SQLAdminFetcher {
     };
 
     let tokenExpiration;
-    if (authType = AuthTypes.IAM) {
+    if (authType === AuthTypes.IAM) {
       const access_token = await this.auth.getAccessToken();
       const client = await this.auth.getClient();
       if (access_token && 'getTokenInfo' in client) {

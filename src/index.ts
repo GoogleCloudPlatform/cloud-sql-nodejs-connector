@@ -16,7 +16,6 @@ import {Connector, ConnectionOptions, DriverOptions} from './connector';
 import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 
-
 export {Connector, type ConnectionOptions, type DriverOptions};
 export {IpAddressTypes};
 export {AuthTypes};

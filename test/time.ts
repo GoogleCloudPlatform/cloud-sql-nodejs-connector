@@ -98,32 +98,28 @@ t.same(
 // cert exp before token exp
 t.same(
   getNearestExpiration(
-    Date.parse('2023-01-01T00:00:00.000Z'), 
+    Date.parse('2023-01-01T00:00:00.000Z'),
     Date.parse('2023-01-01T00:00:00.000Z') + 3600
   ),
   '2023-01-01T00:00:00.000Z',
   'should return cert exp'
-)
+);
 
 // token exp before cert exp
 t.same(
   getNearestExpiration(
-    Date.parse('2023-01-01T00:00:00.000Z'), 
+    Date.parse('2023-01-01T00:00:00.000Z'),
     Date.parse('2023-01-01T00:00:00.000Z') - 3600
   ),
   new Date(Date.parse('2023-01-01T00:00:00.000Z') - 3600).toISOString(),
   'should return token exp'
-)
-
+);
 
 // no token exp
 t.same(
-  getNearestExpiration(
-    Date.parse('2023-01-01T00:00:00.000Z'),
-    undefined
-  ),
+  getNearestExpiration(Date.parse('2023-01-01T00:00:00.000Z'), undefined),
   new Date(Date.parse('2023-01-01T00:00:00.000Z')).toISOString(),
   'should return cert exp'
-)
+);
 
 Date.now = datenow;

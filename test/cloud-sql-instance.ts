@@ -14,7 +14,7 @@
 
 import t from 'tap';
 import {IpAddressTypes} from '../src/ip-addresses';
-import { AuthTypes } from '../src/auth-types';
+import {AuthTypes} from '../src/auth-types';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {setupCredentials} from './fixtures/setup-credentials';
 

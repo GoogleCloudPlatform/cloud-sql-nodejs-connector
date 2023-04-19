@@ -16,7 +16,7 @@ import tls from 'node:tls';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
 import {IpAddressTypes} from './ip-addresses';
-import { AuthTypes } from './auth-types';
+import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
 
@@ -103,7 +103,7 @@ class CloudSQLInstanceMap extends Map {
   }: {
     instanceConnectionName: string;
     ipType: IpAddressTypes;
-    authType: AuthTypes
+    authType: AuthTypes;
   }): CloudSQLInstance {
     const connectionInstance = this.get(instanceConnectionName);
     if (!connectionInstance) {

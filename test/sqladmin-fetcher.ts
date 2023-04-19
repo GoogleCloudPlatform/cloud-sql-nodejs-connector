@@ -20,7 +20,7 @@ import {SQLAdminFetcher} from '../src/sqladmin-fetcher';
 import {InstanceConnectionInfo} from '../src/instance-connection-info';
 import {setupCredentials} from './fixtures/setup-credentials';
 import {CLIENT_CERT} from './fixtures/certs';
-import { AuthTypes } from '../src/auth-types';
+import {AuthTypes} from '../src/auth-types';
 
 const serverCaCertResponse = (instance: string) => ({
   kind: 'sql#sslCert',
@@ -269,7 +269,11 @@ t.test('getEphemeralCertificate no certificate', async t => {
 
   const fetcher = new SQLAdminFetcher();
   t.rejects(
-    fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key', AuthTypes.PASSWORD),
+    fetcher.getEphemeralCertificate(
+      instanceConnectionInfo,
+      'key',
+      AuthTypes.PASSWORD
+    ),
     {
       code: 'ENOSQLADMINEPH',
     },
@@ -292,7 +296,11 @@ t.test('getEphemeralCertificate no response data', async t => {
 
   const fetcher = new SQLAdminFetcher();
   t.rejects(
-    fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key', AuthTypes.PASSWORD),
+    fetcher.getEphemeralCertificate(
+      instanceConnectionInfo,
+      'key',
+      AuthTypes.PASSWORD
+    ),
     {
       message:
         'Failed to find metadata on project id: no-response-data-project and instance id: no-response-data-instance. Ensure network connectivity and validate the provided `instanceConnectionName` config value',
@@ -319,7 +327,11 @@ t.test('getEphemeralCertificate no access token', async t => {
   const fetcher = new SQLAdminFetcher(auth);
 
   t.rejects(
-    fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key', AuthTypes.IAM),
+    fetcher.getEphemeralCertificate(
+      instanceConnectionInfo,
+      'key',
+      AuthTypes.IAM
+    ),
     {
       message: 'Failed to get access token for automatic IAM authentication.',
       code: 'ENOACCESSTOKEN',
