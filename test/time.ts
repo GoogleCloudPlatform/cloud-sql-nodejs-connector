@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import t from 'tap';
-import {getRefreshInterval} from '../src/time';
+import {getRefreshInterval, getNearestExpiration} from '../src/time';
 
 const datenow = Date.now;
 Date.now = () => 1672567200000; // 2023-01-01T10:00:00.000Z
@@ -94,5 +94,36 @@ t.same(
   14400000,
   'should return 4h interval on 8h cert'
 );
+
+// cert exp before token exp
+t.same(
+  getNearestExpiration(
+    Date.parse('2023-01-01T00:00:00.000Z'), 
+    Date.parse('2023-01-01T00:00:00.000Z') + 3600
+  ),
+  '2023-01-01T00:00:00.000Z',
+  'should return cert exp'
+)
+
+// token exp before cert exp
+t.same(
+  getNearestExpiration(
+    Date.parse('2023-01-01T00:00:00.000Z'), 
+    Date.parse('2023-01-01T00:00:00.000Z') - 3600
+  ),
+  new Date(Date.parse('2023-01-01T00:00:00.000Z') - 3600).toISOString(),
+  'should return token exp'
+)
+
+
+// no token exp
+t.same(
+  getNearestExpiration(
+    Date.parse('2023-01-01T00:00:00.000Z'),
+    undefined
+  ),
+  new Date(Date.parse('2023-01-01T00:00:00.000Z')).toISOString(),
+  'should return cert exp'
+)
 
 Date.now = datenow;

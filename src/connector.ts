@@ -15,13 +15,8 @@
 import tls from 'node:tls';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
-<<<<<<< HEAD
 import {IpAddressTypes} from './ip-addresses';
 import { AuthTypes } from './auth-types';
-=======
-import {IpAdressesTypes} from './ip-addresses';
-import {AuthTypes} from './auth-types';
->>>>>>> 0ad9dd1 (throw error if auth type or ip type mismatch)
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
 
