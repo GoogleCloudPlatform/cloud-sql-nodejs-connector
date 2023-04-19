@@ -21,6 +21,7 @@ import {parseCert} from './crypto';
 import {IpAddresses, parseIpAddresses} from './ip-addresses';
 import {CloudSQLConnectorError} from './errors';
 import {getNearestExpiration} from './time';
+import { AuthTypes } from './auth-types';
 
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
@@ -34,8 +35,9 @@ interface RequestBody {
 
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
+  private readonly auth: GoogleAuth;
 
-  constructor() {
+  constructor(loginAuth?: GoogleAuth) {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
     });
@@ -48,6 +50,11 @@ export class SQLAdminFetcher {
         },
       ],
     });
+
+    this.auth = loginAuth || new GoogleAuth({
+        scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
+    });
+    
   }
 
   async getInstanceMetadata({
@@ -106,16 +113,16 @@ export class SQLAdminFetcher {
   async getEphemeralCertificate(
     {projectId, instanceId}: InstanceConnectionInfo,
     publicKey: string,
-    auth?: GoogleAuth
+    authType: AuthTypes
   ): Promise<SslCert> {
     const requestBody: RequestBody = {
       public_key: publicKey,
     };
 
     let tokenExpiration;
-    if (auth) {
-      const access_token = await auth.getAccessToken();
-      const client = await auth.getClient();
+    if (authType = AuthTypes.IAM) {
+      const access_token = await this.auth.getAccessToken();
+      const client = await this.auth.getClient();
       if (access_token && 'getTokenInfo' in client) {
         const info = await client.getTokenInfo(access_token);
         tokenExpiration = info.expiry_date;

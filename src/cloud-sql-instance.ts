@@ -31,7 +31,8 @@ interface Fetcher {
   }: InstanceConnectionInfo): Promise<InstanceMetadata>;
   getEphemeralCertificate(
     instanceConnectionInfo: InstanceConnectionInfo,
-    publicKey: string
+    publicKey: string,
+    authType: AuthTypes
   ): Promise<SslCert>;
 }
 
@@ -88,7 +89,8 @@ export class CloudSQLInstance {
 
     this.ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
       this.instanceInfo,
-      rsaKeys.publicKey
+      rsaKeys.publicKey,
+      this.authType
     );
     this.host = selectIpAddress(metadata.ipAddresses, this.ipType);
     this.privateKey = rsaKeys.privateKey;
