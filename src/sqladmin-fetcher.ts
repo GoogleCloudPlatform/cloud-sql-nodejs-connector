@@ -124,12 +124,10 @@ export class SQLAdminFetcher {
     if (authType === AuthTypes.IAM) {
       const access_token = await this.auth.getAccessToken();
       const client = await this.auth.getClient();
-      if (access_token && 'getTokenInfo' in client) {
-        const info = await client.getTokenInfo(access_token);
-        tokenExpiration = info.expiry_date;
+      if (access_token) {
+        tokenExpiration = client.credentials.expiry_date;
         requestBody.access_token = access_token;
       } else {
-        console.log(client);
         throw new CloudSQLConnectorError({
           message:
             'Failed to get access token for automatic IAM authentication.',
