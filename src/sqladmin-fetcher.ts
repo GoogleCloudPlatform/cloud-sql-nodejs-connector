@@ -129,7 +129,7 @@ export class SQLAdminFetcher {
         tokenExpiration = info.expiry_date;
         requestBody.access_token = access_token;
       } else {
-        console.log(access_token);
+        console.log(client);
         throw new CloudSQLConnectorError({
           message:
             'Failed to get access token for automatic IAM authentication.',
