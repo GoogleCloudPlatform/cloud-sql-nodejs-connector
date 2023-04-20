@@ -74,7 +74,7 @@ class CloudSQLInstanceMap extends Map {
             `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
             `but was previously called with ipType ${instance.ipType}. ` +
             'If you require both for your use case, please use a new connector object.',
-          code: 'EBADINSTANCEINFO',
+          code: 'EMISMATCHIPTYPE',
         });
       } else if (instance.authType !== authType) {
         throw new CloudSQLConnectorError({
@@ -117,7 +117,7 @@ class CloudSQLInstanceMap extends Map {
           `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
           `but was previously called with ipType ${connectionInstance.ipType}. ` +
           'If you require both for your use case, please use a new connector object.',
-        code: 'EBADINSTANCEINFO',
+        code: 'EMISMATCHIPTYPE',
       });
     } else if (connectionInstance.authType !== authType) {
       throw new CloudSQLConnectorError({
