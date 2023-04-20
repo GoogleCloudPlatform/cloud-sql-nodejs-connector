@@ -28,7 +28,7 @@
     "prepare": "rm -rf dist && npm run compile && node ./scripts/fixup.cjs",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",
-    "test": "c8 tap",
+    "test": "c8 --100 tap",
     "snap": "c8 tap",
     "presystem-test": "npm run prepare",
     "system-test": "tap --no-coverage system-test",
