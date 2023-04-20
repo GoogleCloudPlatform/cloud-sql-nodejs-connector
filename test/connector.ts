@@ -164,7 +164,9 @@ t.test('Connector bad instance info error', async t => {
     '../src/cloud-sql-instance': {
       CloudSQLInstance: {
         async getCloudSQLInstance() {
-          return {};
+          return {
+            ipType: 'PUBLIC',
+          };
         },
       },
     },

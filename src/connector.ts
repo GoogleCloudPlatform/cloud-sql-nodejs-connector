@@ -70,7 +70,7 @@ class CloudSQLInstanceMap extends Map {
             `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
             `but was previously called with ipType ${instance.ipType}. ` +
             'If you require both for your use case, please use a new connector object.',
-          code: 'EBADINSTANCEINFO',
+          code: 'EMISMATCHIPTYPE',
         });
       }
       return;
@@ -102,7 +102,7 @@ class CloudSQLInstanceMap extends Map {
           `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
           `but was previously called with ipType ${connectionInstance.ipType}. ` +
           'If you require both for your use case, please use a new connector object.',
-        code: 'EBADINSTANCEINFO',
+        code: 'EMISMATCHIPTYPE',
       });
     }
     return connectionInstance;
