@@ -250,84 +250,242 @@ t.test('start only a single instance info per connection name', async t => {
   });
 });
 
-t.test(
-  'throws error when there are conflicting settings for same instance name',
-  async t => {
-    setupCredentials(t);
+t.test('Connector reusing instance on mismatching auth type', async t => {
+  setupCredentials(t);
 
-    // mocks sql admin fetcher and generateKeys modules
-    // so that they can return a deterministic result
-    const {Connector} = t.mock('../src/connector', {
-      '../src/sqladmin-fetcher': {
-        SQLAdminFetcher: class {
-          getInstanceMetadata() {
-            return Promise.resolve({
-              ipAddresses: {
-                public: '127.0.0.1',
-              },
-              serverCaCert: {
-                cert: CA_CERT,
-                expirationTime: '2033-01-06T10:00:00.232Z',
-              },
-            });
-          }
-          getEphemeralCertificate() {
-            return Promise.resolve({
-              cert: CLIENT_CERT,
+  // mocks sql admin fetcher and generateKeys modules
+  // so that they can return a deterministic result
+  const {Connector} = t.mock('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
               expirationTime: '2033-01-06T10:00:00.232Z',
-            });
-          }
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': {
+      CloudSQLInstance: {
+        async getCloudSQLInstance() {
+          return {
+            ipType: IpAddressTypes.PUBLIC,
+            authType: AuthTypes.PASSWORD,
+          };
         },
       },
-      '../src/cloud-sql-instance': {
-        CloudSQLInstance: {
-          async getCloudSQLInstance() {
-            return {
-              ipType: IpAddressTypes.PUBLIC,
-              authType: AuthTypes.PASSWORD,
-            };
-          },
-        },
-      },
-    });
+    },
+  });
 
-    const connector = new Connector();
-    await connector.getOptions({
+  const connector = new Connector();
+  await connector.getOptions({
+    ipType: 'PUBLIC',
+    authType: 'PASSWORD',
+    instanceConnectionName: 'foo:bar:baz',
+  });
+
+  return t.rejects(
+    connector.getOptions({
       ipType: 'PUBLIC',
-      authType: 'PASSWORD',
+      authType: 'IAM',
       instanceConnectionName: 'foo:bar:baz',
-    });
+    }),
+    {
+      message:
+        'getOptions called for instance foo:bar:baz' +
+        ' with authType IAM, but was previously called with authType PASSWORD.' +
+        ' If you require both for your use case, please use a new connector object.',
+      code: 'EMISMATCHAUTHTYPE',
+    },
+    'should throw error'
+  );
+});
 
-    t.rejects(
-      connector.getOptions({
-        ipType: 'PUBLIC',
-        authType: 'IAM',
-        instanceConnectionName: 'foo:bar:baz',
-      }),
-      {
-        message:
-          'getOptions called for instance foo:bar:baz' +
-          ' with authType IAM, but was previously called with authType PASSWORD.' +
-          ' If you require both for your use case, please use a new connector object.',
-        code: 'EMISMATCHAUTHTYPE',
-      },
-      'should throw error'
-    );
+t.test('Connector reusing instance on mismatching ip type', async t => {
+  setupCredentials(t); // setup google-auth credentials mocks
+  let hasInstance = false;
 
-    t.rejects(
-      connector.getOptions({
-        ipType: 'PRIVATE',
-        authType: 'PASSWORD',
-        instanceConnectionName: 'foo:bar:baz',
-      }),
-      {
-        message:
-          'getOptions called for instance foo:bar:baz' +
-          ' with ipType PRIVATE, but was previously called with ipType PUBLIC.' +
-          ' If you require both for your use case, please use a new connector object.',
-        code: 'EMISMATCHIPTYPE',
+  // mocks sql admin fetcher and generateKeys modules
+  // so that they can return a deterministic result
+  const {Connector} = t.mock('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
       },
-      'should throw error'
-    );
-  }
-);
+    },
+    '../src/cloud-sql-instance': {
+      CloudSQLInstance: {
+        async getCloudSQLInstance() {
+          if (hasInstance) {
+            throw new Error('should only initialize once');
+          }
+          hasInstance = true;
+          return {
+            ipType: 'PUBLIC',
+          };
+        },
+      },
+    },
+  });
+
+  const connector = new Connector();
+  await connector.getOptions({
+    authType: 'PASSWORD',
+    ipType: 'PUBLIC',
+    instanceConnectionName: 'foo:bar:baz',
+  });
+  return t.rejects(
+    connector.getOptions({
+      authType: 'PASSWORD',
+      ipType: 'PRIVATE',
+      instanceConnectionName: 'foo:bar:baz',
+    }),
+    {
+      code: 'EMISMATCHIPTYPE',
+      message:
+        'getOptions called for instance foo:bar:baz with ipType PRIVATE, ' +
+        'but was previously called with ipType PUBLIC. ' +
+        'If you require both for your use case, please use a new connector object.',
+    },
+    'should throw error if retrieving existing instance with diff ip type'
+  );
+});
+
+t.test('Connector factory method mismatch auth type', async t => {
+  setupCredentials(t); // setup google-auth credentials mocks
+
+  // mocks sql admin fetcher and generateKeys modules
+  // so that they can return a deterministic result
+  const {Connector} = t.mock('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': {
+      CloudSQLInstance: {
+        async getCloudSQLInstance() {
+          return {
+            authType: 'IAM',
+            ipType: 'PUBLIC',
+          };
+        },
+      },
+    },
+  });
+
+  const connector = new Connector();
+  const opts = await connector.getOptions({
+    authType: 'PASSWORD',
+    ipType: 'PUBLIC',
+    instanceConnectionName: 'foo:bar:baz',
+  });
+  t.throws(
+    () => {
+      opts.stream(); // calls factory method that returns new socket
+    },
+    {
+      code: 'EMISMATCHAUTHTYPE',
+    },
+    'should throw a mismatching auth type error'
+  );
+});
+
+t.test('Connector factory method mismatch ip type', async t => {
+  setupCredentials(t); // setup google-auth credentials mocks
+
+  // mocks sql admin fetcher and generateKeys modules
+  // so that they can return a deterministic result
+  const {Connector} = t.mock('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': {
+      CloudSQLInstance: {
+        async getCloudSQLInstance() {
+          return {
+            ipType: 'PUBLIC',
+          };
+        },
+      },
+    },
+  });
+
+  const connector = new Connector();
+  const opts = await connector.getOptions({
+    authType: 'PASSWORD',
+    ipType: 'PRIVATE',
+    instanceConnectionName: 'foo:bar:baz',
+  });
+  t.throws(
+    () => {
+      opts.stream(); // calls factory method that returns new socket
+    },
+    {
+      code: 'EMISMATCHIPTYPE',
+    },
+    'should throw a mismatching ip type error'
+  );
+});
