@@ -82,7 +82,7 @@ class CloudSQLInstanceMap extends Map {
             `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
             `but was previously called with authType ${instance.authType}. ` +
             'If you require both for your use case, please use a new connector object.',
-          code: 'EBADINSTANCEINFO',
+          code: 'EMISMATCHAUTHTYPE',
         });
       }
       return;
@@ -125,7 +125,7 @@ class CloudSQLInstanceMap extends Map {
           `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
           `but was previously called with authType ${connectionInstance.authType}. ` +
           'If you require both for your use case, please use a new connector object.',
-        code: 'EBADINSTANCEINFO',
+        code: 'EMISMATCHAUTHTYPE',
       });
     }
     return connectionInstance;
