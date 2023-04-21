@@ -111,7 +111,10 @@ class CloudSQLInstanceMap extends Map {
         message: `Cannot find info for instance: ${instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
       });
-    } else if (connectionInstance.ipType && connectionInstance.ipType !== ipType) {
+    } else if (
+      connectionInstance.ipType &&
+      connectionInstance.ipType !== ipType
+    ) {
       throw new CloudSQLConnectorError({
         message:
           `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
@@ -119,7 +122,10 @@ class CloudSQLInstanceMap extends Map {
           'If you require both for your use case, please use a new connector object.',
         code: 'EMISMATCHIPTYPE',
       });
-    } else if (connectionInstance.authType && connectionInstance.authType !== authType) {
+    } else if (
+      connectionInstance.authType &&
+      connectionInstance.authType !== authType
+    ) {
       throw new CloudSQLConnectorError({
         message:
           `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
