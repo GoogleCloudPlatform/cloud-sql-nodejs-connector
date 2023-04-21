@@ -68,7 +68,7 @@ class CloudSQLInstanceMap extends Map {
     // been setup there's no need to set it up again
     if (this.has(instanceConnectionName)) {
       const instance = this.get(instanceConnectionName);
-      if (instance.ipType !== ipType) {
+      if (instance.ipType && instance.ipType !== ipType) {
         throw new CloudSQLConnectorError({
           message:
             `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
@@ -76,7 +76,7 @@ class CloudSQLInstanceMap extends Map {
             'If you require both for your use case, please use a new connector object.',
           code: 'EMISMATCHIPTYPE',
         });
-      } else if (instance.authType !== authType) {
+      } else if (instance.authType && instance.authType !== authType) {
         throw new CloudSQLConnectorError({
           message:
             `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
@@ -111,7 +111,7 @@ class CloudSQLInstanceMap extends Map {
         message: `Cannot find info for instance: ${instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
       });
-    } else if (connectionInstance.ipType !== ipType) {
+    } else if (connectionInstance.ipType && connectionInstance.ipType !== ipType) {
       throw new CloudSQLConnectorError({
         message:
           `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
@@ -119,7 +119,7 @@ class CloudSQLInstanceMap extends Map {
           'If you require both for your use case, please use a new connector object.',
         code: 'EMISMATCHIPTYPE',
       });
-    } else if (connectionInstance.authType !== authType) {
+    } else if (connectionInstance.authType && connectionInstance.authType !== authType) {
       throw new CloudSQLConnectorError({
         message:
           `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
