@@ -309,7 +309,7 @@ t.test(
           'getOptions called for instance foo:bar:baz' +
           ' with authType IAM, but was previously called with authType PASSWORD.' +
           ' If you require both for your use case, please use a new connector object.',
-        code: '"EMISMATCHAUTHTYPE"',
+        code: 'EMISMATCHAUTHTYPE',
       },
       'should throw error'
     );
@@ -325,7 +325,7 @@ t.test(
           'getOptions called for instance foo:bar:baz' +
           ' with ipType PRIVATE, but was previously called with ipType PUBLIC.' +
           ' If you require both for your use case, please use a new connector object.',
-        code: '"EMISMATCHIPTYPE"',
+        code: 'EMISMATCHIPTYPE',
       },
       'should throw error'
     );
