@@ -58,7 +58,6 @@ export class CloudSQLInstance {
   private refreshTimeoutID?: ReturnType<typeof setTimeout>;
   private closed = false;
   public readonly instanceInfo: InstanceConnectionInfo;
-  public auth?: GoogleAuth;
   public ephemeralCert?: SslCert;
   public host?: string;
   public privateKey?: string;
@@ -74,12 +73,6 @@ export class CloudSQLInstance {
     this.authType = authType;
     this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
     this.sqlAdminFetcher = sqlAdminFetcher;
-
-    if (this.authType === AuthTypes.IAM) {
-      this.auth = new GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
-      });
-    }
   }
 
   async refresh(): Promise<void> {
