@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import {IpAddressTypes, selectIpAddress} from './ip-addresses';
-import {GoogleAuth} from 'google-auth-library';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {parseInstanceConnectionName} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
