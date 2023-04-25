@@ -14,11 +14,13 @@
 
 import t from 'tap';
 import nock from 'nock';
+import {GoogleAuth} from 'google-auth-library';
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 import {SQLAdminFetcher} from '../src/sqladmin-fetcher';
 import {InstanceConnectionInfo} from '../src/instance-connection-info';
 import {setupCredentials} from './fixtures/setup-credentials';
 import {CLIENT_CERT} from './fixtures/certs';
+import {AuthTypes} from '../src/auth-types';
 
 const serverCaCertResponse = (instance: string) => ({
   kind: 'sql#sslCert',
@@ -241,13 +243,14 @@ t.test('getEphemeralCertificate', async t => {
   const fetcher = new SQLAdminFetcher();
   const ephemeralCert = await fetcher.getEphemeralCertificate(
     instanceConnectionInfo,
-    'key'
+    'key',
+    AuthTypes.PASSWORD
   );
   t.same(
     ephemeralCert,
     {
       cert: CLIENT_CERT,
-      expirationTime: 'Jul 22 17:53:09 3022 GMT',
+      expirationTime: '3022-07-22T17:53:09.000Z',
     },
     'should return expected ssl cert'
   );
@@ -266,7 +269,11 @@ t.test('getEphemeralCertificate no certificate', async t => {
 
   const fetcher = new SQLAdminFetcher();
   t.rejects(
-    fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key'),
+    fetcher.getEphemeralCertificate(
+      instanceConnectionInfo,
+      'key',
+      AuthTypes.PASSWORD
+    ),
     {
       code: 'ENOSQLADMINEPH',
     },
@@ -289,12 +296,88 @@ t.test('getEphemeralCertificate no response data', async t => {
 
   const fetcher = new SQLAdminFetcher();
   t.rejects(
-    fetcher.getEphemeralCertificate(instanceConnectionInfo, 'key'),
+    fetcher.getEphemeralCertificate(
+      instanceConnectionInfo,
+      'key',
+      AuthTypes.PASSWORD
+    ),
     {
       message:
         'Failed to find metadata on project id: no-response-data-project and instance id: no-response-data-instance. Ensure network connectivity and validate the provided `instanceConnectionName` config value',
       code: 'ENOSQLADMIN',
     },
     'should throw no response data error on no ephemeral cert response data'
+  );
+});
+
+t.test('getEphemeralCertificate no access token', async t => {
+  setupCredentials(t);
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'my-project',
+    regionId: 'us-east1',
+    instanceId: 'my-instance',
+  };
+  mockGenerateEphemeralCertRequest(instanceConnectionInfo);
+
+  const auth = new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
+  });
+  auth.getAccessToken = async () => null;
+
+  const fetcher = new SQLAdminFetcher(auth);
+
+  t.rejects(
+    fetcher.getEphemeralCertificate(
+      instanceConnectionInfo,
+      'key',
+      AuthTypes.IAM
+    ),
+    {
+      message: 'Failed to get access token for automatic IAM authentication.',
+      code: 'ENOACCESSTOKEN',
+    },
+    'should throw no access token error'
+  );
+});
+
+t.test('getEphemeralCertificate sets access token', async t => {
+  setupCredentials(t);
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'my-project',
+    regionId: 'us-east1',
+    instanceId: 'my-instance',
+  };
+  const {projectId, instanceId} = instanceConnectionInfo;
+
+  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
+    .post(`/${projectId}/instances/${instanceId}:generateEphemeralCert`)
+    .reply((uri, reqBody) => {
+      // check that token is sent in the ephemeral cert request
+      t.hasProp(
+        reqBody,
+        'access_token',
+        'should have access_token in request body'
+      );
+      return [
+        200,
+        {
+          ephemeralCert: ephCertResponse,
+        },
+      ];
+    });
+
+  const fetcher = new SQLAdminFetcher();
+  const ephemeralCert = await fetcher.getEphemeralCertificate(
+    instanceConnectionInfo,
+    'key',
+    AuthTypes.IAM
+  );
+
+  t.same(ephemeralCert.cert, CLIENT_CERT, 'should return expected ssl cert');
+  // check that it is using the earlier expiration time for the token
+  t.notMatch(
+    ephemeralCert.expirationTime,
+    '3022-07-22T17:53:09.000Z',
+    'should return earlier token expiration time'
   );
 });

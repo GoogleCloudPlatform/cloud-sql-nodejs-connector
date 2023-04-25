@@ -20,6 +20,7 @@ import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {getRefreshInterval} from './time';
+import {AuthTypes} from './auth-types';
 
 interface Fetcher {
   getInstanceMetadata({
@@ -29,12 +30,14 @@ interface Fetcher {
   }: InstanceConnectionInfo): Promise<InstanceMetadata>;
   getEphemeralCertificate(
     instanceConnectionInfo: InstanceConnectionInfo,
-    publicKey: string
+    publicKey: string,
+    authType: AuthTypes
   ): Promise<SslCert>;
 }
 
 interface CloudSQLInstanceOptions {
   ipType: IpAddressTypes;
+  authType: AuthTypes;
   instanceConnectionName: string;
   sqlAdminFetcher: Fetcher;
 }
@@ -49,6 +52,7 @@ export class CloudSQLInstance {
   }
 
   private readonly ipType: IpAddressTypes;
+  private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
   private refreshTimeoutID?: ReturnType<typeof setTimeout>;
   private closed = false;
@@ -60,10 +64,12 @@ export class CloudSQLInstance {
 
   constructor({
     ipType,
+    authType,
     instanceConnectionName,
     sqlAdminFetcher,
   }: CloudSQLInstanceOptions) {
     this.ipType = ipType;
+    this.authType = authType;
     this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
     this.sqlAdminFetcher = sqlAdminFetcher;
   }
@@ -75,7 +81,8 @@ export class CloudSQLInstance {
 
     this.ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
       this.instanceInfo,
-      rsaKeys.publicKey
+      rsaKeys.publicKey,
+      this.authType
     );
     this.host = selectIpAddress(metadata.ipAddresses, this.ipType);
     this.privateKey = rsaKeys.privateKey;

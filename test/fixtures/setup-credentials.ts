@@ -34,4 +34,9 @@ export function setupCredentials(test: Tap.Test): void {
     .persist()
     .post('/token')
     .reply(200, {access_token: 'abc123', expires_in: 1});
+
+  nock('https://oauth2.googleapis.com').post('/tokeninfo').reply(200, {
+    expires_in: 3600,
+    scope: 'https://www.googleapis.com/auth/sqlservice.login',
+  });
 }

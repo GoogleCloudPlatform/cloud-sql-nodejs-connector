@@ -17,6 +17,7 @@ import {Connector} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
 import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
+import {AuthTypes} from '../src/auth-types';
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
@@ -58,6 +59,7 @@ t.test('Connector', async t => {
   const connector = new Connector();
   const opts = await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
   t.same(opts.ssl, false, 'should not use driver ssl options');
@@ -71,6 +73,7 @@ t.test('Connector invalid type error', async t => {
   t.rejects(
     connector.getOptions({
       ipType: 'foo' as IpAddressTypes,
+      authType: AuthTypes.PASSWORD,
       instanceConnectionName: 'my-project:us-east1:my-instance',
     }),
     {
@@ -120,6 +123,7 @@ t.test('Connector missing instance info error', async t => {
   const connector = new Connector();
   const opts = await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
   t.throws(
@@ -175,6 +179,7 @@ t.test('Connector bad instance info error', async t => {
   const connector = new Connector();
   const opts = await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
   t.throws(
@@ -224,7 +229,8 @@ t.test('start only a single instance info per connection name', async t => {
           }
           hasInstance = true;
           return {
-            ipType: 'PUBLIC',
+            ipType: IpAddressTypes.PUBLIC,
+            authType: AuthTypes.PASSWORD,
           };
         },
       },
@@ -234,10 +240,94 @@ t.test('start only a single instance info per connection name', async t => {
   const connector = new Connector();
   await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
   await connector.getOptions({
     ipType: 'PUBLIC',
+    authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
 });
+
+t.test(
+  'throws error when there are conflicting settings for same instance name',
+  async t => {
+    setupCredentials(t);
+
+    // mocks sql admin fetcher and generateKeys modules
+    // so that they can return a deterministic result
+    const {Connector} = t.mock('../src/connector', {
+      '../src/sqladmin-fetcher': {
+        SQLAdminFetcher: class {
+          getInstanceMetadata() {
+            return Promise.resolve({
+              ipAddresses: {
+                public: '127.0.0.1',
+              },
+              serverCaCert: {
+                cert: CA_CERT,
+                expirationTime: '2033-01-06T10:00:00.232Z',
+              },
+            });
+          }
+          getEphemeralCertificate() {
+            return Promise.resolve({
+              cert: CLIENT_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            });
+          }
+        },
+      },
+      '../src/cloud-sql-instance': {
+        CloudSQLInstance: {
+          async getCloudSQLInstance() {
+            return {
+              ipType: IpAddressTypes.PUBLIC,
+              authType: AuthTypes.PASSWORD,
+            };
+          },
+        },
+      },
+    });
+
+    const connector = new Connector();
+    await connector.getOptions({
+      ipType: 'PUBLIC',
+      authType: 'PASSWORD',
+      instanceConnectionName: 'foo:bar:baz',
+    });
+
+    t.rejects(
+      connector.getOptions({
+        ipType: 'PUBLIC',
+        authType: 'IAM',
+        instanceConnectionName: 'foo:bar:baz',
+      }),
+      {
+        message:
+          'getOptions called for instance foo:bar:baz' +
+          ' with authType IAM, but was previously called with authType PASSWORD.' +
+          ' If you require both for your use case, please use a new connector object.',
+        code: 'EMISMATCHAUTHTYPE',
+      },
+      'should throw error'
+    );
+
+    t.rejects(
+      connector.getOptions({
+        ipType: 'PRIVATE',
+        authType: 'PASSWORD',
+        instanceConnectionName: 'foo:bar:baz',
+      }),
+      {
+        message:
+          'getOptions called for instance foo:bar:baz' +
+          ' with ipType PRIVATE, but was previously called with ipType PUBLIC.' +
+          ' If you require both for your use case, please use a new connector object.',
+        code: 'EMISMATCHIPTYPE',
+      },
+      'should throw error'
+    );
+  }
+);

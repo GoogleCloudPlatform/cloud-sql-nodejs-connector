@@ -33,3 +33,13 @@ export function getRefreshInterval(isoTime: string): number {
 
   return interval < MAX_INTERVAL ? interval : MAX_INTERVAL;
 }
+
+export function getNearestExpiration(
+  certExp: number,
+  tokenExp: number | null | undefined
+) {
+  if (tokenExp) {
+    return new Date(Math.min(certExp, tokenExp)).toISOString();
+  }
+  return new Date(certExp).toISOString();
+}

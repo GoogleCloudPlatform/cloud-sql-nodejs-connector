@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Connector, ConnectionOptions, DriverOptions} from './connector';
-import {IpAddressTypes} from './ip-addresses';
-import {AuthTypes} from './auth-types';
-
-export {Connector, type ConnectionOptions, type DriverOptions};
-export {IpAddressTypes};
-export {AuthTypes};
+export enum AuthTypes {
+  PASSWORD = 'PASSWORD',
+  IAM = 'IAM',
+}

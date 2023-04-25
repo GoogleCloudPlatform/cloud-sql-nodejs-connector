@@ -20,16 +20,24 @@ import {SslCert} from './ssl-cert';
 import {parseCert} from './crypto';
 import {IpAddresses, parseIpAddresses} from './ip-addresses';
 import {CloudSQLConnectorError} from './errors';
+import {getNearestExpiration} from './time';
+import {AuthTypes} from './auth-types';
 
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
   serverCaCert: SslCert;
 }
 
+interface RequestBody {
+  public_key: string;
+  access_token?: string;
+}
+
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
+  private readonly auth: GoogleAuth;
 
-  constructor() {
+  constructor(loginAuth?: GoogleAuth) {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
     });
@@ -42,6 +50,12 @@ export class SQLAdminFetcher {
         },
       ],
     });
+
+    this.auth =
+      loginAuth ||
+      new GoogleAuth({
+        scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
+      });
   }
 
   async getInstanceMetadata({
@@ -99,14 +113,32 @@ export class SQLAdminFetcher {
 
   async getEphemeralCertificate(
     {projectId, instanceId}: InstanceConnectionInfo,
-    publicKey: string
+    publicKey: string,
+    authType: AuthTypes
   ): Promise<SslCert> {
+    const requestBody: RequestBody = {
+      public_key: publicKey,
+    };
+
+    let tokenExpiration;
+    if (authType === AuthTypes.IAM) {
+      const access_token = await this.auth.getAccessToken();
+      const client = await this.auth.getClient();
+      if (access_token) {
+        tokenExpiration = client.credentials.expiry_date;
+        requestBody.access_token = access_token;
+      } else {
+        throw new CloudSQLConnectorError({
+          message:
+            'Failed to get access token for automatic IAM authentication.',
+          code: 'ENOACCESSTOKEN',
+        });
+      }
+    }
     const res = await this.client.connect.generateEphemeralCert({
       project: projectId,
       instance: instanceId,
-      requestBody: {
-        public_key: publicKey,
-      },
+      requestBody,
     });
 
     if (!res.data) {
@@ -131,9 +163,15 @@ export class SQLAdminFetcher {
     // NOTE: If the SQL Admin generateEphemeralCert API starts returning
     // the expirationTime info, this certificate parsing is no longer needed
     const {cert, expirationTime} = await parseCert(ephemeralCert.cert);
+
+    const nearestExpiration = getNearestExpiration(
+      Date.parse(expirationTime),
+      tokenExpiration
+    );
+
     return {
       cert,
-      expirationTime,
+      expirationTime: nearestExpiration,
     };
   }
 }

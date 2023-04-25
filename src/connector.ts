@@ -16,6 +16,7 @@ import tls from 'node:tls';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
 import {IpAddressTypes} from './ip-addresses';
+import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
 
@@ -29,6 +30,7 @@ import {CloudSQLConnectorError} from './errors';
 // await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
   ipType: IpAddressTypes;
+  authType: AuthTypes;
   instanceConnectionName: string;
 }
 
@@ -53,10 +55,12 @@ export declare interface DriverOptions {
 class CloudSQLInstanceMap extends Map {
   async loadInstance({
     ipType,
+    authType,
     instanceConnectionName,
     sqlAdminFetcher,
   }: {
     ipType: IpAddressTypes;
+    authType: AuthTypes;
     instanceConnectionName: string;
     sqlAdminFetcher: SQLAdminFetcher;
   }): Promise<void> {
@@ -64,7 +68,7 @@ class CloudSQLInstanceMap extends Map {
     // been setup there's no need to set it up again
     if (this.has(instanceConnectionName)) {
       const instance = this.get(instanceConnectionName);
-      if (instance.ipType !== ipType) {
+      if (instance.ipType && instance.ipType !== ipType) {
         throw new CloudSQLConnectorError({
           message:
             `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
@@ -72,11 +76,20 @@ class CloudSQLInstanceMap extends Map {
             'If you require both for your use case, please use a new connector object.',
           code: 'EMISMATCHIPTYPE',
         });
+      } else if (instance.authType && instance.authType !== authType) {
+        throw new CloudSQLConnectorError({
+          message:
+            `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
+            `but was previously called with authType ${instance.authType}. ` +
+            'If you require both for your use case, please use a new connector object.',
+          code: 'EMISMATCHAUTHTYPE',
+        });
       }
       return;
     }
     const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
       ipType,
+      authType,
       instanceConnectionName,
       sqlAdminFetcher: sqlAdminFetcher,
     });
@@ -86,9 +99,11 @@ class CloudSQLInstanceMap extends Map {
   getInstance({
     instanceConnectionName,
     ipType,
+    authType,
   }: {
     instanceConnectionName: string;
     ipType: IpAddressTypes;
+    authType: AuthTypes;
   }): CloudSQLInstance {
     const connectionInstance = this.get(instanceConnectionName);
     if (!connectionInstance) {
@@ -96,13 +111,27 @@ class CloudSQLInstanceMap extends Map {
         message: `Cannot find info for instance: ${instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
       });
-    } else if (connectionInstance.ipType !== ipType) {
+    } else if (
+      connectionInstance.ipType &&
+      connectionInstance.ipType !== ipType
+    ) {
       throw new CloudSQLConnectorError({
         message:
           `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
           `but was previously called with ipType ${connectionInstance.ipType}. ` +
           'If you require both for your use case, please use a new connector object.',
         code: 'EMISMATCHIPTYPE',
+      });
+    } else if (
+      connectionInstance.authType &&
+      connectionInstance.authType !== authType
+    ) {
+      throw new CloudSQLConnectorError({
+        message:
+          `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
+          `but was previously called with authType ${connectionInstance.authType}. ` +
+          'If you require both for your use case, please use a new connector object.',
+        code: 'EMISMATCHAUTHTYPE',
       });
     }
     return connectionInstance;
@@ -111,6 +140,9 @@ class CloudSQLInstanceMap extends Map {
 
 const getIpAddressType = (type: IpAddressTypes): IpAddressTypes | undefined =>
   Object.values(IpAddressTypes).find(x => x === type);
+
+const getAuthType = (type: AuthTypes): AuthTypes | undefined =>
+  Object.values(AuthTypes).find(x => x === type);
 
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
@@ -136,6 +168,7 @@ export class Connector {
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
     ipType: rawIpType,
+    authType: rawAuthType,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
     const ipType = getIpAddressType(rawIpType);
@@ -148,9 +181,20 @@ export class Connector {
       });
     }
 
+    const authType = getAuthType(rawAuthType);
+    if (!authType) {
+      throw new CloudSQLConnectorError({
+        message: `Invalid authentication type: ${String(
+          rawAuthType
+        )}, expected PASSWORD or IAM`,
+        code: 'EBADAUTHTYPE',
+      });
+    }
+
     const {instances} = this;
     await instances.loadInstance({
       ipType,
+      authType,
       instanceConnectionName,
       sqlAdminFetcher: this.sqlAdminFetcher,
     });
@@ -158,7 +202,7 @@ export class Connector {
     return {
       stream() {
         const {instanceInfo, ephemeralCert, host, privateKey, serverCaCert} =
-          instances.getInstance({instanceConnectionName, ipType});
+          instances.getInstance({instanceConnectionName, ipType, authType});
 
         if (
           instanceInfo &&
