@@ -31,14 +31,11 @@ npm install
 
 # First, pack this project as a tarball
 
-npm pack .
+TARBALL_BASENAME=$(npm pack)
 
 # Second, publish the tarball that was just created
 
-# npm provides no way to specify, observe, or predict the name of the tarball
-# file it generates.  We have to look in the current directory for the freshest
-# .tgz file.
-TARBALL=$(ls -1 -t *.tgz | head -1)
+TARBALL="$(pwd)/$TARBALL_BASENAME"
 npm publish --access=public --registry=https://wombat-dressing-room.appspot.com "$TARBALL"
 
 # Third, clean up all package-lock.json and *.tgz from the node_modules directory
