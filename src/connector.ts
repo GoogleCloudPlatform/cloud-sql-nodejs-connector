@@ -181,15 +181,7 @@ export class Connector {
       });
     }
 
-    const authType = getAuthType(rawAuthType);
-    if (!authType) {
-      throw new CloudSQLConnectorError({
-        message: `Invalid authentication type: ${String(
-          rawAuthType
-        )}, expected PASSWORD or IAM`,
-        code: 'EBADAUTHTYPE',
-      });
-    }
+    const authType = getAuthType(rawAuthType) || AuthTypes.PASSWORD;
 
     const {instances} = this;
     await instances.loadInstance({

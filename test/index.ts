@@ -13,7 +13,8 @@
 // limitations under the License.
 
 import t from 'tap';
-import {Connector, IpAddressTypes} from '../src/index';
+import {AuthTypes, Connector, IpAddressTypes} from '../src/index';
 
+t.ok(AuthTypes, 'should export AuthTypes enum');
 t.ok(Connector, 'should export Connector constructor');
 t.ok(IpAddressTypes, 'should export IpAddressTypes enum');
