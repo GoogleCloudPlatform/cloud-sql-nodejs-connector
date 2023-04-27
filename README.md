@@ -56,7 +56,6 @@ const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   ipType: 'PUBLIC', 
-  authType: 'PASSWORD'
 });
 const pool = new Pool({
   ...clientOpts,
@@ -110,7 +109,6 @@ const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   ipType: 'PUBLIC',
-  authType: 'PASSWORD'
 });
 const pool = await mysql.createPool({
   ...clientOpts,
