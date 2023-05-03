@@ -28,4 +28,21 @@ NPM_TOKEN=$(cat $KOKORO_KEYSTORE_DIR/73713_google-cloud-npm-token-1)
 echo "//wombat-dressing-room.appspot.com/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
 npm install
-npm publish --access=public --registry=https://wombat-dressing-room.appspot.com
+
+# First, pack this project as a tarball
+
+TARBALL_BASENAME=$(npm pack)
+
+# Second, publish the tarball that was just created
+
+TARBALL="$(pwd)/$TARBALL_BASENAME"
+npm publish --access=public --registry=https://wombat-dressing-room.appspot.com "$TARBALL"
+
+# Third, clean up all package-lock.json and *.tgz from the node_modules directory
+# to simplify artifact reporting.
+
+# Kokoro collects *.tgz and package-lock.json files and stores them in Placer
+# so we can generate SBOMs and attestations.
+# However, we *don't* want Kokoro to collect package-lock.json and *.tgz files
+# that happened to be installed with dependencies.
+find node_modules -name package-lock.json -o -name "*.tgz" | xargs rm -f
