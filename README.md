@@ -7,9 +7,12 @@
 <h1 align="center">Cloud SQL Node.js Connector</h1>
 
 [![CI][ci-badge]][ci-build]
+[![npm][npm-badge]][npm-docs]
 
 [ci-badge]: https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/actions/workflows/tests.yml/badge.svg?event=push
 [ci-build]: https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/actions/workflows/tests.yml?query=event%3Apush+branch%3Amain
+[npm-badge]: https://img.shields.io/npm/v/@google-cloud/cloud-sql-connector
+[npm-docs]: https://www.npmjs.com/package/@google-cloud/cloud-sql-connector
 
 The **Cloud SQL Node.js Connector** is a Cloud SQL connector designed for use
 with the Node.js runtime. Using a Cloud SQL connector provides the following
