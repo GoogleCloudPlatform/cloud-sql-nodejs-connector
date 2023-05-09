@@ -22,6 +22,7 @@ import {IpAddresses, parseIpAddresses} from './ip-addresses';
 import {CloudSQLConnectorError} from './errors';
 import {getNearestExpiration} from './time';
 import {AuthTypes} from './auth-types';
+import {version} from '../package.json';
 
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
@@ -46,7 +47,7 @@ export class SQLAdminFetcher {
       userAgentDirectives: [
         {
           product: 'cloud-sql-nodejs-connector',
-          version: '0.1.0',
+          version: version,
         },
       ],
     });
