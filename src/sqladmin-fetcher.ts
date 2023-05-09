@@ -46,7 +46,7 @@ export class SQLAdminFetcher {
       userAgentDirectives: [
         {
           product: 'cloud-sql-nodejs-connector',
-          version: '0.1.0',
+          version: 'LIBRARY_SEMVER_VERSION',
         },
       ],
     });

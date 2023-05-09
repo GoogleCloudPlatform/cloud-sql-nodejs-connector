@@ -58,9 +58,26 @@ async function fixupImportFileExtensions() {
   }
 }
 
+async function updateVersion() {
+  const versionReplacementFilePaths = [
+    resolve(__dirname, '../dist/cjs/sqladmin-fetcher.js'),
+    resolve(__dirname, '../dist/mjs/sqladmin-fetcher.js')
+  ];
+  const {version} = require('../package.json');
+
+  const replaceVersion = source =>
+    source.replace(/LIBRARY_SEMVER_VERSION/gm, version);
+
+  for (const filepath of versionReplacementFilePaths) {
+    const contents = await readFile(filepath, { encoding: 'utf8' });
+    await writeFile(filepath, replaceVersion(contents));
+  }
+}
+
 async function main() {
   await addModuleSystemTypeFile();
   await fixupImportFileExtensions();
+  await updateVersion();
 }
 
 main();
