@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.2.0...v0.3.0) (2023-05-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* update `IpAdressesTypes` to `IpAddressTypes` ([#94](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/94))
+* rename type to ipType ([#83](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/83))
+
+### Features
+
+* support automatic IAM authentication ([#78](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/78)) ([ad95065](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/ad95065b8260d81fcc7642adfcac4074e789a43e))
+
+
+### Bug Fixes
+
+* throw error when conflicting connection settings for same instance ([#84](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/84)) ([1c7b3d1](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/1c7b3d120265323ae7d1cf3ad0e45fdc709a9889))
+* user-agent version number ([511ccd8](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/511ccd8ea48d830977a1fdb4584e6e4d24640164))
+
+
+### Code Refactoring
+
+* rename type to ipType ([#83](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/83)) ([fcf66fa](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/fcf66fa41ae4fefcffc490b445dd9bb14c456be5))
+* update `IpAdressesTypes` to `IpAddressTypes` ([#94](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/94)) ([e38d392](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/e38d392add7fb90f76cc25915d3591af9c705ba1))
+
+
+### Miscellaneous Chores
+
+* release 0.3.0 ([#109](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/109)) ([72ccb47](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/72ccb478d9bb613f1b12d6789b6b74ae6b3c333e))
+
 ## [0.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.1.3...v0.2.0) (2023-04-11)
 
 
