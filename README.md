@@ -30,6 +30,7 @@ driver. Currently supported drivers are:
 
 - [`pg`](https://www.npmjs.com/package/pg) (PostgreSQL)
 - [`mysql2`](https://www.npmjs.com/package/mysql2) (MySQL)
+- [`tedious`](https://www.npmjs.com/package/tedious) (SQL Server)
 
 ## Installation
 
@@ -167,6 +168,64 @@ const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   ipType: 'PRIVATE',
 });
+```
+
+### Using with SQL Server
+
+Here is how to start a new
+[`tedious`](https://www.npmjs.com/package/tedious) connection.
+
+```js
+const {Connection, Request} = require('tedious');
+const {Connector} = require('@google-cloud/cloud-sql-connector');
+
+const connector = new Connector();
+const clientOpts = await connector.getTediousOptions({
+  instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
+  ipType: 'PUBLIC'
+});
+const connection = new Connection({
+  // Please note that the `server` property here is not used and is only defined
+  // due to a bug in the tedious driver (ref: https://github.com/tediousjs/tedious/issues/1541)
+  // With that in mind, do not try to change this value since it will have no
+  // impact in how the connector works, this README will be updated to remove
+  // this property declaration as soon as the tedious driver bug is fixed
+  server: '0.0.0.0',
+  authentication: {
+    type: 'default',
+    options: {
+      userName: process.env.SQLSERVER_USER,
+      password: process.env.SQLSERVER_PASS,
+    },
+  },
+  options: {
+    ...clientOpts,
+    // Please note that the `port` property here is not used and is only defined
+    // due to a bug in the tedious driver (ref: https://github.com/tediousjs/tedious/issues/1541)
+    // With that in mind, do not try to change this value since it will have no
+    // impact in how the connector works, this README will be updated to remove
+    // this property declaration as soon as the tedious driver bug is fixed
+    port: 9999,
+    database: process.env.SQLSERVER_DB,
+  },
+})
+
+connection.connect(err => {
+  if (err) { throw err; }
+  let result;
+  const req = new Request('SELECT GETUTCDATE()', (err) => {
+    if (err) { throw err; }
+  })
+  req.on('error', (err) => { throw err; });
+  req.on('row', (columns) => { result = columns; });
+  req.on('requestCompleted', () => {
+    console.table(result);
+  });
+  connection.execSql(req);
+})
+
+connection.close();
+connector.close();
 ```
 
 ## Supported Node.js Versions

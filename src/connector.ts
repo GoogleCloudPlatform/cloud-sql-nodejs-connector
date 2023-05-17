@@ -29,13 +29,17 @@ import {CloudSQLConnectorError} from './errors';
 // };
 // await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
-  ipType?: IpAddressTypes;
   authType?: AuthTypes;
+  ipType?: IpAddressTypes;
   instanceConnectionName: string;
 }
 
 interface StreamFunction {
   (): tls.TLSSocket;
+}
+
+interface PromisedStreamFunction {
+  (): Promise<tls.TLSSocket>;
 }
 
 // DriverOptions is the interface describing the object returned by
@@ -47,6 +51,11 @@ interface StreamFunction {
 // });
 export declare interface DriverOptions {
   stream: StreamFunction;
+}
+
+export declare interface TediousDriverOptions {
+  connector: PromisedStreamFunction;
+  encrypt: boolean;
 }
 
 // Internal mapping of the CloudSQLInstances that
@@ -160,8 +169,8 @@ export class Connector {
   // const pool = new Pool(opts)
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
-    ipType = IpAddressTypes.PUBLIC,
     authType = AuthTypes.PASSWORD,
+    ipType = IpAddressTypes.PUBLIC,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
     const {instances} = this;
@@ -206,6 +215,32 @@ export class Connector {
           code: 'EBADINSTANCEINFO',
         });
       },
+    };
+  }
+
+  async getTediousOptions({
+    authType,
+    ipType,
+    instanceConnectionName,
+  }: ConnectionOptions): Promise<TediousDriverOptions> {
+    if (authType === AuthTypes.IAM) {
+      throw new CloudSQLConnectorError({
+        message: 'Tedious does not support Auto IAM DB Authentication',
+        code: 'ENOIAM',
+      });
+    }
+    const driverOptions = await this.getOptions({
+      authType,
+      ipType,
+      instanceConnectionName,
+    });
+    return {
+      async connector() {
+        return driverOptions.stream();
+      },
+      // note: the connector handles a secured encrypted connection
+      // with that in mind, the driver encryption is disabled here
+      encrypt: false,
     };
   }
 
