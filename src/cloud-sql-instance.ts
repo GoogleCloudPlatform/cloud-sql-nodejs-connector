@@ -59,6 +59,7 @@ export class CloudSQLInstance {
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
+  public port = 3307;
   public privateKey?: string;
   public serverCaCert?: SslCert;
 

@@ -22,6 +22,7 @@ const DEFAULT_KEEP_ALIVE_DELAY_MS = 30 * 1000;
 interface SocketOptions {
   ephemeralCert: SslCert;
   host: string;
+  port: number;
   instanceInfo: InstanceConnectionInfo;
   privateKey: string;
   serverCaCert: SslCert;
@@ -49,13 +50,14 @@ export function validateCertificate(instanceInfo: InstanceConnectionInfo) {
 export function getSocket({
   ephemeralCert,
   host,
+  port,
   instanceInfo,
   privateKey,
   serverCaCert,
 }: SocketOptions): tls.TLSSocket {
   const socketOpts = {
     host,
-    port: 3307,
+    port,
     secureContext: tls.createSecureContext({
       ca: serverCaCert.cert,
       cert: ephemeralCert.cert,

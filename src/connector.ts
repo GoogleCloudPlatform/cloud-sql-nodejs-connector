@@ -193,13 +193,20 @@ export class Connector {
 
     return {
       stream() {
-        const {instanceInfo, ephemeralCert, host, privateKey, serverCaCert} =
-          instances.getInstance({instanceConnectionName, ipType, authType});
+        const {
+          instanceInfo,
+          ephemeralCert,
+          host,
+          port,
+          privateKey,
+          serverCaCert,
+        } = instances.getInstance({instanceConnectionName, ipType, authType});
 
         if (
           instanceInfo &&
           ephemeralCert &&
           host &&
+          port &&
           privateKey &&
           serverCaCert
         ) {
@@ -207,6 +214,7 @@ export class Connector {
             instanceInfo,
             ephemeralCert,
             host,
+            port,
             privateKey,
             serverCaCert,
           });

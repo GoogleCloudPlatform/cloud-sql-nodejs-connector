@@ -82,6 +82,7 @@ t.test('CloudSQLInstance', async t => {
   t.same(instance.privateKey, CLIENT_KEY, 'should have expected privateKey');
 
   t.same(instance.host, '127.0.0.1', 'should have expected host');
+  t.same(instance.port, 3307, 'should have expected port');
 
   t.same(
     instance.serverCaCert.cert,

@@ -33,6 +33,7 @@ t.test('getSocket', async t => {
         expirationTime: '2033-01-06T10:00:00.232Z',
       },
       host: '127.0.0.1',
+      port: 3307,
       privateKey: CLIENT_KEY,
       serverCaCert: {
         cert: CA_CERT,
