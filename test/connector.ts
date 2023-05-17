@@ -474,3 +474,81 @@ t.test('Connector factory method mismatch ip type', async t => {
     'should throw a mismatching ip type error'
   );
 });
+
+t.test('Connector, supporting Tedious driver', async t => {
+  setupCredentials(t); // setup google-auth credentials mocks
+
+  // mocks sql admin fetcher and generateKeys modules
+  // so that they can return a deterministic result
+  const {Connector} = t.mock('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': t.mock('../src/cloud-sql-instance', {
+      '../src/crypto': {
+        generateKeys: async () => ({
+          publicKey: '-----BEGIN PUBLIC KEY-----',
+          privateKey: CLIENT_KEY,
+        }),
+      },
+    }),
+  });
+
+  // mocks internal getOptions, asserts the stream factory method is called
+  const getOptions = Connector.prototype.getOptions;
+  Connector.prototype.getOptions = () => ({
+    stream: () => 'TLSSocket',
+  });
+  t.teardown(() => {
+    Connector.prototype.getOptions = getOptions; // restore original method
+  });
+
+  const connector = new Connector();
+  const opts = await connector.getTediousOptions({
+    ipType: 'PUBLIC',
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+  });
+  t.same(
+    await opts.connector(),
+    'TLSSocket', // assert a TLSSocket string as mocked before initialization
+    'should define factory method option'
+  );
+  t.same(opts.encrypt, false, 'should not use driver ssl option');
+  connector.close();
+});
+
+t.test('Connector using IAM with Tedious driver', async t => {
+  setupCredentials(t); // setup google-auth credentials mocks
+
+  const connector = new Connector();
+  t.rejects(
+    connector.getTediousOptions({
+      authType: AuthTypes.IAM,
+      ipType: IpAddressTypes.PUBLIC,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+    }),
+    {
+      message: 'Tedious does not support Auto IAM DB Authentication',
+      code: 'ENOIAM',
+    },
+    'should throw a missing iam support error'
+  );
+});

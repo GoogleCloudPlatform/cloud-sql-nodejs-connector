@@ -21,7 +21,7 @@ t.test('open connection and run basic mysql commands', async t => {
   const clientOpts = await connector.getOptions({
     instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
     ipType: 'PUBLIC',
-    authType: 'PASSWORD'
+    authType: 'PASSWORD',
   });
   const conn = await mysql.createConnection({
     ...clientOpts,
