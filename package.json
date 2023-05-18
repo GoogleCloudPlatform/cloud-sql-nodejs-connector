@@ -48,6 +48,7 @@
   "devDependencies": {
     "@google-cloud/cloud-sql-connector": "file:",
     "@types/node": "^18.14.6",
+    "@types/pg": "^8.10.1",
     "@types/tap": "^15.0.8",
     "c8": "^7.12.0",
     "gts": "^3.1.1",
