@@ -30,7 +30,7 @@ import {CloudSQLConnectorError} from './errors';
 // await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
   ipType: IpAddressTypes;
-  authType: AuthTypes;
+  authType?: AuthTypes;
   instanceConnectionName: string;
 }
 
@@ -140,9 +140,6 @@ class CloudSQLInstanceMap extends Map {
 const getIpAddressType = (type: IpAddressTypes): IpAddressTypes | undefined =>
   Object.values(IpAddressTypes).find(x => x === type);
 
-const getAuthType = (type: AuthTypes): AuthTypes | undefined =>
-  Object.values(AuthTypes).find(x => x === type);
-
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
 export class Connector {
@@ -167,7 +164,7 @@ export class Connector {
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
     ipType: rawIpType,
-    authType: rawAuthType,
+    authType = AuthTypes.PASSWORD,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
     const ipType = getIpAddressType(rawIpType);
@@ -179,8 +176,6 @@ export class Connector {
         code: 'EBADCONNIPTYPE',
       });
     }
-
-    const authType = getAuthType(rawAuthType) || AuthTypes.PASSWORD;
 
     const {instances} = this;
     await instances.loadInstance({
