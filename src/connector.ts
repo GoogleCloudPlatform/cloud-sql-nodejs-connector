@@ -46,7 +46,6 @@ interface StreamFunction {
 //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
 // });
 export declare interface DriverOptions {
-  ssl: boolean;
   stream: StreamFunction;
 }
 
@@ -225,7 +224,6 @@ export class Connector {
           code: 'EBADINSTANCEINFO',
         });
       },
-      ssl: false,
     };
   }
 

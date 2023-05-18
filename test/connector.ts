@@ -61,7 +61,11 @@ t.test('Connector', async t => {
     ipType: 'PUBLIC',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
-  t.same(opts.ssl, false, 'should not use driver ssl options');
+  t.same(
+    typeof opts.stream,
+    'function',
+    'should return expected factory method'
+  );
   connector.close();
 });
 
