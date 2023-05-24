@@ -49,6 +49,8 @@ jobs:
       run:
         shell: ${{ matrix.platform.shell }}
     permissions:
+      contents: read
+      id-token: write
       issues: write
       pull-requests: write
 
@@ -78,6 +80,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - id: 'auth'
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033 # v1.1.1
+        with:
+          workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+          access_token_lifetime: 600s
+
       - name: Install dependencies
         run: npm install
 
@@ -87,6 +97,27 @@ jobs:
       - name: Run Tests
         run: npx c8 tap -c -t0
         timeout-minutes: 5
+      
+      - name: FlakyBot (Linux)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (Windows)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Windows' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot.exe -o flakybot.exe -s -L
+          ./flakybot.exe --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (macOS)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'macOS' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot-darwin-amd64 -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
 
   system-tests:
     # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
@@ -199,3 +230,24 @@ jobs:
           SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
         run: npx tap -c -t0 --no-coverage system-test
         timeout-minutes: 5
+      
+      - name: FlakyBot (Linux)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (Windows)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Windows' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot.exe -o flakybot.exe -s -L
+          ./flakybot.exe --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (macOS)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'macOS' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot-darwin-amd64 -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
