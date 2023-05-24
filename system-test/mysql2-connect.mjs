@@ -53,7 +53,7 @@ t.test('open IAM connection and run basic mysql commands', async t => {
 
   const [[result]] = await conn.query('SELECT NOW();');
   const returnedDate = result['NOW()'];
-  t.notOk(returnedDate.getTime(), 'should have valid returned date object');
+  t.ok(returnedDate.getTime(), 'should have valid returned date object');
 
   await conn.end();
   connector.close();

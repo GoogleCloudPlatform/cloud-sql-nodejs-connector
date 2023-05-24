@@ -236,12 +236,12 @@ jobs:
         timeout-minutes: 5
       
       - name: Convert test output to XML
-        if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && always() }}
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
         run: cat test_results.tap | npx tap - --reporter=xunit > sponge_log.xml
 
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events
-        if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
         run: |
           curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
           chmod +x ./flakybot
