@@ -47,7 +47,7 @@ t.test('open IAM connection and run basic mysql commands', async t => {
   });
   const conn = await mysql.createConnection({
     ...clientOpts,
-    user: process.env.MYSQL_IAM_USER,
+    user: 'bogus',
     database: process.env.MYSQL_DB,
   });
 
