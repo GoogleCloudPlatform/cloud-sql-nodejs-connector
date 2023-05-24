@@ -95,11 +95,8 @@ jobs:
         run: npm run prepare
 
       - name: Run Tests
-        run: npx c8 tap -c -t0 -o tests.tap
+        run: npx c8 tap -c -t0 --reporter=xunit -o sponge_log.xml
         timeout-minutes: 5
-
-      - name: Convert to XML
-        run: tests.tap | tap --reporter=xunit -o sponge_log.xml
       
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events
