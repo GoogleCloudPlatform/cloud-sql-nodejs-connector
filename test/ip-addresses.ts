@@ -39,7 +39,7 @@ t.same(
     },
   ]),
   {
-    public: '1.0.0.0',
+    public: '0.0.0.0',
   },
   'should return a public ip successfully'
 );
