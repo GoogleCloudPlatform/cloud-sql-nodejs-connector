@@ -95,9 +95,13 @@ jobs:
         run: npm run prepare
 
       - name: Run Tests
-        run: npx c8 tap -c -t0 --reporter=xunit -o sponge_log.xml
+        run: npx c8 tap -c -t0 -o test_results.tap
         timeout-minutes: 5
-      
+
+      - name: Convert test output to XML
+        if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && always() }}
+        run: cat test_results.tap | tap - --reporter=xunit > sponge_log.xml
+
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events
         if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
