@@ -100,7 +100,7 @@ jobs:
 
       - name: Convert test output to XML
         if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && always() }}
-        run: cat test_results.tap | tap - --reporter=xunit > sponge_log.xml
+        run: cat test_results.tap | npx tap - --reporter=xunit > sponge_log.xml
 
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events
