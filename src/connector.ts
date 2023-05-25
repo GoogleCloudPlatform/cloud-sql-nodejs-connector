@@ -164,6 +164,14 @@ export class Connector {
     authType = AuthTypes.PASSWORD,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
+    if (!ipType) {
+      throw new CloudSQLConnectorError({
+        message: `Invalid IP type: ${String(
+          ipType
+        )}, expected PUBLIC or PRIVATE`,
+        code: 'EBADCONNIPTYPE',
+      });
+    }
     const {instances} = this;
     await instances.loadInstance({
       ipType,
