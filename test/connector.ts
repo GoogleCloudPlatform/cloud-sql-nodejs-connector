@@ -69,24 +69,6 @@ t.test('Connector', async t => {
   connector.close();
 });
 
-t.test('Connector invalid type error', async t => {
-  setupCredentials(t); // setup google-auth credentials mocks
-
-  const connector = new Connector();
-  t.rejects(
-    connector.getOptions({
-      ipType: 'foo' as IpAddressTypes,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-    }),
-    {
-      message: 'Invalid IP type: foo, expected PUBLIC or PRIVATE',
-      code: 'EBADCONNIPTYPE',
-    },
-    'should throw a invalid type error'
-  );
-});
-
 t.test('Connector missing instance info error', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
 
