@@ -29,7 +29,7 @@ import {CloudSQLConnectorError} from './errors';
 // };
 // await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
-  ipType: IpAddressTypes;
+  ipType?: IpAddressTypes;
   authType?: AuthTypes;
   instanceConnectionName: string;
 }
@@ -137,9 +137,6 @@ class CloudSQLInstanceMap extends Map {
   }
 }
 
-const getIpAddressType = (type: IpAddressTypes): IpAddressTypes | undefined =>
-  Object.values(IpAddressTypes).find(x => x === type);
-
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
 export class Connector {
@@ -163,20 +160,10 @@ export class Connector {
   // const pool = new Pool(opts)
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
-    ipType: rawIpType,
+    ipType = IpAddressTypes.PUBLIC,
     authType = AuthTypes.PASSWORD,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
-    const ipType = getIpAddressType(rawIpType);
-    if (!ipType) {
-      throw new CloudSQLConnectorError({
-        message: `Invalid IP type: ${String(
-          rawIpType
-        )}, expected PUBLIC or PRIVATE`,
-        code: 'EBADCONNIPTYPE',
-      });
-    }
-
     const {instances} = this;
     await instances.loadInstance({
       ipType,
