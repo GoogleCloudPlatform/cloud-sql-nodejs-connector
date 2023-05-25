@@ -24,7 +24,7 @@ import {CloudSQLConnectorError} from './errors';
 // to the Connector.getOptions method when calling it, e.g:
 // const connector = new Connector()
 // const connectionOptions:ConnectionOptions = {
-//   type: 'PUBLIC',
+//   ipType: 'PUBLIC',
 //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
 // };
 // await connector.getOptions(connectionOptions);
@@ -42,7 +42,7 @@ interface StreamFunction {
 // the Connector.getOptions method, e.g:
 // const connector = new Connector()
 // const driverOptions:DriverOptions = await connector.getOptions({
-//   type: 'PUBLIC',
+//   ipType: 'PUBLIC',
 //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
 // });
 export declare interface DriverOptions {
@@ -154,7 +154,7 @@ export class Connector {
   //
   // const connector = new Connector()
   // const opts = await connector.getOptions({
-  //   type: 'PUBLIC',
+  //   ipType: 'PUBLIC',
   //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
   // });
   // const pool = new Pool(opts)

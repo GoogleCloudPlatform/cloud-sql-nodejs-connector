@@ -152,6 +152,23 @@ await pool.end();
 connector.close();
 ```
 
+### Specifying Public or Private IP
+
+The Cloud SQL Connector for Node.js can be used to connect to Cloud SQL instances
+using both public and private IP addresses. Specifying which IP address type to
+connect to can be configured within `getOptions` through the `ipType` argument.
+
+By default, connections will be configured to `'PUBLIC'` anc connect over
+public IP, to configure connections to use an instance's private IP,
+use `'PRIVATE'` for `ipType` as follows:
+
+```js
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  ipType: 'PRIVATE',
+});
+```
+
 ## Supported Node.js Versions
 
 Our client libraries follow the
