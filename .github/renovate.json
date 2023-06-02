@@ -7,9 +7,6 @@
   "commitMessagePrefix": "deps: ",
   "pinVersions": false,
   "rebaseStalePrs": true,
-  "schedule": [
-    "after 9am and before 3pm"
-  ],
   "gitAuthor": null,
   "packageRules": [
     {
@@ -17,5 +14,8 @@
       "groupName": "linters"
     }
   ],
-  "ignoreDeps": ["typescript"]
+  "ignoreDeps": ["typescript"],
+  "schedule": [
+    "before 4am on the first day of the month"
+  ]
 }
