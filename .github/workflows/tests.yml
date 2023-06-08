@@ -90,7 +90,7 @@ jobs:
           access_token_lifetime: 600s
 
       - name: Install dependencies
-        run: npm install
+        run: npm install -g npm@9
 
       - name: Transpile TypeScript
         run: npm run prepare
@@ -180,7 +180,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm install -g npm@9
 
       - name: Transpile TypeScript
         run: npm run prepare
