@@ -41,10 +41,8 @@ jobs:
             node-version: v14.x
       fail-fast: false
 
-    runs-on: ${{ matrix.platform.os }}
-    defaults:
-      run:
-        shell: ${{ matrix.platform.shell }}
+    runs-on: ${{ matrix.os }}
+
     permissions:
       contents: read
       id-token: write
@@ -139,10 +137,7 @@ jobs:
       issues: write
       pull-requests: write
 
-    runs-on: ${{ matrix.platform.os }}
-    defaults:
-      run:
-        shell: ${{ matrix.platform.shell }}
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Remove PR label
