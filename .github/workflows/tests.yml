@@ -43,7 +43,7 @@ jobs:
         - os: windows-latest
           shell: powershell
         exclude:
-          - os: windows-latest
+          - platform.os: windows-latest
             node-version: v14.x
       fail-fast: false
 
@@ -142,7 +142,7 @@ jobs:
         - os: windows-latest
           shell: powershell
         exclude:
-          - os: windows-latest
+          - platform.os: windows-latest
             node-version: v14.x
       fail-fast: false
     permissions:
