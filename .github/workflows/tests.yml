@@ -42,6 +42,9 @@ jobs:
           shell: bash
         - os: windows-latest
           shell: powershell
+        exclude:
+          - os: windows-latest
+            node-version: v14.x
       fail-fast: false
 
     runs-on: ${{ matrix.platform.os }}
@@ -138,6 +141,9 @@ jobs:
           shell: bash
         - os: windows-latest
           shell: powershell
+        exclude:
+          - os: windows-latest
+            node-version: v14.x
       fail-fast: false
     permissions:
       contents: 'read'
