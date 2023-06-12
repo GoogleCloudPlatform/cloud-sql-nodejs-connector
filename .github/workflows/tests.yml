@@ -43,7 +43,7 @@ jobs:
         - os: windows-latest
           shell: powershell
         exclude:
-          - platform.os: windows-latest
+          - platform: windows-latest
             node-version: v14.x
       fail-fast: false
 
