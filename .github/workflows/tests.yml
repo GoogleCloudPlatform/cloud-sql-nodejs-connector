@@ -128,17 +128,9 @@ jobs:
     strategy:
       matrix:
         node-version: [v14.x, v16.x, v18.x, v19.x]
-        platform:
-        - os: ubuntu-latest
-          shell: bash
-        - os: macos-latest
-          shell: bash
-        - os: windows-latest
-          shell: powershell
+        os: [ubuntu-latest, macos-latest, windows-latest]
         exclude:
-          - platform:
-            - os: windows-latest
-              shell: powershell
+          - os: windows-latest
             node-version: v14.x
       fail-fast: false
     permissions:
