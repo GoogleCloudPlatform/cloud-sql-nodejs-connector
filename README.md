@@ -196,8 +196,8 @@ const connection = new Connection({
   authentication: {
     type: 'default',
     options: {
-      userName: process.env.SQLSERVER_USER,
-      password: process.env.SQLSERVER_PASS,
+      userName: 'my-user',
+      password: 'my-password',
     },
   },
   options: {
@@ -208,7 +208,7 @@ const connection = new Connection({
     // impact in how the connector works, this README will be updated to remove
     // this property declaration as soon as the tedious driver bug is fixed
     port: 9999,
-    database: process.env.SQLSERVER_DB,
+    database: 'my-database',
   },
 })
 
