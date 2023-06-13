@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.3.0...v0.4.0) (2023-06-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove returned ssl property
+
+### Features
+
+* add sqlserver support ([ab3dc67](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/ab3dc6768dfdf526df9b1b2bcb1307d1cfef34be))
+
+
+### Bug Fixes
+
+* auth type should be optional in typescript ([bed3424](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/bed3424e4c1b8cc185a74deedaa6f4a6531fc131))
+* make ipType optional ([0f3f75e](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/0f3f75e13aeba53201044c4ebdf38e213ad1ac84))
+
+
+### Code Refactoring
+
+* remove returned ssl property ([c0c4572](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/c0c4572f8eedfad13f87d9e2841a1f951f96600a))
+
+
+### Miscellaneous Chores
+
+* release 0.4.0 ([#145](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/145)) ([9561694](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/9561694b7c1d20847e8d9b34803163e47bc33e66))
+
 ## [0.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.2.0...v0.3.0) (2023-05-09)
 
 
