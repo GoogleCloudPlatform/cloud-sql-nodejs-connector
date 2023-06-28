@@ -21,6 +21,18 @@
   "files": [
     "dist"
   ],
+  "keywords": [
+    "connector",
+    "cloud",
+    "cloud-sql",
+    "databases",
+    "db",
+    "Google Cloud",
+    "mysql2",
+    "pg",
+    "sql",
+    "tedious"
+  ],
   "license": "Apache-2.0",
   "scripts": {
     "clean": "rm -rf dist",
