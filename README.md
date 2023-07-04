@@ -155,23 +155,6 @@ await pool.end();
 connector.close();
 ```
 
-### Specifying Public or Private IP
-
-The Cloud SQL Connector for Node.js can be used to connect to Cloud SQL instances
-using both public and private IP addresses. Specifying which IP address type to
-connect to can be configured within `getOptions` through the `ipType` argument.
-
-By default, connections will be configured to `'PUBLIC'` and connect over
-public IP, to configure connections to use an instance's private IP,
-use `'PRIVATE'` for `ipType` as follows:
-
-```js
-const clientOpts = await connector.getOptions({
-  instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PRIVATE',
-});
-```
-
 ### Using with SQL Server
 
 Here is how to start a new
@@ -228,6 +211,51 @@ connection.connect(err => {
 
 connection.close();
 connector.close();
+```
+
+### Specifying IP Address Type
+
+The Cloud SQL Connector for Node.js can be used to connect to Cloud SQL
+instances using both public and private IP addresses, as well as
+[Private Service Connect](https://cloud.google.com/vpc/docs/private-service-connect)
+ (PSC). Specifying which IP address type to connect to can be configured within
+ `getOptions` through the `ipType` argument.
+
+By default, connections will be configured to `'PUBLIC'` and connect over
+public IP, to configure connections to use an instance's private IP,
+use `'PRIVATE'` for `ipType` as follows:
+
+**Note:** If specifying Private IP or Private Service Connect, your application
+must be attached to the proper VPC network to connect to your Cloud SQL
+instance. For most applications this will require the use of a
+[VPC Connector](https://cloud.google.com/vpc/docs/configure-serverless-vpc-access#create-connector).
+
+#### Example on how to use a Private IP
+
+```js
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  ipType: 'PRIVATE',
+});
+```
+
+#### Example on how to use a [Private Service Connect](https://cloud.google.com/vpc/docs/private-service-connect) (PSC) IP
+
+```js
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  ipType: 'PSC',
+});
+```
+
+#### Example on how to use `IpAddressTypes` in TypeScript
+
+```js
+import { Connector, IpAddressTypes } from '@google-cloud/cloud-sql-connector';
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  ipType: IpAddressTypes.PSC,
+});
 ```
 
 ## Supported Node.js Versions

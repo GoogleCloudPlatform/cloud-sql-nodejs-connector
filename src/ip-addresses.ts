@@ -18,11 +18,13 @@ import {CloudSQLConnectorError} from './errors';
 export enum IpAddressTypes {
   PUBLIC = 'PUBLIC',
   PRIVATE = 'PRIVATE',
+  PSC = 'PSC',
 }
 
 export declare interface IpAddresses {
   public?: string;
   private?: string;
+  psc?: string;
 }
 
 const getPublicIpAddress = (ipAddresses: IpAddresses) => {
@@ -45,27 +47,37 @@ const getPrivateIpAddress = (ipAddresses: IpAddresses) => {
   return ipAddresses.private;
 };
 
-export function parseIpAddresses(
-  ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined
-): IpAddresses {
-  if (!ipResponse) {
+const getPSCIpAddress = (ipAddresses: IpAddresses) => {
+  if (!ipAddresses.psc) {
     throw new CloudSQLConnectorError({
-      message: 'Cannot connect to instance, it has no supported IP addresses',
-      code: 'ENOSQLADMINIPADDRESS',
+      message: 'Cannot connect to instance, PSC address not found',
+      code: 'ENOPSCSQLADMINIPADDRESS',
     });
   }
+  return ipAddresses.psc;
+};
 
+export function parseIpAddresses(
+  ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined,
+  dnsName: string | null | undefined
+): IpAddresses {
   const ipAddresses: IpAddresses = {};
-  for (const ip of ipResponse) {
-    if (ip.type === 'PRIMARY' && ip.ipAddress) {
-      ipAddresses.public = ip.ipAddress;
-    }
-    if (ip.type === 'PRIVATE' && ip.ipAddress) {
-      ipAddresses.private = ip.ipAddress;
+  if (ipResponse) {
+    for (const ip of ipResponse) {
+      if (ip.type === 'PRIMARY' && ip.ipAddress) {
+        ipAddresses.public = ip.ipAddress;
+      }
+      if (ip.type === 'PRIVATE' && ip.ipAddress) {
+        ipAddresses.private = ip.ipAddress;
+      }
     }
   }
 
-  if (!ipAddresses.public && !ipAddresses.private) {
+  if (dnsName) {
+    ipAddresses.psc = dnsName;
+  }
+
+  if (!ipAddresses.public && !ipAddresses.private && !ipAddresses.psc) {
     throw new CloudSQLConnectorError({
       message: 'Cannot connect to instance, it has no supported IP addresses',
       code: 'ENOSQLADMINIPADDRESS',
@@ -84,6 +96,8 @@ export function selectIpAddress(
       return getPublicIpAddress(ipAddresses);
     case IpAddressTypes.PRIVATE:
       return getPrivateIpAddress(ipAddresses);
+    case IpAddressTypes.PSC:
+      return getPSCIpAddress(ipAddresses);
     default:
       throw new CloudSQLConnectorError({
         message: 'Cannot connect to instance, it has no supported IP addresses',

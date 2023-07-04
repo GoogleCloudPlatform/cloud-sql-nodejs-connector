@@ -78,7 +78,10 @@ export class SQLAdminFetcher {
       });
     }
 
-    const ipAddresses = parseIpAddresses(res.data.ipAddresses);
+    const ipAddresses = parseIpAddresses(
+      res.data.ipAddresses,
+      res.data.dnsName
+    );
 
     const {serverCaCert} = res.data;
     if (!serverCaCert || !serverCaCert.cert || !serverCaCert.expirationTime) {
