@@ -20,24 +20,27 @@ import {
 } from '../src/ip-addresses';
 
 t.throws(
-  () => parseIpAddresses(undefined),
+  () => parseIpAddresses(undefined, undefined),
   {code: 'ENOSQLADMINIPADDRESS'},
   'should throw if no argument'
 );
 
 t.throws(
-  () => parseIpAddresses([]),
+  () => parseIpAddresses([], undefined),
   {code: 'ENOSQLADMINIPADDRESS'},
   'should throw if no ip is found'
 );
 
 t.same(
-  parseIpAddresses([
-    {
-      ipAddress: '0.0.0.0',
-      type: 'PRIMARY',
-    },
-  ]),
+  parseIpAddresses(
+    [
+      {
+        ipAddress: '0.0.0.0',
+        type: 'PRIMARY',
+      },
+    ],
+    undefined
+  ),
   {
     public: '0.0.0.0',
   },
@@ -45,16 +48,19 @@ t.same(
 );
 
 t.same(
-  parseIpAddresses([
-    {
-      ipAddress: '0.0.0.0',
-      type: 'PRIMARY',
-    },
-    {
-      ipAddress: '0.0.0.1',
-      type: 'OUTGOING',
-    },
-  ]),
+  parseIpAddresses(
+    [
+      {
+        ipAddress: '0.0.0.0',
+        type: 'PRIMARY',
+      },
+      {
+        ipAddress: '0.0.0.1',
+        type: 'OUTGOING',
+      },
+    ],
+    undefined
+  ),
   {
     public: '0.0.0.0',
   },
@@ -62,16 +68,19 @@ t.same(
 );
 
 t.same(
-  parseIpAddresses([
-    {
-      ipAddress: '0.0.0.2',
-      type: 'PRIVATE',
-    },
-    {
-      ipAddress: '0.0.0.1',
-      type: 'OUTGOING',
-    },
-  ]),
+  parseIpAddresses(
+    [
+      {
+        ipAddress: '0.0.0.2',
+        type: 'PRIVATE',
+      },
+      {
+        ipAddress: '0.0.0.1',
+        type: 'OUTGOING',
+      },
+    ],
+    undefined
+  ),
   {
     private: '0.0.0.2',
   },
@@ -79,25 +88,62 @@ t.same(
 );
 
 t.same(
-  parseIpAddresses([
-    {
-      ipAddress: '0.0.0.0',
-      type: 'PRIMARY',
-    },
-    {
-      ipAddress: '0.0.0.2',
-      type: 'PRIVATE',
-    },
-    {
-      ipAddress: '0.0.0.1',
-      type: 'OUTGOING',
-    },
-  ]),
+  parseIpAddresses(
+    [
+      {
+        ipAddress: '0.0.0.0',
+        type: 'PRIMARY',
+      },
+      {
+        ipAddress: '0.0.0.2',
+        type: 'PRIVATE',
+      },
+      {
+        ipAddress: '0.0.0.1',
+        type: 'OUTGOING',
+      },
+    ],
+    undefined
+  ),
   {
     private: '0.0.0.2',
     public: '0.0.0.0',
   },
   'should return a both public and private ips if available'
+);
+
+t.same(
+  parseIpAddresses([], 'abcde.12345.us-central1.sql.goog'),
+  {
+    psc: 'abcde.12345.us-central1.sql.goog',
+  },
+  'should return a psc ip from a defined dnsName'
+);
+
+t.same(
+  parseIpAddresses(
+    [
+      {
+        ipAddress: '0.0.0.0',
+        type: 'PRIMARY',
+      },
+      {
+        ipAddress: '0.0.0.2',
+        type: 'PRIVATE',
+      },
+      {
+        ipAddress: '0.0.0.1',
+        type: 'OUTGOING',
+      },
+    ],
+    'abcde.12345.us-central1.sql.goog'
+  ),
+  {
+    private: '0.0.0.2',
+    public: '0.0.0.0',
+    psc: 'abcde.12345.us-central1.sql.goog',
+  },
+  'should return a public, private and psc ips if available'
 );
 
 t.throws(
@@ -110,6 +156,12 @@ t.throws(
   () => selectIpAddress({}, IpAddressTypes.PRIVATE),
   {code: 'ENOPRIVATESQLADMINIPADDRESS'},
   'should throw if no private ip defined'
+);
+
+t.throws(
+  () => selectIpAddress({}, IpAddressTypes.PSC),
+  {code: 'ENOPSCSQLADMINIPADDRESS'},
+  'should throw if no psc ip defined'
 );
 
 t.throws(
@@ -139,4 +191,17 @@ t.same(
   ),
   '0.0.0.2',
   'should select private ip'
+);
+
+t.same(
+  selectIpAddress(
+    {
+      public: '0.0.0.0',
+      private: '0.0.0.2',
+      psc: 'abcde.12345.us-central1.sql.goog',
+    },
+    IpAddressTypes.PSC
+  ),
+  'abcde.12345.us-central1.sql.goog',
+  'should select psc ip'
 );
