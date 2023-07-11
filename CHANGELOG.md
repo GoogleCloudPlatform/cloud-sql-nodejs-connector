@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.4.0...v0.5.0) (2023-07-11)
+
+
+### Features
+
+* add support to PSC ip type ([#150](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/150)) ([d3929cd](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/d3929cd2e8f6d62d7b2eeff5277d9f81f3a42eae))
+
 ## [0.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.3.0...v0.4.0) (2023-06-13)
 
 
