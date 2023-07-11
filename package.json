@@ -84,6 +84,6 @@
   },
   "dependencies": {
     "@googleapis/sqladmin": "^9.1.0",
-    "google-auth-library": "^8.7.0"
+    "google-auth-library": "^8.9.0"
   }
 }
