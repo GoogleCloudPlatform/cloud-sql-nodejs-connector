@@ -77,31 +77,6 @@ await pool.end();
 connector.close();
 ```
 
-### Automatic IAM Authentication with Postgres
-```js
-import pg from 'pg';
-import {Connector} from '@google-cloud/cloud-sql-connector';
-const {Pool} = pg;
-
-const connector = new Connector();
-const clientOpts = await connector.getOptions({
-  instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC', 
-  authType: 'IAM'
-});
-const pool = new Pool({
-  ...clientOpts,
-  user: 'my-user@project-id.iam',
-  database: 'db-name',
-  max: 5
-});
-const {rows} = await pool.query('SELECT NOW()');
-console.table(rows); // prints returned time value from server
-
-await pool.end();
-connector.close();
-```
-
 ### Using with MySQL
 
 Here is how to start a new
@@ -120,31 +95,6 @@ const pool = await mysql.createPool({
   ...clientOpts,
   user: 'my-user',
   password: 'my-password',
-  database: 'db-name',
-});
-const conn = await pool.getConnection();
-const [result] = await conn.query( `SELECT NOW();`);
-console.table(result); // prints returned time value from server
-
-await pool.end();
-connector.close();
-```
-
-### Automatic IAM Authentication with MySQL
-
-```js
-import mysql from 'mysql2/promise';
-import {Connector} from '@google-cloud/cloud-sql-connector';
-
-const connector = new Connector();
-const clientOpts = await connector.getOptions({
-  instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC',
-  authType: 'IAM'
-});
-const pool = await mysql.createPool({
-  ...clientOpts,
-  user: 'my-user',
   database: 'db-name',
 });
 const conn = await pool.getConnection();
@@ -255,6 +205,106 @@ import { Connector, IpAddressTypes } from '@google-cloud/cloud-sql-connector';
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   ipType: IpAddressTypes.PSC,
+});
+```
+
+### Automatic IAM Database Authentication
+
+Connections using [Automatic IAM database authentication][] are supported when
+using Postgres or MySQL drivers.
+
+Make sure to [configure your Cloud SQL Instance to allow IAM authentication][configure-iam-authn]
+and [add an IAM database user][add-iam-user].
+
+A `Connector` can be configured to connect to a Cloud SQL instance using
+automatic IAM database authentication with `getOptions` through the
+`authType` argument.
+
+```js
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  authType: 'IAM'
+});
+```
+
+When configuring a connection for IAM authentication, the `password` argument
+can be omitted and the `user` argument should be formatted as follows:
+> Postgres: For an IAM user account, this is the user's email address.
+> For a service account, it is the service account's email without the
+> `.gserviceaccount.com` domain suffix.
+>
+> MySQL: For an IAM user account, this is the user's email address, without
+> the `@` or domain name. For example, for `test-user@gmail.com`, set the
+> `user` field to `test-user`. For a service account, this is the service
+> account's email address without the `@project-id.iam.gserviceaccount.com`
+> suffix.
+
+Examples using the `test-sa@test-project.iam.gserviceaccount.com`
+service account to connect can be found below.
+
+[Automatic IAM database authentication]: https://cloud.google.com/sql/docs/postgres/authentication#automatic
+[configure-iam-authn]: https://cloud.google.com/sql/docs/postgres/create-edit-iam-instances#configure-iam-db-instance
+[add-iam-user]: https://cloud.google.com/sql/docs/postgres/create-manage-iam-users#creating-a-database-user
+
+#### Postgres Automatic IAM Authentication Example
+
+```js
+import pg from 'pg';
+import {Connector} from '@google-cloud/cloud-sql-connector';
+const {Pool} = pg;
+
+const connector = new Connector();
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  authType: 'IAM'
+});
+const pool = new Pool({
+  ...clientOpts,
+  user: 'test-sa@test-project.iam',
+  database: 'db-name',
+  max: 5
+});
+const {rows} = await pool.query('SELECT NOW()');
+console.table(rows); // prints returned time value from server
+
+await pool.end();
+connector.close();
+```
+
+#### MySQL Automatic IAM Authentication Example
+
+```js
+import mysql from 'mysql2/promise';
+import {Connector} from '@google-cloud/cloud-sql-connector';
+
+const connector = new Connector();
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  authType: 'IAM'
+});
+const pool = await mysql.createPool({
+  ...clientOpts,
+  user: 'test-sa',
+  database: 'db-name',
+});
+const conn = await pool.getConnection();
+const [result] = await conn.query( `SELECT NOW();`);
+console.table(result); // prints returned time value from server
+
+await pool.end();
+connector.close();
+```
+
+#### Example on how to use `AuthTypes` in TypeScript
+
+For TypeScript users, the `AuthTypes` type can be imported and used directly
+for automatic IAM database authentication.
+
+```js
+import { AuthTypes, Connector } from '@google-cloud/cloud-sql-connector';
+const clientOpts = await connector.getOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  authType: AuthTypes.IAM,
 });
 ```
 
