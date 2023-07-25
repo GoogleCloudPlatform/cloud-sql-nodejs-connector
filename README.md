@@ -26,6 +26,10 @@ verification between the client connector and the server-side proxy,
 independent of the database protocol.
 - **Convenience:** removes the requirement to use and distribute SSL
 certificates, as well as manage firewalls or source/destination IP addresses.
+- (optionally) **IAM DB Authentication:** provides support for
+  [Cloud SQL’s automatic IAM DB AuthN][iam-db-authn] feature.
+
+[iam-db-authn]: https://cloud.google.com/sql/docs/postgres/authentication
 
 The Cloud SQL Node.js Connector is a package to be used alongside a database
 driver. Currently supported drivers are:
