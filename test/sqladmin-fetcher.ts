@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {resolve} from 'node:path';
 import t from 'tap';
 import nock from 'nock';
 import {GoogleAuth} from 'google-auth-library';
@@ -380,4 +381,66 @@ t.test('getEphemeralCertificate sets access token', async t => {
     '3022-07-22T17:53:09.000Z',
     'should return earlier token expiration time'
   );
+});
+
+t.test('generateAccessToken endpoint should retry', async t => {
+  const path = t.testdir({
+    credentials: JSON.stringify({
+      delegates: [],
+      service_account_impersonation_url:
+        'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/foo@dev.org:generateAccessToken',
+      source_credentials: {
+        client_id:
+          'b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c',
+        client_secret:
+          '7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730',
+        refresh_token:
+          'bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c',
+        type: 'authorized_user',
+      },
+      type: 'impersonated_service_account',
+    }),
+  });
+  const creds = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = resolve(path, 'credentials');
+  t.teardown(() => {
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = creds;
+  });
+
+  nock('https://oauth2.googleapis.com')
+    .persist()
+    .post('/token')
+    .reply(200, {access_token: 'abc123', expires_in: 1});
+
+  nock('https://oauth2.googleapis.com').post('/tokeninfo').reply(200, {
+    expires_in: 3600,
+    scope: 'https://www.googleapis.com/auth/sqlservice.login',
+  });
+
+  nock('https://iamcredentials.googleapis.com/v1')
+    .post('/projects/-/serviceAccounts/foo@dev.org:generateAccessToken')
+    .replyWithError({code: 'ECONNRESET'});
+
+  nock('https://iamcredentials.googleapis.com/v1')
+    .post('/projects/-/serviceAccounts/foo@dev.org:generateAccessToken')
+    .reply(200, {
+      accessToken:
+        'b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c',
+      expireTime: new Date(Date.now() + 3600).toISOString(),
+    });
+
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'my-project',
+    regionId: 'us-east1',
+    instanceId: 'my-instance',
+  };
+
+  // Second try should succeed
+  mockRequest(instanceConnectionInfo);
+
+  const fetcher = new SQLAdminFetcher();
+  const instanceMetadata = await fetcher.getInstanceMetadata(
+    instanceConnectionInfo
+  );
+  t.ok(instanceMetadata, 'should return expected instance metadata object');
 });
