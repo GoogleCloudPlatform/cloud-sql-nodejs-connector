@@ -14,6 +14,7 @@
 
 import {GoogleAuth} from 'google-auth-library';
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
+import {instance as gaxios} from 'gaxios';
 const {Sqladmin} = sqladmin_v1beta4;
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
@@ -31,6 +32,40 @@ export interface InstanceMetadata {
 interface RequestBody {
   public_key: string;
   access_token?: string;
+}
+
+// Default values for the list of http methods to retry in gaxios
+// ref: https://github.com/googleapis/gaxios/tree/fdb6a8e542f7782f8d1e487c0ef7d301fa231d18#request-options
+const defaultGaxiosHttpMethodsToRetry = [
+  'GET',
+  'HEAD',
+  'PUT',
+  'OPTIONS',
+  'DELETE',
+];
+
+// https://github.com/googleapis/gaxios is the http request library used by
+// google-auth-library and other Cloud SDK libraries, this function will set
+// a standard default configuration that will ensure retry works as expected
+// for internal google-auth-library requests.
+function setupGaxiosConfig() {
+  gaxios.defaults = {
+    retryConfig: {
+      retry: 3,
+      // Make sure to add POST to the list of default methods to retry
+      // since it's used in IAM generateAccessToken requests that needs retry
+      httpMethodsToRetry: ['POST', ...defaultGaxiosHttpMethodsToRetry],
+      // Should retry on non-http error codes such as ECONNRESET, ETIMEOUT, etc
+      noResponseRetries: 3,
+    },
+  };
+}
+
+const defaultGaxiosConfig = gaxios.defaults;
+// resumes the previous default gaxios config in order to reduce the chance of
+// affecting other libraries that might be sharing that same gaxios instance
+function cleanGaxiosConfig() {
+  gaxios.defaults = defaultGaxiosConfig;
 }
 
 export class SQLAdminFetcher {
@@ -63,6 +98,8 @@ export class SQLAdminFetcher {
     regionId,
     instanceId,
   }: InstanceConnectionInfo): Promise<InstanceMetadata> {
+    setupGaxiosConfig();
+
     const res = await this.client.connect.get({
       project: projectId,
       instance: instanceId,
@@ -105,6 +142,8 @@ export class SQLAdminFetcher {
       });
     }
 
+    cleanGaxiosConfig();
+
     return {
       ipAddresses,
       serverCaCert: {
@@ -119,6 +158,8 @@ export class SQLAdminFetcher {
     publicKey: string,
     authType: AuthTypes
   ): Promise<SslCert> {
+    setupGaxiosConfig();
+
     const requestBody: RequestBody = {
       public_key: publicKey,
     };
@@ -171,6 +212,8 @@ export class SQLAdminFetcher {
       Date.parse(expirationTime),
       tokenExpiration
     );
+
+    cleanGaxiosConfig();
 
     return {
       cert,
