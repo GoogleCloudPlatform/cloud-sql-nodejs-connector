@@ -85,7 +85,7 @@ jobs:
           access_token_lifetime: 600s
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Transpile TypeScript
         run: npm run prepare
@@ -169,7 +169,13 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Setup self-direct dependency
+        run: npm link
+
+      - name: Link self-direct dependency
+        run: npm link @google-cloud/cloud-sql-connector
 
       - name: Transpile TypeScript
         run: npm run prepare
