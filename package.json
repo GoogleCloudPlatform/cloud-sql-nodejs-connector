@@ -58,7 +58,6 @@
     "ts": false
   },
   "devDependencies": {
-    "@google-cloud/cloud-sql-connector": "file:",
     "@types/node": "^20.4.9",
     "@types/pg": "^8.10.1",
     "@types/semver": "^7.5.0",
