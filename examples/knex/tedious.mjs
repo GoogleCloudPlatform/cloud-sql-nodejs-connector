@@ -15,36 +15,32 @@
 import {Connector} from '@google-cloud/cloud-sql-connector';
 import knex from 'knex';
 
-const main = async () => {
-  const connector = new Connector();
-  const clientOpts = await connector.getTediousOptions({
-    instanceConnectionName: 'my-project:region:my-instance',
-    ipType: 'PUBLIC',
-    authType: 'PASSWORD',
-  });
+const connector = new Connector();
+const clientOpts = await connector.getTediousOptions({
+  instanceConnectionName: 'my-project:region:my-instance',
+  ipType: 'PUBLIC',
+  authType: 'PASSWORD',
+});
 
-  const database = knex({
-    client: 'mssql',
-    connection: {
-      // `server` property is not used when connector is provided, but it is a required property
-      // due to a bug in the tedious driver (ref: https://github.com/tediousjs/tedious/issues/1541).
-      // There is a pending fix (ref: https://github.com/tediousjs/tedious/pull/1542), but until
-      // it is released, we need to provide a dummy value.
-      server: '0.0.0.0',
-      user: 'my-user',
-      password: 'my-password',
-      database: 'my-database',
-      options: {
-        ...clientOpts,
-      },
+const database = knex({
+  client: 'mssql',
+  connection: {
+    // `server` property is not used when connector is provided, but it is a required property
+    // due to a bug in the tedious driver (ref: https://github.com/tediousjs/tedious/issues/1541).
+    // There is a pending fix (ref: https://github.com/tediousjs/tedious/pull/1542), but until
+    // it is released, we need to provide a dummy value.
+    server: '0.0.0.0',
+    user: 'my-user',
+    password: 'my-password',
+    database: 'my-database',
+    options: {
+      ...clientOpts,
     },
-  });
+  },
+});
 
-  const result = await database.first(database.raw('GETUTCDATE() AS now'));
-  console.log(`Current datetime: ${result['now']}`);
+const result = await database.first(database.raw('GETUTCDATE() AS now'));
+console.log(`Current datetime: ${result['now']}`);
 
-  await database.destroy();
-  connector.close();
-};
-
-main();
+await database.destroy();
+connector.close();
