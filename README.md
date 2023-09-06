@@ -52,6 +52,8 @@ The connector package is meant to be used alongside a database driver, in the
 following examples you can see how to create a new connector and get valid
 options that can then be used when starting a new connection.
 
+For more examples, check [`examples/`](examples/) folder.
+
 ### Using with PostgreSQL
 
 Here is how to start a new
