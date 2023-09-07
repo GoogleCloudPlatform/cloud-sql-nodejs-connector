@@ -54,6 +54,7 @@ export class CloudSQLInstance {
   private readonly ipType: IpAddressTypes;
   private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
+  private ongoingRefreshPromise?: Promise<void>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout>;
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
@@ -74,7 +75,24 @@ export class CloudSQLInstance {
     this.sqlAdminFetcher = sqlAdminFetcher;
   }
 
+  async forceRefresh(): Promise<void> {
+    // if a refresh is already ongoing, just await for its promise to fulfill
+    // so that a new instance info is available before reconnecting
+    if (this.ongoingRefreshPromise) {
+      await this.ongoingRefreshPromise;
+      return;
+    }
+    this.cancelRefresh();
+    return this.refresh();
+  }
+
   async refresh(): Promise<void> {
+    this.ongoingRefreshPromise = this._refresh();
+    await this.ongoingRefreshPromise;
+    this.ongoingRefreshPromise = undefined;
+  }
+
+  private async _refresh(): Promise<void> {
     const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
       await this.sqlAdminFetcher.getInstanceMetadata(this.instanceInfo);

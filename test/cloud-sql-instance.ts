@@ -92,32 +92,151 @@ t.test('CloudSQLInstance', async t => {
 
   instance.cancelRefresh();
 
-  await new Promise(res => {
+  t.test('refresh', t => {
+    t.plan(4);
     const start = Date.now();
     let refreshCount = 0;
-    const refreshInstance = new CloudSQLInstance({
+    const instance = new CloudSQLInstance({
       ipType: IpAddressTypes.PUBLIC,
       authType: AuthTypes.PASSWORD,
       instanceConnectionName: 'my-project:us-east1:my-instance',
       sqlAdminFetcher: fetcher,
     });
-    refreshInstance._refresh = refreshInstance.refresh;
-    refreshInstance.refresh = () => {
+    const refreshFn = instance.refresh;
+    instance.refresh = () => {
       if (refreshCount === 3) {
-        refreshInstance.cancelRefresh();
+        instance.cancelRefresh();
         const end = Date.now();
         const duration = end - start;
         t.ok(
           duration >= 150,
           `should respect refresh delay time, ${duration}ms elapsed`
         );
-        return res(undefined);
+        instance.refresh = refreshFn;
+        return t.end();
       }
       refreshCount++;
       t.ok(refreshCount, `should refresh ${refreshCount} times`);
-      refreshInstance._refresh();
+      refreshFn.call(instance);
     };
     // starts out refresh logic
-    refreshInstance.refresh();
+    instance.refresh();
+  });
+
+  t.test('forceRefresh', async t => {
+    const instance = new CloudSQLInstance({
+      ipType: IpAddressTypes.PUBLIC,
+      authType: AuthTypes.PASSWORD,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+      sqlAdminFetcher: fetcher,
+    });
+
+    await instance.refresh();
+
+    let cancelRefreshCalled = false;
+    let refreshCalled = false;
+
+    const cancelRefreshFn = instance.cancelRefresh;
+    instance.cancelRefresh = () => {
+      cancelRefreshCalled = true;
+      cancelRefreshFn.call(instance);
+      instance.cancelRefresh = cancelRefreshFn;
+    };
+
+    const refreshFn = instance.refresh;
+    instance.refresh = async () => {
+      refreshCalled = true;
+      await refreshFn.call(instance);
+      instance.refresh = refreshFn;
+    };
+    await instance.forceRefresh();
+    t.ok(
+      cancelRefreshCalled,
+      'should cancelRefresh current refresh cycle on force refresh'
+    );
+    t.ok(refreshCalled, 'should refresh instance info on force refresh');
+    instance.cancelRefresh();
+  });
+
+  t.test('forceRefresh ongoing cycle', async t => {
+    const instance = new CloudSQLInstance({
+      ipType: IpAddressTypes.PUBLIC,
+      authType: AuthTypes.PASSWORD,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+      sqlAdminFetcher: fetcher,
+    });
+
+    let cancelRefreshCalled = false;
+    let refreshCalled = false;
+
+    const refreshPromise = instance.refresh();
+
+    const cancelRefreshFn = instance.cancelRefresh;
+    instance.cancelRefresh = () => {
+      cancelRefreshCalled = true;
+      cancelRefreshFn.call(instance);
+      instance.cancelRefresh = cancelRefreshFn;
+    };
+
+    const refreshFn = instance.refresh;
+    instance.refresh = async () => {
+      refreshCalled = true;
+      await refreshFn.call(instance);
+      instance.refresh = refreshFn;
+    };
+
+    const forceRefreshPromise = instance.forceRefresh();
+    t.strictSame(
+      refreshPromise,
+      forceRefreshPromise,
+      'forceRefresh should return same promise ref from initial refresh call'
+    );
+    await forceRefreshPromise;
+
+    t.ok(
+      !cancelRefreshCalled,
+      'should not call cancelRefresh if refresh already happening'
+    );
+    t.ok(!refreshCalled, 'should not refresh if already happening');
+
+    instance.cancelRefresh();
+  });
+
+  t.test('refresh post-forceRefresh', async t => {
+    t.plan(4);
+    const start = Date.now();
+    let refreshCount = 0;
+    const instance = new CloudSQLInstance({
+      ipType: IpAddressTypes.PUBLIC,
+      authType: AuthTypes.PASSWORD,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+      sqlAdminFetcher: fetcher,
+    });
+
+    // starts regular refresh cycle
+    await instance.refresh();
+
+    const refreshFn = instance.refresh;
+    instance.refresh = () => {
+      if (refreshCount === 3) {
+        instance.cancelRefresh();
+        const end = Date.now();
+        const duration = end - start;
+        t.ok(
+          duration >= 150,
+          `should respect refresh delay time, ${duration}ms elapsed`
+        );
+        instance.refresh = refreshFn;
+        return t.end();
+      }
+      refreshCount++;
+      t.ok(refreshCount, `should refresh ${refreshCount} times`);
+      refreshFn.call(instance);
+    };
+
+    await instance.forceRefresh();
+    await new Promise((res): void => {
+      setTimeout(res, 200);
+    });
   });
 });
