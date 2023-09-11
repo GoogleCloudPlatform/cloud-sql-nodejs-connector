@@ -54,8 +54,7 @@ export class CloudSQLInstance {
   private readonly ipType: IpAddressTypes;
   private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
-  private refreshTimeoutID?: ReturnType<typeof setTimeout>;
-  private closed = false;
+  private scheduledRefreshID?: ReturnType<typeof setTimeout>;
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
@@ -89,17 +88,14 @@ export class CloudSQLInstance {
     this.privateKey = rsaKeys.privateKey;
     this.serverCaCert = metadata.serverCaCert;
 
-    if (!this.closed) {
-      this.refreshTimeoutID = setTimeout(() => {
-        this.refresh();
-      }, getRefreshInterval(this.ephemeralCert.expirationTime));
-    }
+    this.scheduledRefreshID = setTimeout(() => {
+      this.refresh();
+    }, getRefreshInterval(this.ephemeralCert.expirationTime));
   }
 
-  close(): void {
-    if (this.refreshTimeoutID) {
-      clearTimeout(this.refreshTimeoutID);
+  cancelRefresh(): void {
+    if (this.scheduledRefreshID) {
+      clearTimeout(this.scheduledRefreshID);
     }
-    this.closed = true;
   }
 }

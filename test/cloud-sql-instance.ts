@@ -90,7 +90,7 @@ t.test('CloudSQLInstance', async t => {
     'should have expected serverCaCert'
   );
 
-  instance.close();
+  instance.cancelRefresh();
 
   await new Promise(res => {
     const start = Date.now();
@@ -104,7 +104,7 @@ t.test('CloudSQLInstance', async t => {
     refreshInstance._refresh = refreshInstance.refresh;
     refreshInstance.refresh = () => {
       if (refreshCount === 3) {
-        refreshInstance.close();
+        refreshInstance.cancelRefresh();
         const end = Date.now();
         const duration = end - start;
         t.ok(
