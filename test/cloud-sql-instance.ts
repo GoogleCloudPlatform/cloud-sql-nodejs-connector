@@ -93,7 +93,6 @@ t.test('CloudSQLInstance', async t => {
   instance.cancelRefresh();
 
   t.test('refresh', t => {
-    t.plan(4);
     const start = Date.now();
     let refreshCount = 0;
     const instance = new CloudSQLInstance({
@@ -104,15 +103,14 @@ t.test('CloudSQLInstance', async t => {
     });
     const refreshFn = instance.refresh;
     instance.refresh = () => {
-      if (refreshCount === 3) {
+      if (refreshCount === 2) {
         instance.cancelRefresh();
         const end = Date.now();
         const duration = end - start;
         t.ok(
-          duration >= 150,
+          duration >= 100,
           `should respect refresh delay time, ${duration}ms elapsed`
         );
-        instance.refresh = refreshFn;
         return t.end();
       }
       refreshCount++;
@@ -203,40 +201,75 @@ t.test('CloudSQLInstance', async t => {
   });
 
   t.test('refresh post-forceRefresh', async t => {
-    t.plan(4);
+    const instance = new CloudSQLInstance({
+      authType: AuthTypes.PASSWORD,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+      ipType: IpAddressTypes.PUBLIC,
+      limitRateInterval: 0,
+      sqlAdminFetcher: fetcher,
+    });
+
     const start = Date.now();
-    let refreshCount = 0;
+    // starts regular refresh cycle
+    let refreshCount = 1;
+    await instance.refresh();
+
+    await (() =>
+      new Promise((res): void => {
+        const refreshFn = instance.refresh;
+        instance.refresh = () => {
+          if (refreshCount === 3) {
+            const end = Date.now();
+            const duration = end - start;
+            t.ok(
+              duration >= 100,
+              `should respect refresh delay time, ${duration}ms elapsed`
+            );
+            instance.cancelRefresh();
+            return res(null);
+          }
+          refreshCount++;
+          t.ok(refreshCount, `should refresh ${refreshCount} times`);
+          refreshFn.call(instance);
+        };
+        instance.forceRefresh();
+      }))();
+
+    t.strictSame(refreshCount, 3, 'should have refreshed');
+  });
+
+  t.test('refresh rate limit', async t => {
     const instance = new CloudSQLInstance({
       ipType: IpAddressTypes.PUBLIC,
       authType: AuthTypes.PASSWORD,
       instanceConnectionName: 'my-project:us-east1:my-instance',
+      limitRateInterval: 50,
       sqlAdminFetcher: fetcher,
     });
-
-    // starts regular refresh cycle
+    const start = Date.now();
+    // starts out refresh logic
+    let refreshCount = 1;
     await instance.refresh();
 
-    const refreshFn = instance.refresh;
-    instance.refresh = () => {
-      if (refreshCount === 3) {
-        instance.cancelRefresh();
-        const end = Date.now();
-        const duration = end - start;
-        t.ok(
-          duration >= 150,
-          `should respect refresh delay time, ${duration}ms elapsed`
-        );
-        instance.refresh = refreshFn;
-        return t.end();
-      }
-      refreshCount++;
-      t.ok(refreshCount, `should refresh ${refreshCount} times`);
-      refreshFn.call(instance);
-    };
-
-    await instance.forceRefresh();
-    await new Promise((res): void => {
-      setTimeout(res, 200);
-    });
+    await (() =>
+      new Promise((res): void => {
+        const refreshFn = instance.refresh;
+        instance.refresh = () => {
+          if (refreshCount === 3) {
+            instance.cancelRefresh();
+            const end = Date.now();
+            const duration = end - start;
+            t.ok(
+              duration >= 150,
+              `should respect refresh delay time + rate limit, ${duration}ms elapsed`
+            );
+            return res(null);
+          }
+          refreshCount++;
+          t.ok(refreshCount, `should refresh ${refreshCount} times`);
+          refreshFn.call(instance);
+        };
+      }))();
+    t.strictSame(refreshCount, 3, 'should have refreshed');
   });
 });
