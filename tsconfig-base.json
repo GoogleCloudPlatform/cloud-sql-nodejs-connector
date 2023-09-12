@@ -6,7 +6,6 @@
     "declarationMap": true,
     "esModuleInterop": true,
     "isolatedModules": true,
-    "moduleResolution": "node",
     "skipLibCheck": true
   }
 }

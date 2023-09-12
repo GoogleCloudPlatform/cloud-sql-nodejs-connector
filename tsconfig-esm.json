@@ -3,6 +3,7 @@
   "exclude": ["./test", "./tap-snapshots"],
   "compilerOptions": {
     "module": "esnext",
+    "moduleResolution": "node",
     "outDir": "dist/mjs"
   }
 }
