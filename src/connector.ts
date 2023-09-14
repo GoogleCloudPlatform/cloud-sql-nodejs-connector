@@ -152,9 +152,9 @@ export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
 
-  constructor() {
+  constructor(options?: {sqlAdminRootUrl?: string}) {
     this.instances = new CloudSQLInstanceMap();
-    this.sqlAdminFetcher = new SQLAdminFetcher();
+    this.sqlAdminFetcher = new SQLAdminFetcher(options);
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance

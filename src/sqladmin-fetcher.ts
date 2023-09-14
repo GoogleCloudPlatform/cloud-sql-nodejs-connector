@@ -72,11 +72,12 @@ export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth;
 
-  constructor(loginAuth?: GoogleAuth) {
+  constructor(options?: {loginAuth?: GoogleAuth; sqlAdminRootUrl?: string}) {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
     });
     this.client = new Sqladmin({
+      rootUrl: options?.sqlAdminRootUrl,
       auth,
       userAgentDirectives: [
         {
@@ -87,7 +88,7 @@ export class SQLAdminFetcher {
     });
 
     this.auth =
-      loginAuth ||
+      options?.loginAuth ||
       new GoogleAuth({
         scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
       });

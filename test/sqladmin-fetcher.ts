@@ -41,12 +41,15 @@ const ephCertResponse = {
 
 const mockRequest = (
   instanceInfo: InstanceConnectionInfo,
-  overrides?: sqladmin_v1beta4.Schema$ConnectSettings
+  overrides?: sqladmin_v1beta4.Schema$ConnectSettings,
+  sqlAdminRootUrl?: string
 ): void => {
   const {projectId, regionId, instanceId} = instanceInfo;
 
-  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
-    .get(`/${projectId}/instances/${instanceId}/connectSettings`)
+  nock(sqlAdminRootUrl ?? 'https://sqladmin.googleapis.com')
+    .get(
+      `/sql/v1beta4/projects/${projectId}/instances/${instanceId}/connectSettings`
+    )
     .reply(200, {
       kind: 'sql#connectSettings',
       serverCaCert: serverCaCertResponse(instanceId),
@@ -78,6 +81,35 @@ t.test('getInstanceMetadata', async t => {
   mockRequest(instanceConnectionInfo);
 
   const fetcher = new SQLAdminFetcher();
+  const instanceMetadata = await fetcher.getInstanceMetadata(
+    instanceConnectionInfo
+  );
+  t.same(
+    instanceMetadata,
+    {
+      ipAddresses: {
+        public: '0.0.0.0',
+      },
+      serverCaCert: {
+        cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
+        expirationTime: '2033-01-06T10:00:00.232Z',
+      },
+    },
+    'should return expected instance metadata object'
+  );
+});
+
+t.test('getInstanceMetadata custom SQL Admin API endpoint', async t => {
+  setupCredentials(t);
+  const sqlAdminRootUrl = 'https://sqladmin.mydomain.com';
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'my-project',
+    regionId: 'us-east1',
+    instanceId: 'my-instance',
+  };
+  mockRequest(instanceConnectionInfo, {}, sqlAdminRootUrl);
+
+  const fetcher = new SQLAdminFetcher({sqlAdminRootUrl});
   const instanceMetadata = await fetcher.getInstanceMetadata(
     instanceConnectionInfo
   );
@@ -219,12 +251,15 @@ t.test('getInstanceMetadata invalid region', async t => {
 
 const mockGenerateEphemeralCertRequest = (
   instanceInfo: InstanceConnectionInfo,
-  overrides?: sqladmin_v1beta4.Schema$GenerateEphemeralCertResponse
+  overrides?: sqladmin_v1beta4.Schema$GenerateEphemeralCertResponse,
+  sqlAdminRootUrl?: string
 ): void => {
   const {projectId, instanceId} = instanceInfo;
 
-  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
-    .post(`/${projectId}/instances/${instanceId}:generateEphemeralCert`)
+  nock(sqlAdminRootUrl ?? 'https://sqladmin.googleapis.com')
+    .post(
+      `/sql/v1beta4/projects/${projectId}/instances/${instanceId}:generateEphemeralCert`
+    )
     .reply(200, {
       ephemeralCert: ephCertResponse,
       // overrides any properties from the base mock
@@ -242,6 +277,32 @@ t.test('getEphemeralCertificate', async t => {
   mockGenerateEphemeralCertRequest(instanceConnectionInfo);
 
   const fetcher = new SQLAdminFetcher();
+  const ephemeralCert = await fetcher.getEphemeralCertificate(
+    instanceConnectionInfo,
+    'key',
+    AuthTypes.PASSWORD
+  );
+  t.same(
+    ephemeralCert,
+    {
+      cert: CLIENT_CERT,
+      expirationTime: '3022-07-22T17:53:09.000Z',
+    },
+    'should return expected ssl cert'
+  );
+});
+
+t.test('getEphemeralCertificate custom SQL Admin API endpoint', async t => {
+  setupCredentials(t);
+  const sqlAdminRootUrl = 'https://sqladmin.mydomain.com';
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'my-project',
+    regionId: 'us-east1',
+    instanceId: 'my-instance',
+  };
+  mockGenerateEphemeralCertRequest(instanceConnectionInfo, {}, sqlAdminRootUrl);
+
+  const fetcher = new SQLAdminFetcher({sqlAdminRootUrl});
   const ephemeralCert = await fetcher.getEphemeralCertificate(
     instanceConnectionInfo,
     'key',
@@ -320,12 +381,12 @@ t.test('getEphemeralCertificate no access token', async t => {
   };
   mockGenerateEphemeralCertRequest(instanceConnectionInfo);
 
-  const auth = new GoogleAuth({
+  const loginAuth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
   });
-  auth.getAccessToken = async () => null;
+  loginAuth.getAccessToken = async () => null;
 
-  const fetcher = new SQLAdminFetcher(auth);
+  const fetcher = new SQLAdminFetcher({loginAuth});
 
   t.rejects(
     fetcher.getEphemeralCertificate(
