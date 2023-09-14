@@ -1,16 +1,31 @@
 {
   "extends": [
-    "config:base",
-    "docker:disable",
+    "config:recommended", 
+    "docker:disable"
   ],
   "commitMessagePrefix": "deps: ",
-  "pinVersions": false,
-  "rebaseStalePrs": true,
+  "rangeStrategy": "replace",
+  "rebaseWhen": "behind-base-branch",
   "gitAuthor": null,
   "packageRules": [
     {
-      "extends": "packages:linters",
+      "extends": ["packages:linters"], 
       "groupName": "linters"
+    },
+    {
+      "matchPackagePatterns": [
+        "^actions/checkout",
+        "^actions/github-script",
+        "^actions/setup-node",
+        "^actions/upload-artifact",
+        "^github/codeql-action",
+        "^google-github-actions/auth",
+        "^google-github-actions/get-secretmanager-secrets",
+        "^google-github-actions/setup-gcloud",
+        "^micnncim/action-label-syncer",
+        "^ossf/scorecard-action"
+      ],
+      "groupName": "dependencies for github"
     }
   ],
   "ignoreDeps": ["typescript"]
