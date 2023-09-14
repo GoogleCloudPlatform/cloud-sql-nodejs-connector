@@ -248,7 +248,7 @@ export class Connector {
   // instances timeout callbacks that refresh instance info
   close(): void {
     for (const instance of this.instances.values()) {
-      instance.close();
+      instance.cancelRefresh();
     }
   }
 }
