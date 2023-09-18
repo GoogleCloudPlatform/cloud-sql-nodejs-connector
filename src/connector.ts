@@ -213,12 +213,6 @@ export class Connector {
             privateKey,
             serverCaCert,
           });
-          tlsSocket.once('secureConnect', async () => {
-            // TLS handshake failed
-            if (!tlsSocket.authorized) {
-              await cloudSqlInstance.forceRefresh();
-            }
-          });
           tlsSocket.once('error', async () => {
             await cloudSqlInstance.forceRefresh();
           });
