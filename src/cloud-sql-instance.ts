@@ -107,15 +107,26 @@ export class CloudSQLInstance {
   }
 
   async refresh(): Promise<void> {
+    // Since forceRefresh might be invoked during an ongoing refresh
+    // we keep track of the ongoing promise in order to be able to await
+    // for it in the forceRefresh method.
+    // In case the throttle mechanism is already initialized, we add the
+    // extra wait time `limitRateInterval` in order to limit the rate of
+    // requests to Cloud SQL Admin APIs.
     this.ongoingRefreshPromise = this.throttle
       ? this.throttle(this._refresh).call(this)
       : this._refresh();
+
+    // awaits for the ongoing promise to resolve, since the refresh is
+    // completed once the promise is resolved, we just free up the reference
+    // to the promise at this point, ensuring any new call to `forceRefresh`
+    // is able to trigger a new refresh
     await this.ongoingRefreshPromise;
     this.ongoingRefreshPromise = undefined;
 
     // Initializing the rate limiter at the end of the function so that the
     // first refresh cycle is never rate-limited, ensuring there are 2 calls
-    // allowed prior to start waiting a throttle interval.
+    // allowed prior to waiting a throttle interval.
     await this.initializeRateLimiter();
   }
 
