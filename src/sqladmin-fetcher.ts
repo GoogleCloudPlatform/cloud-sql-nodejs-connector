@@ -68,16 +68,21 @@ function cleanGaxiosConfig() {
   gaxios.defaults = defaultGaxiosConfig;
 }
 
+interface SQLAdminFetcherOptions {
+  loginAuth?: GoogleAuth;
+  sqlAdminRootUrl?: string;
+}
+
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth;
 
-  constructor(options?: {loginAuth?: GoogleAuth; sqlAdminRootUrl?: string}) {
+  constructor({loginAuth, sqlAdminRootUrl}: SQLAdminFetcherOptions = {}) {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
     });
     this.client = new Sqladmin({
-      rootUrl: options?.sqlAdminRootUrl,
+      rootUrl: sqlAdminRootUrl,
       auth,
       userAgentDirectives: [
         {
@@ -88,7 +93,7 @@ export class SQLAdminFetcher {
     });
 
     this.auth =
-      options?.loginAuth ||
+      loginAuth ||
       new GoogleAuth({
         scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
       });
