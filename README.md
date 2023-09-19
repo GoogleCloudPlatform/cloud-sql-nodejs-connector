@@ -311,8 +311,25 @@ const clientOpts = await connector.getOptions({
   authType: AuthTypes.IAM,
 });
 ```
+## Support policy
 
-## Supported Node.js Versions
+### Major version lifecycle
+
+This project uses [semantic versioning](https://semver.org/), and uses the
+following lifecycle regarding support for a major version:
+
+**Active** - Active versions get all new features and security fixes (that
+wouldn’t otherwise introduce a breaking change). New major versions are
+guaranteed to be "active" for a minimum of 1 year.
+
+**Deprecated** - Deprecated versions continue to receive security and critical
+bug fixes, but do not receive new features. Deprecated versions will be
+supported for 1 year.
+
+**Unsupported** - Any major version that has been deprecated for >=1 year is
+considered unsupported.
+
+### Supported Node.js Versions
 
 Our client libraries follow the
 [Node.js release schedule](https://nodejs.org/en/about/releases/).
@@ -328,18 +345,17 @@ best-efforts basis with the following warnings:
 * Some security patches and features cannot be backported.
 * Dependencies cannot be kept up-to-date.
 
-## Versioning
+### Release cadence
 
-This library follows [Semantic Versioning](http://semver.org/).
-
-This library is considered to be at **preview**, ready for testing by customers.
-
-More Information:
-[Google Cloud Platform Launch Stages](https://cloud.google.com/terms/launch-stages)
+This project aims for a release on at least a monthly basis. If no new features
+or fixes have been added, a new PATCH version with the latest dependencies is
+released.
 
 ## Contributing
 
-Contributions welcome! See the [Contributing Guide](./docs/contributing.md).
+We welcome outside contributions. Please see our
+[Contributing Guide](./docs/contributing.md) for details on how best to
+contribute.
 
 ## License
 
