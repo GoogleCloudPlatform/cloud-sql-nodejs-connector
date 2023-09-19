@@ -36,9 +36,10 @@ interface Fetcher {
 }
 
 interface CloudSQLInstanceOptions {
-  ipType: IpAddressTypes;
   authType: AuthTypes;
   instanceConnectionName: string;
+  ipType: IpAddressTypes;
+  limitRateInterval?: number;
   sqlAdminFetcher: Fetcher;
 }
 
@@ -54,7 +55,11 @@ export class CloudSQLInstance {
   private readonly ipType: IpAddressTypes;
   private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
+  private readonly limitRateInterval: number;
+  private ongoingRefreshPromise?: Promise<void>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout>;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  private throttle?: any;
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
@@ -67,14 +72,65 @@ export class CloudSQLInstance {
     authType,
     instanceConnectionName,
     sqlAdminFetcher,
+    limitRateInterval = 30 * 1000, // 30s default
   }: CloudSQLInstanceOptions) {
-    this.ipType = ipType;
     this.authType = authType;
     this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
+    this.ipType = ipType;
+    this.limitRateInterval = limitRateInterval;
     this.sqlAdminFetcher = sqlAdminFetcher;
   }
 
+  // p-throttle library has to be initialized in an async scope in order to
+  // use dynamic import so that it's also compatible with CommonJS
+  private async initializeRateLimiter() {
+    if (this.throttle) {
+      return;
+    }
+    const pThrottle = (await import('p-throttle')).default;
+    this.throttle = pThrottle({
+      limit: 1,
+      interval: this.limitRateInterval,
+      strict: true,
+    }) as ReturnType<typeof pThrottle>;
+  }
+
+  async forceRefresh(): Promise<void> {
+    // if a refresh is already ongoing, just await for its promise to fulfill
+    // so that a new instance info is available before reconnecting
+    if (this.ongoingRefreshPromise) {
+      await this.ongoingRefreshPromise;
+      return;
+    }
+    this.cancelRefresh();
+    return this.refresh();
+  }
+
   async refresh(): Promise<void> {
+    // Since forceRefresh might be invoked during an ongoing refresh
+    // we keep track of the ongoing promise in order to be able to await
+    // for it in the forceRefresh method.
+    // In case the throttle mechanism is already initialized, we add the
+    // extra wait time `limitRateInterval` in order to limit the rate of
+    // requests to Cloud SQL Admin APIs.
+    this.ongoingRefreshPromise = this.throttle
+      ? this.throttle(this._refresh).call(this)
+      : this._refresh();
+
+    // awaits for the ongoing promise to resolve, since the refresh is
+    // completed once the promise is resolved, we just free up the reference
+    // to the promise at this point, ensuring any new call to `forceRefresh`
+    // is able to trigger a new refresh
+    await this.ongoingRefreshPromise;
+    this.ongoingRefreshPromise = undefined;
+
+    // Initializing the rate limiter at the end of the function so that the
+    // first refresh cycle is never rate-limited, ensuring there are 2 calls
+    // allowed prior to waiting a throttle interval.
+    await this.initializeRateLimiter();
+  }
+
+  private async _refresh(): Promise<void> {
     const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
       await this.sqlAdminFetcher.getInstanceMetadata(this.instanceInfo);

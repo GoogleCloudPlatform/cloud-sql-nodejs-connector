@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {EventEmitter} from 'node:events';
 import t from 'tap';
 import {Connector} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
@@ -551,4 +552,76 @@ t.test('Connector using IAM with Tedious driver', async t => {
     },
     'should throw a missing iam support error'
   );
+});
+
+t.test('Connector force refresh on socket connection error', async t => {
+  setupCredentials(t); // setup google-auth credentials mocks
+
+  // Mocks CloudSQLInstance to spy on forceRefresh calls
+  let forceRefresh = false;
+  const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
+    '../src/crypto': {
+      generateKeys: async () => ({
+        publicKey: '-----BEGIN PUBLIC KEY-----',
+        privateKey: CLIENT_KEY,
+      }),
+    },
+  });
+  CloudSQLInstance.prototype.forceRefresh = async () => {
+    forceRefresh = true;
+  };
+
+  // mocks sql admin fetcher and generateKeys modules
+  // so that they can return a deterministic result
+  const {Connector} = t.mock('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': {
+      CloudSQLInstance,
+    },
+    '../src/socket': {
+      getSocket() {
+        const mockSocket = new EventEmitter();
+        setTimeout(() => {
+          mockSocket.emit('error');
+        }, 1);
+        return mockSocket;
+      },
+    },
+  });
+
+  const connector = new Connector();
+  const opts = await connector.getOptions({
+    ipType: 'PUBLIC',
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+  });
+  const socket = opts.stream();
+  await new Promise((res): void => {
+    socket.on('error', () => {
+      setTimeout(() => {
+        t.ok(forceRefresh, 'should call CloudSQLInstance.forceRefresh');
+        res(null);
+      }, 1);
+    });
+  });
+  connector.close();
 });
