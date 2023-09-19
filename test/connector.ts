@@ -18,6 +18,7 @@ import {setupCredentials} from './fixtures/setup-credentials';
 import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {AuthTypes} from '../src/auth-types';
+import {SQLAdminFetcherOptions} from '../src/sqladmin-fetcher';
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
@@ -551,4 +552,24 @@ t.test('Connector using IAM with Tedious driver', async t => {
     },
     'should throw a missing iam support error'
   );
+});
+
+t.test('Connector, custom sqlAdminRootUrl', async t => {
+  const expectedSqlAdminRootUrl = 'https://sqladmin.mydomain.com';
+  let actualSqlAdminRootUrl: string | undefined;
+  // mocks sql admin fetcher to check that the custom
+  // sqlAdminRootUrl is correctly passed into it
+  const {Connector} = t.mock('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        constructor({sqlAdminRootUrl}: SQLAdminFetcherOptions) {
+          actualSqlAdminRootUrl = sqlAdminRootUrl;
+        }
+      },
+    },
+  });
+
+  new Connector({sqlAdminRootUrl: expectedSqlAdminRootUrl});
+
+  t.same(actualSqlAdminRootUrl, expectedSqlAdminRootUrl);
 });

@@ -68,7 +68,7 @@ function cleanGaxiosConfig() {
   gaxios.defaults = defaultGaxiosConfig;
 }
 
-interface SQLAdminFetcherOptions {
+export interface SQLAdminFetcherOptions {
   loginAuth?: GoogleAuth;
   sqlAdminRootUrl?: string;
 }
