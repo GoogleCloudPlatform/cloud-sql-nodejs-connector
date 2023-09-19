@@ -187,6 +187,11 @@ export class Connector {
 
     return {
       stream() {
+        const cloudSqlInstance = instances.getInstance({
+          instanceConnectionName,
+          ipType,
+          authType,
+        });
         const {
           instanceInfo,
           ephemeralCert,
@@ -194,7 +199,7 @@ export class Connector {
           port,
           privateKey,
           serverCaCert,
-        } = instances.getInstance({instanceConnectionName, ipType, authType});
+        } = cloudSqlInstance;
 
         if (
           instanceInfo &&
@@ -204,7 +209,7 @@ export class Connector {
           privateKey &&
           serverCaCert
         ) {
-          return getSocket({
+          const tlsSocket = getSocket({
             instanceInfo,
             ephemeralCert,
             host,
@@ -212,6 +217,10 @@ export class Connector {
             privateKey,
             serverCaCert,
           });
+          tlsSocket.once('error', async () => {
+            await cloudSqlInstance.forceRefresh();
+          });
+          return tlsSocket;
         }
 
         throw new CloudSQLConnectorError({
