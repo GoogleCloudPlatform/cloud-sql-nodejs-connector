@@ -18,106 +18,85 @@ import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from '../fixtures/certs';
 import {setupCredentials} from '../fixtures/setup-credentials';
 import {setupTLSServer} from '../fixtures/setup-tls-server';
 
-const testCases = [
-  {
-    description: 'default SQL Admin API endpoint',
-    connectorOptions: {},
-    sqlAdminRootUrl: 'https://sqladmin.googleapis.com',
-  },
-  {
-    description: 'custom SQL Admin API endpoint',
-    connectorOptions: {
-      sqlAdminRootUrl: 'https://sqladmin.mydomain.com',
-    },
-    sqlAdminRootUrl: 'https://sqladmin.mydomain.com',
-  },
-];
+// test that reaches out for both Google Auth & SQL Admin APIs,
+// then use retrieved keys and certs to stablish an actual
+// socket connection to a mock TLS server
+t.test('Connector integration test', async t => {
+  setupCredentials(t); // setup google-auth credentials mocks
+  await setupTLSServer(t);
 
-testCases.forEach(({description, connectorOptions, sqlAdminRootUrl}) => {
-  // test that reaches out for both Google Auth & SQL Admin APIs,
-  // then use retrieved keys and certs to stablish an actual
-  // socket connection to a mock TLS server
-  t.test(`Connector integration test ${description}`, async t => {
-    setupCredentials(t); // setup google-auth credentials mocks
-    await setupTLSServer(t);
-
-    nock(sqlAdminRootUrl)
-      .get(
-        '/sql/v1beta4/projects/my-project/instances/my-instance/connectSettings'
-      )
-      .reply(200, {
-        kind: 'sql#connectSettings',
-        serverCaCert: {
-          kind: 'sql#sslCert',
-          certSerialNumber: '0',
-          cert: CA_CERT,
-          commonName:
-            'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=1234',
-          sha1Fingerprint: '004fe8623f02cb953bb5addbd0309f3b8f136c00',
-          instance: 'my-instance',
-          createTime: '2023-01-01T10:00:00.232Z',
-          expirationTime: '2033-01-06T10:00:00.232Z',
+  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
+    .get('/my-project/instances/my-instance/connectSettings')
+    .reply(200, {
+      kind: 'sql#connectSettings',
+      serverCaCert: {
+        kind: 'sql#sslCert',
+        certSerialNumber: '0',
+        cert: CA_CERT,
+        commonName:
+          'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=1234',
+        sha1Fingerprint: '004fe8623f02cb953bb5addbd0309f3b8f136c00',
+        instance: 'my-instance',
+        createTime: '2023-01-01T10:00:00.232Z',
+        expirationTime: '2033-01-06T10:00:00.232Z',
+      },
+      ipAddresses: [
+        {
+          type: 'PRIMARY',
+          ipAddress: '127.0.0.1',
         },
-        ipAddresses: [
-          {
-            type: 'PRIMARY',
-            ipAddress: '127.0.0.1',
-          },
-        ],
-        region: 'us-east1',
-        databaseVersion: 'POSTGRES_14',
-        backendType: 'SECOND_GEN',
-      });
-
-    nock(sqlAdminRootUrl)
-      .post(
-        '/sql/v1beta4/projects/my-project/instances/my-instance:generateEphemeralCert'
-      )
-      .reply(200, {
-        ephemeralCert: {
-          kind: 'sql#sslCert',
-          certSerialNumber: '0',
-          cert: CLIENT_CERT,
-          commonName:
-            'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=1234',
-          sha1Fingerprint: '004fe8623f02cb953bb5addbd0309f3b8f136c00',
-          instance: 'my-instance',
-          createTime: '2023-01-01T10:00:00.232Z',
-          expirationTime: '2033-01-06T10:00:00.232Z',
-        },
-      });
-
-    // mocks generateKeys module so that it can return a deterministic result
-    const {Connector} = t.mock('../../src/connector', {
-      '../../src/cloud-sql-instance': t.mock('../../src/cloud-sql-instance', {
-        '../../src/crypto': {
-          generateKeys: async () => ({
-            publicKey: '-----BEGIN PUBLIC KEY-----',
-            privateKey: CLIENT_KEY,
-          }),
-        },
-      }),
+      ],
+      region: 'us-east1',
+      databaseVersion: 'POSTGRES_14',
+      backendType: 'SECOND_GEN',
     });
 
-    const connector = new Connector(connectorOptions);
-    const opts = await connector.getOptions({
-      ipType: 'PUBLIC',
-      authType: 'PASSWORD',
-      instanceConnectionName: 'my-project:us-east1:my-instance',
+  nock('https://sqladmin.googleapis.com/sql/v1beta4/projects')
+    .post('/my-project/instances/my-instance:generateEphemeralCert')
+    .reply(200, {
+      ephemeralCert: {
+        kind: 'sql#sslCert',
+        certSerialNumber: '0',
+        cert: CLIENT_CERT,
+        commonName:
+          'C=US,O=Google\\, Inc,CN=Google Cloud SQL Server CA,dnQualifier=1234',
+        sha1Fingerprint: '004fe8623f02cb953bb5addbd0309f3b8f136c00',
+        instance: 'my-instance',
+        createTime: '2023-01-01T10:00:00.232Z',
+        expirationTime: '2033-01-06T10:00:00.232Z',
+      },
     });
 
-    await new Promise((res, rej): void => {
-      // driver factory method to retrieve a new socket
-      const tlsSocket = opts.stream();
-      tlsSocket.on('secureConnect', () => {
-        t.ok(tlsSocket.authorized, 'socket connected');
-        tlsSocket.end();
-        connector.close();
-        res(null);
-      });
-      tlsSocket.on('error', (err: Error) => {
-        rej(err);
-      });
+  // mocks generateKeys module so that it can return a deterministic result
+  const {Connector} = t.mock('../../src/connector', {
+    '../../src/cloud-sql-instance': t.mock('../../src/cloud-sql-instance', {
+      '../../src/crypto': {
+        generateKeys: async () => ({
+          publicKey: '-----BEGIN PUBLIC KEY-----',
+          privateKey: CLIENT_KEY,
+        }),
+      },
+    }),
+  });
+
+  const connector = new Connector();
+  const opts = await connector.getOptions({
+    ipType: 'PUBLIC',
+    authType: 'PASSWORD',
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+  });
+
+  await new Promise((res, rej): void => {
+    // driver factory method to retrieve a new socket
+    const tlsSocket = opts.stream();
+    tlsSocket.on('secureConnect', () => {
+      t.ok(tlsSocket.authorized, 'socket connected');
+      tlsSocket.end();
+      connector.close();
+      res(null);
+    });
+    tlsSocket.on('error', (err: Error) => {
+      rej(err);
     });
   });
 });
