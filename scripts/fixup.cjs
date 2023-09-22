@@ -45,7 +45,7 @@ async function fixupImportFileExtensions() {
       const path = resolve(mjsDistFolder, entry.name);
       if (entry.isDirectory()) {
         recursiveReadDir(path);
-      } else if (path.endsWith('.js')) {
+      } else if (path.endsWith('.js') || path.endsWith('.d.ts')) {
         mjsFilePaths.push(path);
       }
     }
