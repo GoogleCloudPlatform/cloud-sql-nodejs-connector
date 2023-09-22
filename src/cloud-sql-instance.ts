@@ -43,6 +43,13 @@ interface CloudSQLInstanceOptions {
   sqlAdminFetcher: Fetcher;
 }
 
+interface RefreshableValues {
+  ephemeralCert: SslCert;
+  host: string;
+  privateKey: string;
+  serverCaCert: SslCert;
+}
+
 export class CloudSQLInstance {
   static async getCloudSQLInstance(
     options: CloudSQLInstanceOptions
@@ -56,8 +63,9 @@ export class CloudSQLInstance {
   private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
   private readonly limitRateInterval: number;
-  private ongoingRefreshPromise?: Promise<void>;
-  private scheduledRefreshID?: ReturnType<typeof setTimeout>;
+  private activeConnection: boolean = false;
+  private ongoingRefreshPromise?: Promise<RefreshableValues>;
+  private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private throttle?: any;
   public readonly instanceInfo: InstanceConnectionInfo;
@@ -107,51 +115,118 @@ export class CloudSQLInstance {
   }
 
   async refresh(): Promise<void> {
+    const currentRefreshId = this.scheduledRefreshID;
+
     // Since forceRefresh might be invoked during an ongoing refresh
     // we keep track of the ongoing promise in order to be able to await
     // for it in the forceRefresh method.
     // In case the throttle mechanism is already initialized, we add the
     // extra wait time `limitRateInterval` in order to limit the rate of
     // requests to Cloud SQL Admin APIs.
-    this.ongoingRefreshPromise = this.throttle
-      ? this.throttle(this._refresh).call(this)
-      : this._refresh();
+    this.ongoingRefreshPromise = (
+      this.throttle && this.scheduledRefreshID
+        ? this.throttle(this.refreshValues).call(this)
+        : this.refreshValues()
+    )
+      // These needs to be part of the chain of promise referenced in
+      // ongoingRefreshPromise in order to avoid race conditions
+      .then((nextValues: RefreshableValues) => {
+        // in case the id at the moment of starting this refresh cycle has
+        // changed, that means that it has been canceled
+        if (currentRefreshId !== this.scheduledRefreshID) {
+          return nextValues;
+        }
 
-    // awaits for the ongoing promise to resolve, since the refresh is
-    // completed once the promise is resolved, we just free up the reference
-    // to the promise at this point, ensuring any new call to `forceRefresh`
-    // is able to trigger a new refresh
-    await this.ongoingRefreshPromise;
-    this.ongoingRefreshPromise = undefined;
+        // In case the refreshValues method succeeded
+        // then we go ahead and update values
+        this.updateValues(nextValues);
 
-    // Initializing the rate limiter at the end of the function so that the
-    // first refresh cycle is never rate-limited, ensuring there are 2 calls
-    // allowed prior to waiting a throttle interval.
+        this.scheduleRefresh();
+
+        // This is the end of the successful refresh chain, so now
+        // we release the reference to the ongoingRefreshPromise
+        this.ongoingRefreshPromise = undefined;
+
+        return nextValues;
+      })
+      .catch((err: unknown) => {
+        // In case there's already an active connection we won't throw
+        // refresh errors to the final user, scheduling a new refresh instead.
+        if (this.activeConnection) {
+          if (currentRefreshId === this.scheduledRefreshID) {
+            this.scheduleRefresh();
+          }
+        } else {
+          throw err as Error;
+        }
+
+        // This refresh cycle has failed, releases ref to ongoingRefreshPromise
+        this.ongoingRefreshPromise = undefined;
+      });
+
+    // The rate limiter needs to be initialized _after_ assigning a ref
+    // to ongoingRefreshPromise in order to avoid race conditions with
+    // the forceRefresh check that ensures a refresh cycle is not ongoing
     await this.initializeRateLimiter();
+
+    await this.ongoingRefreshPromise;
   }
 
-  private async _refresh(): Promise<void> {
+  // The refreshValues method will perform all the necessary async steps
+  // in order to get a new set of values for an instance that can then be
+  // used to create new connections to a Cloud SQL instance. It throws in
+  // case any of the internal steps fails.
+  private async refreshValues(): Promise<RefreshableValues> {
     const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
       await this.sqlAdminFetcher.getInstanceMetadata(this.instanceInfo);
 
-    this.ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
+    const ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
       this.instanceInfo,
       rsaKeys.publicKey,
       this.authType
     );
-    this.host = selectIpAddress(metadata.ipAddresses, this.ipType);
-    this.privateKey = rsaKeys.privateKey;
-    this.serverCaCert = metadata.serverCaCert;
+    const host = selectIpAddress(metadata.ipAddresses, this.ipType);
+    const privateKey = rsaKeys.privateKey;
+    const serverCaCert = metadata.serverCaCert;
 
-    this.scheduledRefreshID = setTimeout(() => {
-      this.refresh();
-    }, getRefreshInterval(this.ephemeralCert.expirationTime));
+    return {
+      ephemeralCert,
+      host,
+      privateKey,
+      serverCaCert,
+    };
+  }
+
+  private updateValues(nextValues: RefreshableValues): void {
+    const {ephemeralCert, host, privateKey, serverCaCert} = nextValues;
+
+    this.ephemeralCert = ephemeralCert;
+    this.host = host;
+    this.privateKey = privateKey;
+    this.serverCaCert = serverCaCert;
+  }
+
+  private scheduleRefresh(): void {
+    const refreshInterval = getRefreshInterval(
+      /* c8 ignore next */
+      String(this.ephemeralCert?.expirationTime)
+    );
+
+    this.scheduledRefreshID = setTimeout(() => this.refresh(), refreshInterval);
   }
 
   cancelRefresh(): void {
     if (this.scheduledRefreshID) {
       clearTimeout(this.scheduledRefreshID);
     }
+    this.scheduledRefreshID = null;
+  }
+
+  // Mark this instance as having an active connection. This is important to
+  // ensure any possible errors thrown during a future refresh cycle should
+  // not be thrown to the final user.
+  setActiveConnection(): void {
+    this.activeConnection = true;
   }
 }
