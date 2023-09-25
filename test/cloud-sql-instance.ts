@@ -93,7 +93,7 @@ t.test('CloudSQLInstance', async t => {
 
   instance.cancelRefresh();
 
-  t.test('initial refresh error', async t => {
+  t.test('initial refresh error should throw errors', async t => {
     const failedFetcher = {
       ...fetcher,
       async getInstanceMetadata() {
@@ -144,94 +144,100 @@ t.test('CloudSQLInstance', async t => {
     instance.refresh();
   });
 
-  t.test('refresh error', async t => {
-    let metadataCount = 0;
-    const failedFetcher = {
-      ...fetcher,
-      async getInstanceMetadata() {
-        if (metadataCount === 1) {
-          throw new Error('ERR');
-        }
-        metadataCount++;
-        return fetcher.getInstanceMetadata();
-      },
-    };
-    const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: failedFetcher,
-      limitRateInterval: 50,
-    });
-    await (() =>
-      new Promise((res): void => {
-        let refreshCount = 0;
-        instance.refresh = function mockRefresh() {
-          if (refreshCount === 3) {
-            t.ok('done refreshing 3 times');
-            instance.cancelRefresh();
-            return res(null);
+  t.test(
+    'refresh error should not throw any errors on active connection',
+    async t => {
+      let metadataCount = 0;
+      const failedFetcher = {
+        ...fetcher,
+        async getInstanceMetadata() {
+          if (metadataCount === 1) {
+            throw new Error('ERR');
           }
-          refreshCount++;
-          t.ok(refreshCount, `should refresh ${refreshCount} times`);
-          return CloudSQLInstance.prototype.refresh.call(instance);
-        };
-        // starts out refresh logic
-        instance.refresh();
-        instance.setActiveConnection();
-      }))();
-  });
-
-  t.test('refresh error with expired cert', async t => {
-    const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
-      '../src/crypto': {
-        generateKeys: async () => ({
-          publicKey: '-----BEGIN PUBLIC KEY-----',
-          privateKey: CLIENT_KEY,
-        }),
-      },
-      '../src/time': {
-        getRefreshInterval() {
-          return 0; // an expired cert will want to reload right away
+          metadataCount++;
+          return fetcher.getInstanceMetadata();
         },
-      },
-    });
-    let metadataCount = 0;
-    const failedFetcher = {
-      ...fetcher,
-      async getInstanceMetadata() {
-        if (metadataCount === 1) {
-          throw new Error('ERR');
-        }
-        metadataCount++;
-        return fetcher.getInstanceMetadata();
-      },
-    };
-    const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: failedFetcher,
-      limitRateInterval: 50,
-    });
-    await (() =>
-      new Promise((res): void => {
-        let refreshCount = 0;
-        instance.refresh = function mockRefresh() {
-          if (refreshCount === 3) {
-            t.ok('done refreshing 3 times');
-            instance.cancelRefresh();
-            return res(null);
+      };
+      const instance = new CloudSQLInstance({
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: failedFetcher,
+        limitRateInterval: 50,
+      });
+      await (() =>
+        new Promise((res): void => {
+          let refreshCount = 0;
+          instance.refresh = function mockRefresh() {
+            if (refreshCount === 3) {
+              t.ok('done refreshing 3 times');
+              instance.cancelRefresh();
+              return res(null);
+            }
+            refreshCount++;
+            t.ok(refreshCount, `should refresh ${refreshCount} times`);
+            return CloudSQLInstance.prototype.refresh.call(instance);
+          };
+          // starts out refresh logic
+          instance.refresh();
+          instance.setActiveConnection();
+        }))();
+    }
+  );
+
+  t.test(
+    'refresh error with expired cert should not throw any errors on active connection',
+    async t => {
+      const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
+        '../src/crypto': {
+          generateKeys: async () => ({
+            publicKey: '-----BEGIN PUBLIC KEY-----',
+            privateKey: CLIENT_KEY,
+          }),
+        },
+        '../src/time': {
+          getRefreshInterval() {
+            return 0; // an expired cert will want to reload right away
+          },
+        },
+      });
+      let metadataCount = 0;
+      const failedFetcher = {
+        ...fetcher,
+        async getInstanceMetadata() {
+          if (metadataCount === 1) {
+            throw new Error('ERR');
           }
-          refreshCount++;
-          t.ok(refreshCount, `should refresh ${refreshCount} times`);
-          return CloudSQLInstance.prototype.refresh.call(instance);
-        };
-        // starts out refresh logic
-        instance.refresh();
-        instance.setActiveConnection();
-      }))();
-  });
+          metadataCount++;
+          return fetcher.getInstanceMetadata();
+        },
+      };
+      const instance = new CloudSQLInstance({
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: failedFetcher,
+        limitRateInterval: 50,
+      });
+      await (() =>
+        new Promise((res): void => {
+          let refreshCount = 0;
+          instance.refresh = function mockRefresh() {
+            if (refreshCount === 3) {
+              t.ok('done refreshing 3 times');
+              instance.cancelRefresh();
+              return res(null);
+            }
+            refreshCount++;
+            t.ok(refreshCount, `should refresh ${refreshCount} times`);
+            return CloudSQLInstance.prototype.refresh.call(instance);
+          };
+          // starts out refresh logic
+          instance.refresh();
+          instance.setActiveConnection();
+        }))();
+    }
+  );
 
   t.test('forceRefresh', async t => {
     const instance = new CloudSQLInstance({

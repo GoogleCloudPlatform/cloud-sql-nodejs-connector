@@ -43,7 +43,7 @@ interface CloudSQLInstanceOptions {
   sqlAdminFetcher: Fetcher;
 }
 
-interface RefreshableValues {
+interface RefreshResult {
   ephemeralCert: SslCert;
   host: string;
   privateKey: string;
@@ -64,7 +64,7 @@ export class CloudSQLInstance {
   private readonly sqlAdminFetcher: Fetcher;
   private readonly limitRateInterval: number;
   private activeConnection: boolean = false;
-  private ongoingRefreshPromise?: Promise<RefreshableValues>;
+  private ongoingRefreshPromise?: Promise<RefreshResult>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private throttle?: any;
@@ -125,19 +125,19 @@ export class CloudSQLInstance {
     // requests to Cloud SQL Admin APIs.
     this.ongoingRefreshPromise = (
       this.throttle && this.scheduledRefreshID
-        ? this.throttle(this.refreshValues).call(this)
-        : this.refreshValues()
+        ? this.throttle(this.performRefresh).call(this)
+        : this.performRefresh()
     )
       // These needs to be part of the chain of promise referenced in
       // ongoingRefreshPromise in order to avoid race conditions
-      .then((nextValues: RefreshableValues) => {
+      .then((nextValues: RefreshResult) => {
         // in case the id at the moment of starting this refresh cycle has
         // changed, that means that it has been canceled
         if (currentRefreshId !== this.scheduledRefreshID) {
-          return nextValues;
+          return;
         }
 
-        // In case the refreshValues method succeeded
+        // In case the performRefresh method succeeded
         // then we go ahead and update values
         this.updateValues(nextValues);
 
@@ -146,8 +146,6 @@ export class CloudSQLInstance {
         // This is the end of the successful refresh chain, so now
         // we release the reference to the ongoingRefreshPromise
         this.ongoingRefreshPromise = undefined;
-
-        return nextValues;
       })
       .catch((err: unknown) => {
         // In case there's already an active connection we won't throw
@@ -172,11 +170,11 @@ export class CloudSQLInstance {
     await this.ongoingRefreshPromise;
   }
 
-  // The refreshValues method will perform all the necessary async steps
+  // The performRefresh method will perform all the necessary async steps
   // in order to get a new set of values for an instance that can then be
   // used to create new connections to a Cloud SQL instance. It throws in
   // case any of the internal steps fails.
-  private async refreshValues(): Promise<RefreshableValues> {
+  private async performRefresh(): Promise<RefreshResult> {
     const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
       await this.sqlAdminFetcher.getInstanceMetadata(this.instanceInfo);
@@ -198,7 +196,7 @@ export class CloudSQLInstance {
     };
   }
 
-  private updateValues(nextValues: RefreshableValues): void {
+  private updateValues(nextValues: RefreshResult): void {
     const {ephemeralCert, host, privateKey, serverCaCert} = nextValues;
 
     this.ephemeralCert = ephemeralCert;
