@@ -185,7 +185,7 @@ t.test('CloudSQLInstance', async t => {
           };
           // starts out refresh logic
           instance.refresh();
-          instance.setStablishedConnection();
+          instance.setEstablishedConnection();
         }))();
     }
   );
@@ -239,7 +239,7 @@ t.test('CloudSQLInstance', async t => {
           };
           // starts out refresh logic
           instance.refresh();
-          instance.setStablishedConnection();
+          instance.setEstablishedConnection();
         }))();
     }
   );
@@ -470,7 +470,7 @@ t.test('CloudSQLInstance', async t => {
       });
 
       await instance.refresh();
-      instance.setStablishedConnection();
+      instance.setEstablishedConnection();
 
       // starts a new refresh cycle but do not await on it
       instance.refresh();
@@ -550,7 +550,7 @@ t.test('CloudSQLInstance', async t => {
           };
           // starts out refresh logic
           instance.refresh();
-          instance.setStablishedConnection();
+          instance.setEstablishedConnection();
         }))();
     }
   );

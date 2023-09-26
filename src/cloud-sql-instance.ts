@@ -63,7 +63,7 @@ export class CloudSQLInstance {
   private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
   private readonly limitRateInterval: number;
-  private stablishedConnection: boolean = false;
+  private establishedConnection: boolean = false;
   // The ongoing refresh promise is referenced by the `next` property
   private next?: Promise<RefreshResult>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
@@ -142,7 +142,11 @@ export class CloudSQLInstance {
         // then we go ahead and update values
         this.updateValues(nextValues);
 
-        this.scheduleRefresh();
+        const refreshInterval = getRefreshInterval(
+          /* c8 ignore next */
+          String(this.ephemeralCert?.expirationTime)
+        );
+        this.scheduleRefresh(refreshInterval);
 
         // This is the end of the successful refresh chain, so now
         // we release the reference to the next
@@ -150,10 +154,11 @@ export class CloudSQLInstance {
       })
       .catch((err: unknown) => {
         // In case there's already an active connection we won't throw
-        // refresh errors to the final user, scheduling a new refresh instead.
-        if (this.stablishedConnection) {
+        // refresh errors to the final user, scheduling a new
+        // immediate refresh instead.
+        if (this.establishedConnection) {
           if (currentRefreshId === this.scheduledRefreshID) {
-            this.scheduleRefresh();
+            this.scheduleRefresh(0);
           }
         } else {
           throw err as Error;
@@ -234,13 +239,8 @@ export class CloudSQLInstance {
     this.serverCaCert = serverCaCert;
   }
 
-  private scheduleRefresh(): void {
-    const refreshInterval = getRefreshInterval(
-      /* c8 ignore next */
-      String(this.ephemeralCert?.expirationTime)
-    );
-
-    this.scheduledRefreshID = setTimeout(() => this.refresh(), refreshInterval);
+  private scheduleRefresh(delay: number): void {
+    this.scheduledRefreshID = setTimeout(() => this.refresh(), delay);
   }
 
   cancelRefresh(): void {
@@ -253,7 +253,7 @@ export class CloudSQLInstance {
   // Mark this instance as having an active connection. This is important to
   // ensure any possible errors thrown during a future refresh cycle should
   // not be thrown to the final user.
-  setStablishedConnection(): void {
-    this.stablishedConnection = true;
+  setEstablishedConnection(): void {
+    this.establishedConnection = true;
   }
 }

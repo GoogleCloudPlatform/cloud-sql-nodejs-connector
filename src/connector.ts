@@ -217,7 +217,7 @@ export class Connector {
             await cloudSqlInstance.forceRefresh();
           });
           tlsSocket.once('secureConnect', async () => {
-            cloudSqlInstance.setStablishedConnection();
+            cloudSqlInstance.setEstablishedConnection();
           });
           return tlsSocket;
         }
