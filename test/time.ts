@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import t from 'tap';
-import {getRefreshInterval, getNearestExpiration} from '../src/time';
+import {
+  getRefreshInterval,
+  getNearestExpiration,
+  isExpirationTimeValid,
+} from '../src/time';
 
 const datenow = Date.now;
 Date.now = () => 1672567200000; // 2023-01-01T10:00:00.000Z
@@ -120,6 +124,21 @@ t.same(
   getNearestExpiration(Date.parse('2023-01-01T00:00:00.000Z'), undefined),
   new Date(Date.parse('2023-01-01T00:00:00.000Z')).toISOString(),
   'should return cert exp'
+);
+
+t.ok(
+  !isExpirationTimeValid('2023-01-01T09:00:00.000Z'),
+  'should return false on expired time'
+);
+
+t.ok(
+  !isExpirationTimeValid('2023-01-01T10:00:00.000Z'),
+  'should return false on same (expired) time'
+);
+
+t.ok(
+  isExpirationTimeValid('2023-01-01T11:00:00.000Z'),
+  'should return true on valid time'
 );
 
 Date.now = datenow;

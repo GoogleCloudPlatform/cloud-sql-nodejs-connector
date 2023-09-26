@@ -43,3 +43,8 @@ export function getNearestExpiration(
   }
   return new Date(certExp).toISOString();
 }
+
+export function isExpirationTimeValid(isoTime: string): boolean {
+  const expirationTime = Date.parse(isoTime);
+  return Date.now() < expirationTime;
+}

@@ -19,7 +19,7 @@ import {InstanceMetadata} from './sqladmin-fetcher';
 import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
-import {getRefreshInterval} from './time';
+import {getRefreshInterval, isExpirationTimeValid} from './time';
 import {AuthTypes} from './auth-types';
 
 interface Fetcher {
@@ -63,8 +63,9 @@ export class CloudSQLInstance {
   private readonly authType: AuthTypes;
   private readonly sqlAdminFetcher: Fetcher;
   private readonly limitRateInterval: number;
-  private activeConnection: boolean = false;
-  private ongoingRefreshPromise?: Promise<RefreshResult>;
+  private stablishedConnection: boolean = false;
+  // The ongoing refresh promise is referenced by the `next` property
+  private next?: Promise<RefreshResult>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private throttle?: any;
@@ -106,8 +107,8 @@ export class CloudSQLInstance {
   async forceRefresh(): Promise<void> {
     // if a refresh is already ongoing, just await for its promise to fulfill
     // so that a new instance info is available before reconnecting
-    if (this.ongoingRefreshPromise) {
-      await this.ongoingRefreshPromise;
+    if (this.next) {
+      await this.next;
       return;
     }
     this.cancelRefresh();
@@ -123,13 +124,13 @@ export class CloudSQLInstance {
     // In case the throttle mechanism is already initialized, we add the
     // extra wait time `limitRateInterval` in order to limit the rate of
     // requests to Cloud SQL Admin APIs.
-    this.ongoingRefreshPromise = (
+    this.next = (
       this.throttle && this.scheduledRefreshID
         ? this.throttle(this.performRefresh).call(this)
         : this.performRefresh()
     )
       // These needs to be part of the chain of promise referenced in
-      // ongoingRefreshPromise in order to avoid race conditions
+      // next in order to avoid race conditions
       .then((nextValues: RefreshResult) => {
         // in case the id at the moment of starting this refresh cycle has
         // changed, that means that it has been canceled
@@ -144,13 +145,13 @@ export class CloudSQLInstance {
         this.scheduleRefresh();
 
         // This is the end of the successful refresh chain, so now
-        // we release the reference to the ongoingRefreshPromise
-        this.ongoingRefreshPromise = undefined;
+        // we release the reference to the next
+        this.next = undefined;
       })
       .catch((err: unknown) => {
         // In case there's already an active connection we won't throw
         // refresh errors to the final user, scheduling a new refresh instead.
-        if (this.activeConnection) {
+        if (this.stablishedConnection) {
           if (currentRefreshId === this.scheduledRefreshID) {
             this.scheduleRefresh();
           }
@@ -158,16 +159,16 @@ export class CloudSQLInstance {
           throw err as Error;
         }
 
-        // This refresh cycle has failed, releases ref to ongoingRefreshPromise
-        this.ongoingRefreshPromise = undefined;
+        // This refresh cycle has failed, releases ref to next
+        this.next = undefined;
       });
 
     // The rate limiter needs to be initialized _after_ assigning a ref
-    // to ongoingRefreshPromise in order to avoid race conditions with
+    // to next in order to avoid race conditions with
     // the forceRefresh check that ensures a refresh cycle is not ongoing
     await this.initializeRateLimiter();
 
-    await this.ongoingRefreshPromise;
+    await this.next;
   }
 
   // The performRefresh method will perform all the necessary async steps
@@ -188,12 +189,40 @@ export class CloudSQLInstance {
     const privateKey = rsaKeys.privateKey;
     const serverCaCert = metadata.serverCaCert;
 
-    return {
+    const currentValues = {
+      ephemeralCert: this.ephemeralCert,
+      host: this.host,
+      privateKey: this.privateKey,
+      serverCaCert: this.serverCaCert,
+    };
+
+    const nextValues = {
       ephemeralCert,
       host,
       privateKey,
       serverCaCert,
     };
+
+    // In the rather odd case that the current ephemeral certificate is still
+    // valid while we get an invalid result from the API calls, then preserve
+    // the current metadata.
+    if (this.isValid(currentValues) && !this.isValid(nextValues)) {
+      return currentValues as RefreshResult;
+    }
+
+    return nextValues;
+  }
+
+  private isValid({
+    ephemeralCert,
+    host,
+    privateKey,
+    serverCaCert,
+  }: Partial<RefreshResult>): boolean {
+    if (!ephemeralCert || !host || !privateKey || !serverCaCert) {
+      return false;
+    }
+    return isExpirationTimeValid(ephemeralCert.expirationTime);
   }
 
   private updateValues(nextValues: RefreshResult): void {
@@ -224,7 +253,7 @@ export class CloudSQLInstance {
   // Mark this instance as having an active connection. This is important to
   // ensure any possible errors thrown during a future refresh cycle should
   // not be thrown to the final user.
-  setActiveConnection(): void {
-    this.activeConnection = true;
+  setStablishedConnection(): void {
+    this.stablishedConnection = true;
   }
 }

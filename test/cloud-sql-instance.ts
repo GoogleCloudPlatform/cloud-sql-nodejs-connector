@@ -22,8 +22,8 @@ t.test('CloudSQLInstance', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
 
   const fetcher = {
-    getInstanceMetadata() {
-      return Promise.resolve({
+    async getInstanceMetadata() {
+      return {
         ipAddresses: {
           public: '127.0.0.1',
         },
@@ -31,13 +31,13 @@ t.test('CloudSQLInstance', async t => {
           cert: CA_CERT,
           expirationTime: '2033-01-06T10:00:00.232Z',
         },
-      });
+      };
     },
-    getEphemeralCertificate() {
-      return Promise.resolve({
+    async getEphemeralCertificate() {
+      return {
         cert: CLIENT_CERT,
         expirationTime: '2033-01-06T10:00:00.232Z',
-      });
+      };
     },
   };
 
@@ -54,44 +54,49 @@ t.test('CloudSQLInstance', async t => {
       getRefreshInterval() {
         return 50; // defaults to 50ms in unit tests
       },
+      isExpirationTimeValid() {
+        return true;
+      },
     },
   });
 
-  const instance = await CloudSQLInstance.getCloudSQLInstance({
-    ipType: IpAddressTypes.PUBLIC,
-    authType: AuthTypes.PASSWORD,
-    instanceConnectionName: 'my-project:us-east1:my-instance',
-    sqlAdminFetcher: fetcher,
+  t.test('assert basic instance usage and API', async t => {
+    const instance = await CloudSQLInstance.getCloudSQLInstance({
+      ipType: IpAddressTypes.PUBLIC,
+      authType: AuthTypes.PASSWORD,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+      sqlAdminFetcher: fetcher,
+    });
+
+    t.same(
+      instance.ephemeralCert.cert,
+      CLIENT_CERT,
+      'should have expected privateKey'
+    );
+
+    t.same(
+      instance.instanceInfo,
+      {
+        projectId: 'my-project',
+        regionId: 'us-east1',
+        instanceId: 'my-instance',
+      },
+      'should have expected connection info'
+    );
+
+    t.same(instance.privateKey, CLIENT_KEY, 'should have expected privateKey');
+
+    t.same(instance.host, '127.0.0.1', 'should have expected host');
+    t.same(instance.port, 3307, 'should have expected port');
+
+    t.same(
+      instance.serverCaCert.cert,
+      CA_CERT,
+      'should have expected serverCaCert'
+    );
+
+    instance.cancelRefresh();
   });
-
-  t.same(
-    instance.ephemeralCert.cert,
-    CLIENT_CERT,
-    'should have expected privateKey'
-  );
-
-  t.same(
-    instance.instanceInfo,
-    {
-      projectId: 'my-project',
-      regionId: 'us-east1',
-      instanceId: 'my-instance',
-    },
-    'should have expected connection info'
-  );
-
-  t.same(instance.privateKey, CLIENT_KEY, 'should have expected privateKey');
-
-  t.same(instance.host, '127.0.0.1', 'should have expected host');
-  t.same(instance.port, 3307, 'should have expected port');
-
-  t.same(
-    instance.serverCaCert.cert,
-    CA_CERT,
-    'should have expected serverCaCert'
-  );
-
-  instance.cancelRefresh();
 
   t.test('initial refresh error should throw errors', async t => {
     const failedFetcher = {
@@ -145,7 +150,7 @@ t.test('CloudSQLInstance', async t => {
   });
 
   t.test(
-    'refresh error should not throw any errors on active connection',
+    'refresh error should not throw any errors on stablished connection',
     async t => {
       let metadataCount = 0;
       const failedFetcher = {
@@ -180,13 +185,13 @@ t.test('CloudSQLInstance', async t => {
           };
           // starts out refresh logic
           instance.refresh();
-          instance.setActiveConnection();
+          instance.setStablishedConnection();
         }))();
     }
   );
 
   t.test(
-    'refresh error with expired cert should not throw any errors on active connection',
+    'refresh error with expired cert should not throw any errors on stablished connection',
     async t => {
       const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
         '../src/crypto': {
@@ -234,7 +239,7 @@ t.test('CloudSQLInstance', async t => {
           };
           // starts out refresh logic
           instance.refresh();
-          instance.setActiveConnection();
+          instance.setStablishedConnection();
         }))();
     }
   );
@@ -441,35 +446,112 @@ t.test('CloudSQLInstance', async t => {
     t.ok('should not leave hanging setTimeout');
   });
 
-  t.test('cancelRefresh active and ongoing failed cycle', async t => {
-    let metadataCount = 0;
-    const failAndSlowFetcher = {
-      ...fetcher,
-      async getInstanceMetadata() {
-        await (() => new Promise(res => setTimeout(res, 50)))();
-        if (metadataCount === 1) {
-          throw new Error('ERR');
-        }
-        metadataCount++;
-        return fetcher.getInstanceMetadata();
-      },
-    };
-    const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: failAndSlowFetcher,
-      limitRateInterval: 50,
-    });
+  t.test(
+    'cancelRefresh on stablished connection and ongoing failed cycle',
+    async t => {
+      let metadataCount = 0;
+      const failAndSlowFetcher = {
+        ...fetcher,
+        async getInstanceMetadata() {
+          await (() => new Promise(res => setTimeout(res, 50)))();
+          if (metadataCount === 1) {
+            throw new Error('ERR');
+          }
+          metadataCount++;
+          return fetcher.getInstanceMetadata();
+        },
+      };
+      const instance = new CloudSQLInstance({
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: failAndSlowFetcher,
+        limitRateInterval: 50,
+      });
 
-    await instance.refresh();
-    instance.setActiveConnection();
+      await instance.refresh();
+      instance.setStablishedConnection();
 
-    // starts a new refresh cycle but do not await on it
-    instance.refresh();
+      // starts a new refresh cycle but do not await on it
+      instance.refresh();
 
-    instance.cancelRefresh();
+      instance.cancelRefresh();
 
-    t.ok('should not leave hanging setTimeout');
-  });
+      t.ok('should not leave hanging setTimeout');
+    }
+  );
+
+  t.test(
+    'get invalid certificate data while having a current valid',
+    async t => {
+      let checkedExpirationTimeCount = 0;
+      const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
+        '../src/crypto': {
+          generateKeys: async () => ({
+            publicKey: '-----BEGIN PUBLIC KEY-----',
+            privateKey: CLIENT_KEY,
+          }),
+        },
+        '../src/time': {
+          getRefreshInterval() {
+            return 50;
+          },
+          // succeds first time and fails for next calls
+          isExpirationTimeValid() {
+            checkedExpirationTimeCount++;
+            return checkedExpirationTimeCount < 2;
+          },
+        },
+      });
+
+      // A fetcher mock that will return a new ip on every refresh
+      let metadataCount = 0;
+      const updateFetcher = {
+        ...fetcher,
+        async getInstanceMetadata() {
+          const instanceMetadata = await fetcher.getInstanceMetadata();
+          const ips = ['127.0.0.1', '127.0.0.2'];
+          const ipAddresses = {
+            public: ips[metadataCount],
+          };
+          metadataCount++;
+          return {
+            ...instanceMetadata,
+            ipAddresses,
+          };
+        },
+      };
+
+      const instance = new CloudSQLInstance({
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: updateFetcher,
+        limitRateInterval: 0,
+      });
+      await (() =>
+        new Promise((res): void => {
+          let refreshCount = 0;
+          instance.refresh = function mockRefresh() {
+            if (refreshCount === 2) {
+              t.ok('done refreshing 2 times');
+              // instance.host value will be 127.0.0.2 if
+              // isExpirationTimeValid does not work as expected
+              t.strictSame(
+                instance.host,
+                '127.0.0.1',
+                'should not have updated values'
+              );
+              instance.cancelRefresh();
+              return res(null);
+            }
+            refreshCount++;
+            return CloudSQLInstance.prototype.refresh.call(instance);
+          };
+          // starts out refresh logic
+          instance.refresh();
+          instance.setStablishedConnection();
+        }))();
+    }
+  );
 });
