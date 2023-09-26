@@ -150,7 +150,7 @@ t.test('CloudSQLInstance', async t => {
   });
 
   t.test(
-    'refresh error should not throw any errors on stablished connection',
+    'refresh error should not throw any errors on established connection',
     async t => {
       let metadataCount = 0;
       const failedFetcher = {
@@ -191,7 +191,7 @@ t.test('CloudSQLInstance', async t => {
   );
 
   t.test(
-    'refresh error with expired cert should not throw any errors on stablished connection',
+    'refresh error with expired cert should not throw any errors on established connection',
     async t => {
       const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
         '../src/crypto': {
@@ -447,7 +447,7 @@ t.test('CloudSQLInstance', async t => {
   });
 
   t.test(
-    'cancelRefresh on stablished connection and ongoing failed cycle',
+    'cancelRefresh on established connection and ongoing failed cycle',
     async t => {
       let metadataCount = 0;
       const failAndSlowFetcher = {
