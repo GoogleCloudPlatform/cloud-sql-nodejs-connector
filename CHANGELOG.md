@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.5.1...v1.0.0) (2023-09-27)
+
+
+### Features
+
+* add force refresh on connection errors ([#195](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/195)) ([993d5d8](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/993d5d893454d2768d138a3edca714f4468a443d))
+
+
+### Bug Fixes
+
+* add .js ext. for mjs imports in .d.ts files ([#215](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/215)) ([a998db6](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/a998db6c740e72591738a86a27deae4f4c20af09))
+* https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/134 ([8988b45](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/8988b45e2652c51700cf87435362836c15131125))
+* https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/146 ([8988b45](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/8988b45e2652c51700cf87435362836c15131125))
+* retry failed google-auth-library requests ([#181](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/181)) ([8988b45](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/8988b45e2652c51700cf87435362836c15131125))
+* silent refresh errors on active connection ([#219](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/219)) ([41a8e79](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/41a8e799915f815d73f0b75e488c149301ed2431))
+
+
+### Miscellaneous Chores
+
+* set release version to v1.0.0 ([#221](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/221)) ([c24482c](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/c24482c1d09bd322afa267b7b220174acf0ffdd7))
+
 ## [0.5.1](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.5.0...v0.5.1) (2023-08-08)
 
 
