@@ -147,7 +147,7 @@ class CloudSQLInstanceMap extends Map {
 }
 
 interface ConnectorOptions {
-  sqlAdminRootUrl?: string;
+  sqlAdminAPIEndpoint?: string;
 }
 
 // The Connector class is the main public API to interact
@@ -156,9 +156,9 @@ export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
 
-  constructor({sqlAdminRootUrl}: ConnectorOptions = {}) {
+  constructor({sqlAdminAPIEndpoint}: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
-    this.sqlAdminFetcher = new SQLAdminFetcher({sqlAdminRootUrl});
+    this.sqlAdminFetcher = new SQLAdminFetcher({sqlAdminAPIEndpoint});
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance

@@ -627,22 +627,22 @@ t.test('Connector force refresh on socket connection error', async t => {
   connector.close();
 });
 
-t.test('Connector, custom sqlAdminRootUrl', async t => {
-  const expectedSqlAdminRootUrl = 'https://sqladmin.mydomain.com';
-  let actualSqlAdminRootUrl: string | undefined;
+t.test('Connector, custom sqlAdminAPIEndpoint', async t => {
+  const expectedsqlAdminAPIEndpoint = 'https://sqladmin.mydomain.com';
+  let actualsqlAdminAPIEndpoint: string | undefined;
   // mocks sql admin fetcher to check that the custom
-  // sqlAdminRootUrl is correctly passed into it
+  // sqlAdminAPIEndpoint is correctly passed into it
   const {Connector} = t.mock('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
-        constructor({sqlAdminRootUrl}: SQLAdminFetcherOptions) {
-          actualSqlAdminRootUrl = sqlAdminRootUrl;
+        constructor({sqlAdminAPIEndpoint}: SQLAdminFetcherOptions) {
+          actualsqlAdminAPIEndpoint = sqlAdminAPIEndpoint;
         }
       },
     },
   });
 
-  new Connector({sqlAdminRootUrl: expectedSqlAdminRootUrl});
+  new Connector({sqlAdminAPIEndpoint: expectedsqlAdminAPIEndpoint});
 
-  t.same(actualSqlAdminRootUrl, expectedSqlAdminRootUrl);
+  t.same(actualsqlAdminAPIEndpoint, expectedsqlAdminAPIEndpoint);
 });

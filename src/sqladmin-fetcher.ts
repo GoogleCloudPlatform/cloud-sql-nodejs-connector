@@ -70,19 +70,19 @@ function cleanGaxiosConfig() {
 
 export interface SQLAdminFetcherOptions {
   loginAuth?: GoogleAuth;
-  sqlAdminRootUrl?: string;
+  sqlAdminAPIEndpoint?: string;
 }
 
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth;
 
-  constructor({loginAuth, sqlAdminRootUrl}: SQLAdminFetcherOptions = {}) {
+  constructor({loginAuth, sqlAdminAPIEndpoint}: SQLAdminFetcherOptions = {}) {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
     });
     this.client = new Sqladmin({
-      rootUrl: sqlAdminRootUrl,
+      rootUrl: sqlAdminAPIEndpoint,
       auth,
       userAgentDirectives: [
         {

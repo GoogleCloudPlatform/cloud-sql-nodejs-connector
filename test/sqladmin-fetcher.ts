@@ -42,11 +42,11 @@ const ephCertResponse = {
 const mockRequest = (
   instanceInfo: InstanceConnectionInfo,
   overrides?: sqladmin_v1beta4.Schema$ConnectSettings,
-  sqlAdminRootUrl?: string
+  sqlAdminAPIEndpoint?: string
 ): void => {
   const {projectId, regionId, instanceId} = instanceInfo;
 
-  nock(sqlAdminRootUrl ?? 'https://sqladmin.googleapis.com')
+  nock(sqlAdminAPIEndpoint ?? 'https://sqladmin.googleapis.com')
     .get(
       `/sql/v1beta4/projects/${projectId}/instances/${instanceId}/connectSettings`
     )
@@ -101,15 +101,15 @@ t.test('getInstanceMetadata', async t => {
 
 t.test('getInstanceMetadata custom SQL Admin API endpoint', async t => {
   setupCredentials(t);
-  const sqlAdminRootUrl = 'https://sqladmin.mydomain.com';
+  const sqlAdminAPIEndpoint = 'https://sqladmin.mydomain.com';
   const instanceConnectionInfo: InstanceConnectionInfo = {
     projectId: 'my-project',
     regionId: 'us-east1',
     instanceId: 'my-instance',
   };
-  mockRequest(instanceConnectionInfo, {}, sqlAdminRootUrl);
+  mockRequest(instanceConnectionInfo, {}, sqlAdminAPIEndpoint);
 
-  const fetcher = new SQLAdminFetcher({sqlAdminRootUrl});
+  const fetcher = new SQLAdminFetcher({sqlAdminAPIEndpoint});
   const instanceMetadata = await fetcher.getInstanceMetadata(
     instanceConnectionInfo
   );
@@ -252,11 +252,11 @@ t.test('getInstanceMetadata invalid region', async t => {
 const mockGenerateEphemeralCertRequest = (
   instanceInfo: InstanceConnectionInfo,
   overrides?: sqladmin_v1beta4.Schema$GenerateEphemeralCertResponse,
-  sqlAdminRootUrl?: string
+  sqlAdminAPIEndpoint?: string
 ): void => {
   const {projectId, instanceId} = instanceInfo;
 
-  nock(sqlAdminRootUrl ?? 'https://sqladmin.googleapis.com')
+  nock(sqlAdminAPIEndpoint ?? 'https://sqladmin.googleapis.com')
     .post(
       `/sql/v1beta4/projects/${projectId}/instances/${instanceId}:generateEphemeralCert`
     )
@@ -294,15 +294,19 @@ t.test('getEphemeralCertificate', async t => {
 
 t.test('getEphemeralCertificate custom SQL Admin API endpoint', async t => {
   setupCredentials(t);
-  const sqlAdminRootUrl = 'https://sqladmin.mydomain.com';
+  const sqlAdminAPIEndpoint = 'https://sqladmin.mydomain.com';
   const instanceConnectionInfo: InstanceConnectionInfo = {
     projectId: 'my-project',
     regionId: 'us-east1',
     instanceId: 'my-instance',
   };
-  mockGenerateEphemeralCertRequest(instanceConnectionInfo, {}, sqlAdminRootUrl);
+  mockGenerateEphemeralCertRequest(
+    instanceConnectionInfo,
+    {},
+    sqlAdminAPIEndpoint
+  );
 
-  const fetcher = new SQLAdminFetcher({sqlAdminRootUrl});
+  const fetcher = new SQLAdminFetcher({sqlAdminAPIEndpoint});
   const ephemeralCert = await fetcher.getEphemeralCertificate(
     instanceConnectionInfo,
     'key',
