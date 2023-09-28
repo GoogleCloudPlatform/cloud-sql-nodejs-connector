@@ -68,15 +68,21 @@ function cleanGaxiosConfig() {
   gaxios.defaults = defaultGaxiosConfig;
 }
 
+export interface SQLAdminFetcherOptions {
+  loginAuth?: GoogleAuth;
+  sqlAdminAPIEndpoint?: string;
+}
+
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth;
 
-  constructor(loginAuth?: GoogleAuth) {
+  constructor({loginAuth, sqlAdminAPIEndpoint}: SQLAdminFetcherOptions = {}) {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
     });
     this.client = new Sqladmin({
+      rootUrl: sqlAdminAPIEndpoint,
       auth,
       userAgentDirectives: [
         {

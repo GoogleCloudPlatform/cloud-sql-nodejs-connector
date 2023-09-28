@@ -146,15 +146,19 @@ class CloudSQLInstanceMap extends Map {
   }
 }
 
+interface ConnectorOptions {
+  sqlAdminAPIEndpoint?: string;
+}
+
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
 export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
 
-  constructor() {
+  constructor({sqlAdminAPIEndpoint}: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
-    this.sqlAdminFetcher = new SQLAdminFetcher();
+    this.sqlAdminFetcher = new SQLAdminFetcher({sqlAdminAPIEndpoint});
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance
