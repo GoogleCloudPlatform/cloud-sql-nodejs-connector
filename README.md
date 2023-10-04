@@ -311,6 +311,19 @@ const clientOpts = await connector.getOptions({
   authType: AuthTypes.IAM,
 });
 ```
+
+## Additional customization via Environment Variables
+
+It is possible to change some of the library default behavior via environment
+variables. Here is a quick reference to supported values and their effect:
+
+- `GOOGLE_APPLICATION_CREDENTIALS`: If defined the connector will use this
+file as a custom credential files to authenticate to Cloud SQL APIs. Should be
+a path to a JSON file. You can
+[find more on how to get a valid credentials file here][credentials-json-file].
+- `GOOGLE_CLOUD_QUOTA_PROJECT`: Used to set a custom quota project to Cloud SQL
+APIs when defined.
+
 ## Support policy
 
 ### Major version lifecycle
@@ -362,3 +375,5 @@ contribute.
 Apache Version 2.0
 
 See [LICENSE](./LICENSE)
+
+[credentials-json-file]: https://github.com/googleapis/google-cloud-node#download-your-service-account-credentials-json-file
