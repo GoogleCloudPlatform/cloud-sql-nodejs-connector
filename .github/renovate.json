@@ -3,6 +3,7 @@
     "config:recommended", 
     "docker:disable"
   ],
+  "dependencyDashboardLabels": ["type: process"],
   "commitMessagePrefix": "deps: ",
   "rangeStrategy": "replace",
   "rebaseWhen": "behind-base-branch",
