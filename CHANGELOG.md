@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.0.0...v1.1.0) (2023-10-10)
+
+
+### Features
+
+* support custom SQL Admin API endpoint ([#210](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/210)) ([290d741](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/290d741b00545bb801431d8711b1de4285da17d0))
+
 ## [1.0.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v0.5.1...v1.0.0) (2023-09-27)
 
 
