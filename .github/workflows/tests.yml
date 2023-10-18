@@ -93,13 +93,23 @@ jobs:
       - name: Transpile TypeScript
         run: npm run prepare
 
+      - name: Setup v14.x-compatible tap
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npm uninstall tap && npm install tap@16 && npx npm@10 pkg delete tap
+
       - name: Run Tests
-        run: npx c8 tap -c -t0 -o test_results.tap
+        if: "${{ matrix.node-version != 'v14.x' }}"
+        run: npx tap -c -t0 -o test_results.tap
+        timeout-minutes: 5
+
+      - name: Run Tests v14.x
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm"
         timeout-minutes: 5
 
       - name: Convert test output to XML
         if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
-        run: cat test_results.tap | npx tap - --reporter=xunit > sponge_log.xml
+        run: cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
 
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events
@@ -231,12 +241,12 @@ jobs:
           SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
           SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
           SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
-        run: npx tap -c -t0 --no-coverage system-test -o test_results.tap
+        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
         timeout-minutes: 5
       
       - name: Convert test output to XML
         if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
-        run: cat test_results.tap | npx tap - --reporter=xunit > sponge_log.xml
+        run: cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
 
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events

@@ -49,7 +49,7 @@ t.test('parseCert failure', async t => {
 });
 
 t.test('parseCert missing expiration time', async t => {
-  const {parseCert} = t.mock('../src/crypto', {
+  const {parseCert} = t.mockRequire('../src/crypto', {
     '../src/node-crypto': {
       async cryptoModule() {
         return {
@@ -68,8 +68,8 @@ t.test('parseCert missing expiration time', async t => {
 });
 
 t.test('parseCert no x509 parser fallback', async t => {
-  const {cryptoModule} = t.mock('../src/node-crypto', {});
-  const {parseCert} = t.mock('../src/crypto', {
+  const {cryptoModule} = t.mockRequire('../src/node-crypto', {});
+  const {parseCert} = t.mockRequire('../src/crypto', {
     '../src/node-crypto': {
       async cryptoModule() {
         const mod = cryptoModule();
@@ -90,8 +90,8 @@ t.test('parseCert no x509 parser fallback', async t => {
 });
 
 t.test('parseCert no x509 parser fallback failure', async t => {
-  const {cryptoModule} = t.mock('../src/node-crypto', {});
-  const {parseCert} = t.mock('../src/crypto', {
+  const {cryptoModule} = t.mockRequire('../src/node-crypto', {});
+  const {parseCert} = t.mockRequire('../src/crypto', {
     '../src/node-crypto': {
       async cryptoModule() {
         const mod = cryptoModule();

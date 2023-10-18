@@ -43,7 +43,7 @@ t.test('CloudSQLInstance', async t => {
 
   // mocks crypto module so that it can return a deterministic result
   // and set a standard, fast static value for cert refresh interval
-  const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
+  const {CloudSQLInstance} = t.mockRequire('../src/cloud-sql-instance', {
     '../src/crypto': {
       generateKeys: async () => ({
         publicKey: '-----BEGIN PUBLIC KEY-----',
@@ -113,7 +113,7 @@ t.test('CloudSQLInstance', async t => {
       limitRateInterval: 50,
     });
 
-    t.rejects(
+    await t.rejects(
       instance.refresh(),
       /ERR/,
       'should raise the specific error to the end user'
@@ -193,7 +193,7 @@ t.test('CloudSQLInstance', async t => {
   t.test(
     'refresh error with expired cert should not throw any errors on established connection',
     async t => {
-      const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
+      const {CloudSQLInstance} = t.mockRequire('../src/cloud-sql-instance', {
         '../src/crypto': {
           generateKeys: async () => ({
             publicKey: '-----BEGIN PUBLIC KEY-----',
@@ -485,7 +485,7 @@ t.test('CloudSQLInstance', async t => {
     'get invalid certificate data while having a current valid',
     async t => {
       let checkedExpirationTimeCount = 0;
-      const {CloudSQLInstance} = t.mock('../src/cloud-sql-instance', {
+      const {CloudSQLInstance} = t.mockRequire('../src/cloud-sql-instance', {
         '../src/crypto': {
           generateKeys: async () => ({
             publicKey: '-----BEGIN PUBLIC KEY-----',
