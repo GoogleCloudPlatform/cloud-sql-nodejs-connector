@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {GoogleAuth} from 'google-auth-library';
+import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 import {instance as gaxios} from 'gaxios';
 const {Sqladmin} = sqladmin_v1beta4;
@@ -69,13 +69,13 @@ function cleanGaxiosConfig() {
 }
 
 export interface SQLAdminFetcherOptions {
-  loginAuth?: GoogleAuth;
+  loginAuth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
 }
 
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
-  private readonly auth: GoogleAuth;
+  private readonly auth: GoogleAuth<AuthClient>;
 
   constructor({loginAuth, sqlAdminAPIEndpoint}: SQLAdminFetcherOptions = {}) {
     const auth = new GoogleAuth({
@@ -92,11 +92,14 @@ export class SQLAdminFetcher {
       ],
     });
 
-    this.auth =
-      loginAuth ||
-      new GoogleAuth({
+    if (loginAuth instanceof GoogleAuth) {
+      this.auth = loginAuth;
+    } else {
+      this.auth = new GoogleAuth({
+        authClient: loginAuth, // either an `AuthClient` or undefined
         scopes: ['https://www.googleapis.com/auth/sqlservice.login'],
       });
+    }
   }
 
   async getInstanceMetadata({
