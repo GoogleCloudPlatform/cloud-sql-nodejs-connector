@@ -69,7 +69,6 @@ function cleanGaxiosConfig() {
 }
 
 export interface SQLAdminFetcherOptions {
-  auth?: GoogleAuth<AuthClient> | AuthClient;
   loginAuth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
 }
