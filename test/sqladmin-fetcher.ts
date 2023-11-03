@@ -72,14 +72,14 @@ const mockRequest = (
 };
 
 t.test('constructor', async t => {
-  t.test('should support GoogleAuth for `loginAuth`', () => {
+  await t.test('should support GoogleAuth for `loginAuth`', async t => {
     const auth = new GoogleAuth();
-    new SQLAdminFetcher({loginAuth: auth});
+    t.ok(new SQLAdminFetcher({loginAuth: auth}));
   });
 
-  t.test('should support `AuthClient` for `loginAuth`', () => {
+  await t.test('should support `AuthClient` for `loginAuth`', async t => {
     const authClient = new OAuth2Client();
-    new SQLAdminFetcher({loginAuth: authClient});
+    t.ok(new SQLAdminFetcher({loginAuth: authClient}));
   });
 });
 
