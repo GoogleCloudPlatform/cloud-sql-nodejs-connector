@@ -17,7 +17,7 @@ import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
 import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
-import {SQLAdminFetcher} from './sqladmin-fetcher';
+import {SQLAdminFetcher, SQLAdminFetcherOptions} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
 
 // ConnectionOptions are the arguments that the user can provide
@@ -146,9 +146,7 @@ class CloudSQLInstanceMap extends Map {
   }
 }
 
-interface ConnectorOptions {
-  sqlAdminAPIEndpoint?: string;
-}
+interface ConnectorOptions extends SQLAdminFetcherOptions {}
 
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
@@ -156,9 +154,9 @@ export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
 
-  constructor({sqlAdminAPIEndpoint}: ConnectorOptions = {}) {
+  constructor(opts: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
-    this.sqlAdminFetcher = new SQLAdminFetcher({sqlAdminAPIEndpoint});
+    this.sqlAdminFetcher = new SQLAdminFetcher(opts);
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance
