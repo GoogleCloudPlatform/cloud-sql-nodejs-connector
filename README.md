@@ -52,6 +52,31 @@ The connector package is meant to be used alongside a database driver, in the
 following examples you can see how to create a new connector and get valid
 options that can then be used when starting a new connection.
 
+### APIs and Services
+
+This library requires the following to successfully make Cloud SQL Connections:
+
+- IAM principal (user, service account, etc.) with the
+[Cloud SQL Client][client-role] role. This IAM principal will be used for
+[credentials](#credentials).
+- The [Cloud SQL Admin API][admin-api] to be enabled within your Google Cloud
+Project. By default, the API will be called in the project associated with
+the IAM principal.
+
+[admin-api]: https://console.cloud.google.com/apis/api/sqladmin.googleapis.com
+[client-role]: https://cloud.google.com/sql/docs/mysql/roles-and-permissions
+
+### Credentials
+
+This library uses the [Application Default Credentials (ADC)][adc] strategy for
+resolving credentials. Please see [these instructions for how to set your ADC][set-adc]
+(Google Cloud Application vs Local Development, IAM user vs service account credentials),
+or consult the [Node.js google-auth-library][google-auth].
+
+[adc]: https://cloud.google.com/docs/authentication#adc
+[set-adc]: https://cloud.google.com/docs/authentication/provide-credentials-adc
+[google-auth]: https://cloud.google.com/nodejs/docs/reference/google-auth-library/latest#ways-to-authenticate
+
 ### Using with PostgreSQL
 
 Here is how to start a new
