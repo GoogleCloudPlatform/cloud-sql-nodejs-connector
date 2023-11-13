@@ -15,7 +15,7 @@
 import {resolve} from 'node:path';
 import t from 'tap';
 import nock from 'nock';
-import {GoogleAuth} from 'google-auth-library';
+import {GoogleAuth, OAuth2Client} from 'google-auth-library';
 import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 import {SQLAdminFetcher} from '../src/sqladmin-fetcher';
 import {InstanceConnectionInfo} from '../src/instance-connection-info';
@@ -70,6 +70,18 @@ const mockRequest = (
       ...overrides,
     });
 };
+
+t.test('constructor', async t => {
+  await t.test('should support GoogleAuth for `loginAuth`', async t => {
+    const auth = new GoogleAuth();
+    t.ok(new SQLAdminFetcher({loginAuth: auth}));
+  });
+
+  await t.test('should support `AuthClient` for `loginAuth`', async t => {
+    const authClient = new OAuth2Client();
+    t.ok(new SQLAdminFetcher({loginAuth: authClient}));
+  });
+});
 
 t.test('getInstanceMetadata', async t => {
   setupCredentials(t);

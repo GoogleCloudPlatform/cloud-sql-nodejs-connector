@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import tls from 'node:tls';
+import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
 import {IpAddressTypes} from './ip-addresses';
@@ -147,6 +148,7 @@ class CloudSQLInstanceMap extends Map {
 }
 
 interface ConnectorOptions {
+  auth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
 }
 
@@ -156,9 +158,12 @@ export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
 
-  constructor({sqlAdminAPIEndpoint}: ConnectorOptions = {}) {
+  constructor(opts: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
-    this.sqlAdminFetcher = new SQLAdminFetcher({sqlAdminAPIEndpoint});
+    this.sqlAdminFetcher = new SQLAdminFetcher({
+      loginAuth: opts.auth,
+      sqlAdminAPIEndpoint: opts.sqlAdminAPIEndpoint,
+    });
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance

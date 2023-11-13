@@ -20,12 +20,12 @@ alternative to the [Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/mysq
 while providing the following benefits:
 
 - **IAM Authorization:** uses IAM permissions to control who/what can connect to
-your Cloud SQL instances
+  your Cloud SQL instances
 - **Improved Security:** uses robust, updated TLS 1.3 encryption and identity
-verification between the client connector and the server-side proxy,
-independent of the database protocol.
+  verification between the client connector and the server-side proxy,
+  independent of the database protocol.
 - **Convenience:** removes the requirement to use and distribute SSL
-certificates, as well as manage firewalls or source/destination IP addresses.
+  certificates, as well as manage firewalls or source/destination IP addresses.
 - (optionally) **IAM DB Authentication:** provides support for
   [Cloud SQL’s automatic IAM DB AuthN][iam-db-authn] feature.
 
@@ -90,14 +90,14 @@ const {Pool} = pg;
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC', 
+  ipType: 'PUBLIC',
 });
 const pool = new Pool({
   ...clientOpts,
   user: 'my-user',
   password: 'my-password',
   database: 'db-name',
-  max: 5
+  max: 5,
 });
 const {rows} = await pool.query('SELECT NOW()');
 console.table(rows); // prints returned time value from server
@@ -127,7 +127,7 @@ const pool = await mysql.createPool({
   database: 'db-name',
 });
 const conn = await pool.getConnection();
-const [result] = await conn.query( `SELECT NOW();`);
+const [result] = await conn.query(`SELECT NOW();`);
 console.table(result); // prints returned time value from server
 
 await pool.end();
@@ -146,7 +146,7 @@ const {Connector} = require('@google-cloud/cloud-sql-connector');
 const connector = new Connector();
 const clientOpts = await connector.getTediousOptions({
   instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
-  ipType: 'PUBLIC'
+  ipType: 'PUBLIC',
 });
 const connection = new Connection({
   // Please note that the `server` property here is not used and is only defined
@@ -172,21 +172,29 @@ const connection = new Connection({
     port: 9999,
     database: 'my-database',
   },
-})
+});
 
 connection.connect(err => {
-  if (err) { throw err; }
+  if (err) {
+    throw err;
+  }
   let result;
-  const req = new Request('SELECT GETUTCDATE()', (err) => {
-    if (err) { throw err; }
-  })
-  req.on('error', (err) => { throw err; });
-  req.on('row', (columns) => { result = columns; });
+  const req = new Request('SELECT GETUTCDATE()', err => {
+    if (err) {
+      throw err;
+    }
+  });
+  req.on('error', err => {
+    throw err;
+  });
+  req.on('row', columns => {
+    result = columns;
+  });
   req.on('requestCompleted', () => {
     console.table(result);
   });
   connection.execSql(req);
-})
+});
 
 connection.close();
 connector.close();
@@ -197,8 +205,8 @@ connector.close();
 The Cloud SQL Connector for Node.js can be used to connect to Cloud SQL
 instances using both public and private IP addresses, as well as
 [Private Service Connect](https://cloud.google.com/vpc/docs/private-service-connect)
- (PSC). Specifying which IP address type to connect to can be configured within
- `getOptions` through the `ipType` argument.
+(PSC). Specifying which IP address type to connect to can be configured within
+`getOptions` through the `ipType` argument.
 
 By default, connections will be configured to `'PUBLIC'` and connect over
 public IP, to configure connections to use an instance's private IP,
@@ -230,7 +238,7 @@ const clientOpts = await connector.getOptions({
 #### Example on how to use `IpAddressTypes` in TypeScript
 
 ```js
-import { Connector, IpAddressTypes } from '@google-cloud/cloud-sql-connector';
+import {Connector, IpAddressTypes} from '@google-cloud/cloud-sql-connector';
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   ipType: IpAddressTypes.PSC,
@@ -252,12 +260,13 @@ automatic IAM database authentication with `getOptions` through the
 ```js
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  authType: 'IAM'
+  authType: 'IAM',
 });
 ```
 
 When configuring a connection for IAM authentication, the `password` argument
 can be omitted and the `user` argument should be formatted as follows:
+
 > Postgres: For an IAM user account, this is the user's email address.
 > For a service account, it is the service account's email without the
 > `.gserviceaccount.com` domain suffix.
@@ -285,13 +294,13 @@ const {Pool} = pg;
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  authType: 'IAM'
+  authType: 'IAM',
 });
 const pool = new Pool({
   ...clientOpts,
   user: 'test-sa@test-project.iam',
   database: 'db-name',
-  max: 5
+  max: 5,
 });
 const {rows} = await pool.query('SELECT NOW()');
 console.table(rows); // prints returned time value from server
@@ -309,7 +318,7 @@ import {Connector} from '@google-cloud/cloud-sql-connector';
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  authType: 'IAM'
+  authType: 'IAM',
 });
 const pool = await mysql.createPool({
   ...clientOpts,
@@ -317,7 +326,7 @@ const pool = await mysql.createPool({
   database: 'db-name',
 });
 const conn = await pool.getConnection();
-const [result] = await conn.query( `SELECT NOW();`);
+const [result] = await conn.query(`SELECT NOW();`);
 console.table(result); // prints returned time value from server
 
 await pool.end();
@@ -330,10 +339,28 @@ For TypeScript users, the `AuthTypes` type can be imported and used directly
 for automatic IAM database authentication.
 
 ```js
-import { AuthTypes, Connector } from '@google-cloud/cloud-sql-connector';
+import {AuthTypes, Connector} from '@google-cloud/cloud-sql-connector';
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   authType: AuthTypes.IAM,
+});
+```
+
+## Using With `Google Auth Library: Node.js Client` Credentials
+
+One can use [`google-auth-library`](https://github.com/googleapis/google-auth-library-nodejs/) credentials
+with this library by providing an `AuthClient` or `GoogleAuth` instance to the `Connector`.
+
+```sh
+npm install google-auth-library
+```
+
+```js
+import {GoogleAuth} from 'google-auth-library';
+import {Connector} from '@google-cloud/cloud-sql-connector';
+
+const connector = new Connector({
+  auth: new GoogleAuth(),
 });
 ```
 
@@ -343,11 +370,11 @@ It is possible to change some of the library default behavior via environment
 variables. Here is a quick reference to supported values and their effect:
 
 - `GOOGLE_APPLICATION_CREDENTIALS`: If defined the connector will use this
-file as a custom credential files to authenticate to Cloud SQL APIs. Should be
-a path to a JSON file. You can
-[find more on how to get a valid credentials file here][credentials-json-file].
+  file as a custom credential files to authenticate to Cloud SQL APIs. Should be
+  a path to a JSON file. You can
+  [find more on how to get a valid credentials file here][credentials-json-file].
 - `GOOGLE_CLOUD_QUOTA_PROJECT`: Used to set a custom quota project to Cloud SQL
-APIs when defined.
+  APIs when defined.
 
 ## Support policy
 
@@ -379,9 +406,9 @@ update as soon as possible to an actively supported LTS version.
 Google's client libraries support legacy versions of Node.js runtimes on a
 best-efforts basis with the following warnings:
 
-* Legacy versions are not tested in continuous integration.
-* Some security patches and features cannot be backported.
-* Dependencies cannot be kept up-to-date.
+- Legacy versions are not tested in continuous integration.
+- Some security patches and features cannot be backported.
+- Dependencies cannot be kept up-to-date.
 
 ### Release cadence
 
