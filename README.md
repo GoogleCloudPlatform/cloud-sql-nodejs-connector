@@ -331,12 +331,11 @@ npm install google-auth-library
 ```
 
 ```js
-const {GoogleAuth} = require('google-auth-library');
-
-const {Connector} = require('@google-cloud/cloud-sql-connector');
+import {GoogleAuth} from 'google-auth-library';
+import {Connector} from '@google-cloud/cloud-sql-connector';
 
 const connector = new Connector({
-  loginAuth: new GoogleAuth(),
+  auth: new GoogleAuth(),
 });
 ```
 

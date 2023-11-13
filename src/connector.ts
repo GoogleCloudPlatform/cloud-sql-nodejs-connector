@@ -13,11 +13,12 @@
 // limitations under the License.
 
 import tls from 'node:tls';
+import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
 import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
-import {SQLAdminFetcher, SQLAdminFetcherOptions} from './sqladmin-fetcher';
+import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
 
 // ConnectionOptions are the arguments that the user can provide
@@ -146,7 +147,10 @@ class CloudSQLInstanceMap extends Map {
   }
 }
 
-interface ConnectorOptions extends SQLAdminFetcherOptions {}
+interface ConnectorOptions {
+  auth?: GoogleAuth<AuthClient> | AuthClient;
+  sqlAdminAPIEndpoint?: string;
+}
 
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
@@ -156,7 +160,10 @@ export class Connector {
 
   constructor(opts: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
-    this.sqlAdminFetcher = new SQLAdminFetcher(opts);
+    this.sqlAdminFetcher = new SQLAdminFetcher({
+      loginAuth: opts.auth,
+      sqlAdminAPIEndpoint: opts.sqlAdminAPIEndpoint,
+    });
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance
