@@ -113,7 +113,7 @@ t.test('CloudSQLInstance', async t => {
       limitRateInterval: 50,
     });
 
-    t.rejects(
+    await t.rejects(
       instance.refresh(),
       /ERR/,
       'should raise the specific error to the end user'
