@@ -104,18 +104,17 @@ export class CloudSQLInstance {
     }) as ReturnType<typeof pThrottle>;
   }
 
-  async forceRefresh(): Promise<void> {
+  forceRefresh(): Promise<RefreshResult> {
     // if a refresh is already ongoing, just await for its promise to fulfill
     // so that a new instance info is available before reconnecting
     if (this.next) {
-      await this.next;
-      return;
+      return this.next;
     }
     this.cancelRefresh();
     return this.refresh();
   }
 
-  async refresh(): Promise<void> {
+  refresh(): Promise<RefreshResult> {
     const currentRefreshId = this.scheduledRefreshID;
 
     // Since forceRefresh might be invoked during an ongoing refresh
@@ -166,14 +165,15 @@ export class CloudSQLInstance {
 
         // This refresh cycle has failed, releases ref to next
         this.next = undefined;
+      })
+      // The rate limiter needs to be initialized _after_ assigning a ref
+      // to next in order to avoid race conditions with
+      // the forceRefresh check that ensures a refresh cycle is not ongoing
+      .then(() => {
+        this.initializeRateLimiter();
       });
 
-    // The rate limiter needs to be initialized _after_ assigning a ref
-    // to next in order to avoid race conditions with
-    // the forceRefresh check that ensures a refresh cycle is not ongoing
-    await this.initializeRateLimiter();
-
-    await this.next;
+    return this.next as Promise<RefreshResult>;
   }
 
   // The performRefresh method will perform all the necessary async steps
