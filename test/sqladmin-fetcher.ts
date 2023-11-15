@@ -60,7 +60,7 @@ class Sqladmin {
   }
 }
 
-const {SQLAdminFetcher} = t.mock('../src/sqladmin-fetcher', {
+const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
   'google-auth-library': {
     GoogleAuth: class {},
   },
@@ -137,7 +137,7 @@ t.afterEach(() => {
 
 t.test('constructor loginAuth using GoogleAuth instance', async t => {
   class GoogleAuth {}
-  const {SQLAdminFetcher} = t.mock('../src/sqladmin-fetcher', {
+  const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
     'google-auth-library': {
       GoogleAuth,
     },
@@ -385,7 +385,7 @@ t.test('getEphemeralCertificate no access token', async t => {
     regionId: 'us-east1',
     instanceId: 'my-instance',
   };
-  const {SQLAdminFetcher} = t.mock('../src/sqladmin-fetcher', {
+  const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
     'google-auth-library': {
       GoogleAuth: class {
         async getAccessToken() {
@@ -425,7 +425,7 @@ t.test('getEphemeralCertificate sets access token on IAM', async t => {
     regionId: 'us-east1',
     instanceId: 'my-instance',
   };
-  const {SQLAdminFetcher} = t.mock('../src/sqladmin-fetcher', {
+  const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
     'google-auth-library': {
       GoogleAuth: class {
         async getAccessToken() {

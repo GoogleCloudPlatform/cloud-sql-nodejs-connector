@@ -93,13 +93,30 @@ jobs:
       - name: Transpile TypeScript
         run: npm run prepare
 
+      # the following steps are node14-only and can be safely removed
+      # once node@14 is no longer supported
+      - name: Setup v14.x-compatible tap
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npm uninstall tap && npm install tap@16 && npx npm@7 pkg delete tap
+
+      - name: Run Tests v14.x
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm"
+        timeout-minutes: 5
+
       - name: Run Tests
-        run: npx c8 tap -c -t0 -o test_results.tap
+        env:
+          TAP_DISABLE_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
+          TAP_ALLOW_MISSING_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
+          TAP_ALLOW_INCOMPLETE_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
+          TAP_ALLOW_EMPTY_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
+        if: "${{ matrix.node-version != 'v14.x' }}"
+        run: npx tap -c -t0 -o test_results.tap
         timeout-minutes: 5
 
       - name: Convert test output to XML
         if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
-        run: cat test_results.tap | npx tap - --reporter=xunit > sponge_log.xml
+        run: cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
 
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events
@@ -213,6 +230,34 @@ jobs:
             SQLSERVER_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
             SQLSERVER_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
 
+      # the following steps are node14-only and can be safely removed
+      # once node@14 is no longer supported
+      - name: Setup v14.x-compatible tap
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npm uninstall tap && npm install tap@16 && npx npm@7 pkg delete tap
+
+      - name: Run System Tests v14.x
+        env:
+          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
+          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
+          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
+          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
+          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
+          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
+          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
+          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
+          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
+          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
+          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
+          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
+          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
+          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
+          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
+          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm" system-test -o test_results.tap
+        timeout-minutes: 5
+
       - name: Run System Tests
         env:
           MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
@@ -231,12 +276,13 @@ jobs:
           SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
           SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
           SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
-        run: npx tap -c -t0 --no-coverage system-test -o test_results.tap
+        if: "${{ matrix.node-version != 'v14.x' }}"
+        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
         timeout-minutes: 5
       
       - name: Convert test output to XML
         if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
-        run: cat test_results.tap | npx tap - --reporter=xunit > sponge_log.xml
+        run: cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
 
       - name: FlakyBot (Linux)
         # only run flakybot on periodic (schedule) and continuous (push) events

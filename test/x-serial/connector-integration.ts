@@ -68,15 +68,18 @@ t.test('Connector integration test', async t => {
     });
 
   // mocks generateKeys module so that it can return a deterministic result
-  const {Connector} = t.mock('../../src/connector', {
-    '../../src/cloud-sql-instance': t.mock('../../src/cloud-sql-instance', {
-      '../../src/crypto': {
-        generateKeys: async () => ({
-          publicKey: '-----BEGIN PUBLIC KEY-----',
-          privateKey: CLIENT_KEY,
-        }),
-      },
-    }),
+  const {Connector} = t.mockRequire('../../src/connector', {
+    '../../src/cloud-sql-instance': t.mockRequire(
+      '../../src/cloud-sql-instance',
+      {
+        '../../src/crypto': {
+          generateKeys: async () => ({
+            publicKey: '-----BEGIN PUBLIC KEY-----',
+            privateKey: CLIENT_KEY,
+          }),
+        },
+      }
+    ),
   });
 
   const connector = new Connector();
