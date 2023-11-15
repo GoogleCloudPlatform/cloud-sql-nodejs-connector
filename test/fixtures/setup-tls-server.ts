@@ -15,7 +15,10 @@
 import {createServer} from 'node:https';
 import {CA_CERT, SERVER_CERT, SERVER_KEY} from './certs';
 
-export async function setupTLSServer(t: Tap.Test): Promise<void> {
+export async function setupTLSServer(
+  t: Tap.Test,
+  port?: number
+): Promise<void> {
   const server = createServer(
     {
       ca: CA_CERT,
@@ -29,7 +32,7 @@ export async function setupTLSServer(t: Tap.Test): Promise<void> {
     }
   );
   await new Promise((res): void => {
-    server.listen(3307, () => {
+    server.listen(port || 3307, () => {
       res(null);
     });
   });
