@@ -19,7 +19,9 @@ import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {setupTLSServer} from './fixtures/setup-tls-server';
 
 t.test('getSocket', async t => {
-  await setupTLSServer(t);
+  // the mock tls server for this test will use a custom port in order
+  // to avoid conflicting ports with the integration tests
+  await setupTLSServer(t, 3001);
 
   await new Promise((res, rej): void => {
     const socket = getSocket({
@@ -33,7 +35,7 @@ t.test('getSocket', async t => {
         expirationTime: '2033-01-06T10:00:00.232Z',
       },
       host: '127.0.0.1',
-      port: 3307,
+      port: 3001, // using port 3001 here to avoid EADDRINUSE errors
       privateKey: CLIENT_KEY,
       serverCaCert: {
         cert: CA_CERT,
