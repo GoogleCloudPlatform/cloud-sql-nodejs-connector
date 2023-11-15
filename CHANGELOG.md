@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.1.0...v1.2.0) (2023-11-15)
+
+
+### Features
+
+* Add support to an auth config ([#238](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/238)) ([e1a50a5](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/e1a50a5e3847aeefdeeedf8af4e5e1a5c36fc809))
+
+
+### Bug Fixes
+
+* cloud-sql-instance promise chaining ([#245](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/245)) ([5fde5b3](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/5fde5b303e2b6cdd99d1c8653fbcd98853f88fba))
+
 ## [1.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.0.0...v1.1.0) (2023-10-10)
 
 
