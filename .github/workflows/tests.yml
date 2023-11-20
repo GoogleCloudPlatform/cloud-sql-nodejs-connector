@@ -97,7 +97,7 @@ jobs:
       # once node@14 is no longer supported
       - name: Setup v14.x-compatible tap
         if: "${{ matrix.node-version == 'v14.x' }}"
-        run: npm uninstall tap && npm install tap@16 && npx npm@7 pkg delete tap
+        run: npm uninstall tap && npm install tap@16 ts-node && npx npm@7 pkg delete tap
 
       - name: Run Tests v14.x
         if: "${{ matrix.node-version == 'v14.x' }}"
@@ -234,7 +234,7 @@ jobs:
       # once node@14 is no longer supported
       - name: Setup v14.x-compatible tap
         if: "${{ matrix.node-version == 'v14.x' }}"
-        run: npm uninstall tap && npm install tap@16 && npx npm@7 pkg delete tap
+        run: npm uninstall tap && npm install tap@16 ts-node && npx npm@7 pkg delete tap
 
       - name: Run System Tests v14.x
         env:
