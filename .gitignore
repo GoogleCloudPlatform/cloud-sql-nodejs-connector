@@ -7,7 +7,7 @@
 !/package-lock.json
 !/README.md
 !/LICENSE{,.*}
-!/example
+!/examples
 !/scripts
 !/system-test
 !/tap-snapshots

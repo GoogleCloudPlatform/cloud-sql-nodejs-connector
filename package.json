@@ -40,9 +40,10 @@
     "prepare": "rm -rf dist && npm run compile && node ./scripts/fixup.cjs",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",
-    "test": "tap",
+    "test": "tap test",
     "presystem-test": "npm run prepare",
-    "system-test": "tap --no-coverage system-test",
+    "system-test": "tap --disable-coverage --allow-empty-coverage system-test",
+    "sample-test": "tap --disable-coverage --allow-empty-coverage examples",
     "lint": "gts check",
     "fix": "gts fix",
     "posttest": "npm run lint"
@@ -62,12 +63,14 @@
     "@typescript-eslint/eslint-plugin": "^6.3.0",
     "eslint-plugin-prettier": "^5.0.0",
     "gts": "^5.0.0",
+    "mssql": "^9.3.2",
     "mysql2": "^3.2.0",
     "nock": "^13.3.0",
     "pg": "^8.10.0",
     "semver": "^7.5.1",
     "tap": "^18.5.8",
     "tedious": "^16.1.0",
+    "typeorm": "^0.3.17",
     "typescript": "^5.1.6"
   },
   "engines": {
@@ -82,5 +85,8 @@
     "gaxios": "^6.1.1",
     "google-auth-library": "^9.2.0",
     "p-throttle": "^5.1.0"
+  },
+  "overrides": {
+    "tedious": "^16.1.0"
   }
 }

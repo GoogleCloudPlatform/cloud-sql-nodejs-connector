@@ -101,7 +101,7 @@ jobs:
 
       - name: Run Tests v14.x
         if: "${{ matrix.node-version == 'v14.x' }}"
-        run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm"
+        run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm" test
         timeout-minutes: 5
 
       - name: Run Tests
@@ -111,7 +111,7 @@ jobs:
           TAP_ALLOW_INCOMPLETE_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
           TAP_ALLOW_EMPTY_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
         if: "${{ matrix.node-version != 'v14.x' }}"
-        run: npx tap -c -t0 -o test_results.tap
+        run: npx tap -c -t0 -o test_results.tap test
         timeout-minutes: 5
 
       - name: Convert test output to XML
@@ -150,6 +150,169 @@ jobs:
         exclude:
           - os: windows-latest
             node-version: "v14.x"
+      fail-fast: false
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      issues: write
+      pull-requests: write
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Remove PR label
+        if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
+        uses: actions/github-script@e69ef5462fd455e02edcaf4dd7708eda96b9eda0 # v7.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                name: 'tests: run',
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number
+              });
+            } catch (e) {
+              console.log('Failed to remove label. Another job may have already removed it!');
+            }
+
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Transpile TypeScript
+        run: npm run prepare
+
+      - id: 'auth'
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033 # v1.1.1
+        with:
+          workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+          access_token_lifetime: 600s
+
+      - id: 'secrets'
+        name: Get secrets
+        uses: google-github-actions/get-secretmanager-secrets@4d6d3dfd94110800dda8d84109cb6da0f6a5919d # v1.0.1
+        with:
+          secrets: |-
+            MYSQL_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
+            MYSQL_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
+            MYSQL_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
+            MYSQL_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_NODE
+            MYSQL_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
+            MYSQL_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
+            POSTGRES_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
+            POSTGRES_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
+            POSTGRES_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
+            POSTGRES_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_NODE
+            POSTGRES_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
+            POSTGRES_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
+            SQLSERVER_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
+            SQLSERVER_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
+            SQLSERVER_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
+            SQLSERVER_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
+
+      # the following steps are node14-only and can be safely removed
+      # once node@14 is no longer supported
+      - name: Setup v14.x-compatible tap
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npm uninstall @typescript-eslint/eslint-plugin eslint-plugin-prettier tap && npm install tap@16 ts-node && npx npm@7 pkg delete tap
+
+      - name: Setup self-direct dependency
+        run: npm link
+
+      - name: Link self-direct dependency
+        run: npm link @google-cloud/cloud-sql-connector
+
+      - name: Run System Tests v14.x
+        env:
+          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
+          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
+          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
+          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
+          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
+          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
+          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
+          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
+          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
+          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
+          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
+          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
+          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
+          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
+          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
+          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
+        if: "${{ matrix.node-version == 'v14.x' }}"
+        run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm" system-test -o test_results.tap
+        timeout-minutes: 5
+
+      - name: Run System Tests
+        env:
+          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
+          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
+          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
+          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
+          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
+          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
+          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
+          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
+          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
+          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
+          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
+          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
+          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
+          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
+          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
+          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
+        if: "${{ matrix.node-version != 'v14.x' }}"
+        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
+        timeout-minutes: 5
+      
+      - name: Convert test output to XML
+        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
+        run: cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
+
+      - name: FlakyBot (Linux)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (Windows)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Windows' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot.exe -o flakybot.exe -s -L
+          ./flakybot.exe --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+      - name: FlakyBot (macOS)
+        # only run flakybot on periodic (schedule) and continuous (push) events
+        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'macOS' && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot-darwin-amd64 -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+
+  sample-tests:
+    # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
+    if: "${{ (github.event.action != 'labeled' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name) || github.event.label.name == 'tests: run' }}"
+    name: Sample tests
+    strategy:
+      matrix:
+        node-version: [v18.x]
+        os: [ubuntu-latest]
       fail-fast: false
     permissions:
       contents: 'read'
@@ -230,35 +393,7 @@ jobs:
             SQLSERVER_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
             SQLSERVER_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
 
-      # the following steps are node14-only and can be safely removed
-      # once node@14 is no longer supported
-      - name: Setup v14.x-compatible tap
-        if: "${{ matrix.node-version == 'v14.x' }}"
-        run: npm uninstall @typescript-eslint/eslint-plugin eslint-plugin-prettier tap && npm install tap@16 ts-node && npx npm@7 pkg delete tap
-
-      - name: Run System Tests v14.x
-        env:
-          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
-          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
-          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
-          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
-          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
-          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
-          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
-          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
-          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
-          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
-          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
-          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
-          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
-          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
-          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
-          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
-        if: "${{ matrix.node-version == 'v14.x' }}"
-        run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm" system-test -o test_results.tap
-        timeout-minutes: 5
-
-      - name: Run System Tests
+      - name: Run Sample Tests
         env:
           MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
           MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
@@ -277,30 +412,5 @@ jobs:
           SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
           SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
         if: "${{ matrix.node-version != 'v14.x' }}"
-        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
+        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/{mysql2,pg,tedious}.test{.cjs,.mjs,.ts} -o test_results.tap
         timeout-minutes: 5
-      
-      - name: Convert test output to XML
-        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
-        run: cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
-
-      - name: FlakyBot (Linux)
-        # only run flakybot on periodic (schedule) and continuous (push) events
-        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Linux' && always() }}
-        run: |
-          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
-          chmod +x ./flakybot
-          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
-      - name: FlakyBot (Windows)
-        # only run flakybot on periodic (schedule) and continuous (push) events
-        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'Windows' && always() }}
-        run: |
-          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot.exe -o flakybot.exe -s -L
-          ./flakybot.exe --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
-      - name: FlakyBot (macOS)
-        # only run flakybot on periodic (schedule) and continuous (push) events
-        if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && runner.os == 'macOS' && always() }}
-        run: |
-          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot-darwin-amd64 -o flakybot -s -L
-          chmod +x ./flakybot
-          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
