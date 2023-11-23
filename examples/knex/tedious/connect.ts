@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {Connector} = require('@google-cloud/cloud-sql-connector');
-const knex = require('knex');
+import {
+  AuthTypes,
+  Connector,
+  IpAddressTypes,
+} from '@google-cloud/cloud-sql-connector';
+import knex from 'knex';
 
-const main = async () => {
+export async function connect({instanceConnectionName, user, password, db}) {
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
-    instanceConnectionName: 'my-project:region:my-instance',
-    ipType: 'PUBLIC',
-    authType: 'PASSWORD',
+    instanceConnectionName,
+    ipType: IpAddressTypes.PUBLIC,
+    authType: AuthTypes.PASSWORD,
   });
 
   const database = knex({
@@ -31,20 +35,20 @@ const main = async () => {
       // There is a pending fix (ref: https://github.com/tediousjs/tedious/pull/1542), but until
       // it is released, we need to provide a dummy value.
       server: '0.0.0.0',
-      user: 'my-user',
-      password: 'my-password',
-      database: 'my-database',
+      user,
+      password,
+      database: db,
       options: {
         ...clientOpts,
       },
     },
   });
 
-  const result = await database.first(database.raw('GETUTCDATE() AS now'));
-  console.log(`Current datetime: ${result['now']}`);
-
-  await database.destroy();
-  connector.close();
-};
-
-main();
+  return {
+    database,
+    async close() {
+      await database.destroy();
+      connector.close();
+    },
+  };
+}

@@ -19,10 +19,10 @@ import {
 } from '@google-cloud/cloud-sql-connector';
 import knex from 'knex';
 
-const main = async () => {
+export async function connect({instanceConnectionName, user, db}) {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
-    instanceConnectionName: 'my-project:region:my-instance',
+    instanceConnectionName,
     ipType: IpAddressTypes.PUBLIC,
     authType: AuthTypes.IAM,
   });
@@ -31,16 +31,16 @@ const main = async () => {
     client: 'mysql2',
     connection: {
       ...clientOpts,
-      user: 'my-service-account',
-      database: 'my-database',
+      user,
+      db,
     },
   });
 
-  const result = await database.first(database.raw('NOW() AS now'));
-  console.log(`Current datetime: ${result['now']}`);
-
-  await database.destroy();
-  connector.close();
-};
-
-main();
+  return {
+    database,
+    async close() {
+      await database.destroy();
+      connector.close();
+    },
+  };
+}
