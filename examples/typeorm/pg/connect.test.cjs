@@ -13,7 +13,7 @@
 // limitations under the License.
 
 const t = require('tap');
-const connector = require('./pg.cjs');
+const connector = require('./connect.cjs');
 
 t.test('pg typeorm cjs', async t => {
   const { dataSource, close } = await connector.connect({
@@ -21,7 +21,7 @@ t.test('pg typeorm cjs', async t => {
     username: process.env.POSTGRES_IAM_USER,
     database: process.env.POSTGRES_DB,
   });
-  const [{ now: time }] = await dataSource.manager.query('SELECT NOW() as now')
-  t.ok(time.getTime(), 'should have valid returned date object');
+  const [{ now }] = await dataSource.manager.query('SELECT NOW() as now')
+  t.ok(now.getTime(), 'should have valid returned date object');
   await close();
 });

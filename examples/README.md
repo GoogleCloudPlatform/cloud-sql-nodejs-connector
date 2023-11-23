@@ -8,12 +8,12 @@ some of the most popular database libraries and frameworks.
 
 ### TypeORM
 
-- [MySQL (CommonJS)](./typeorm/mysql2.cjs)
-- [MySQL (ESM)](./typeorm/mysql2.mjs)
-- [MySQL (TypeScript)](./typeorm/mysql2.ts)
-- [PostgreSQL (CommonJS)](./typeorm/pg.cjs)
-- [PostgreSQL (ESM)](./typeorm/pg.mjs)
-- [PostgreSQL (TypeScript)](./typeorm/pg.ts)
-- [SQL Server (CommonJS)](./typeorm/tedious.cjs)
-- [SQL Server (ESM)](./typeorm/tedious.mjs)
-- [SQL Server (TypeScript)](./typeorm/tedious.ts)
+- [MySQL (CommonJS)](./typeorm/mysql2/connect.cjs)
+- [MySQL (ESM)](./typeorm/mysql2/connect.mjs)
+- [MySQL (TypeScript)](./typeorm/mysql2/connect.ts)
+- [PostgreSQL (CommonJS)](./typeorm/pg/connect.cjs)
+- [PostgreSQL (ESM)](./typeorm/pg/connect.mjs)
+- [PostgreSQL (TypeScript)](./typeorm/pg/connect.ts)
+- [SQL Server (CommonJS)](./typeorm/tedious/connect.cjs)
+- [SQL Server (ESM)](./typeorm/tedious/connect.mjs)
+- [SQL Server (TypeScript)](./typeorm/tedious/connect.ts)
