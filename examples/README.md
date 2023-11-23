@@ -6,6 +6,18 @@ some of the most popular database libraries and frameworks.
 
 ## Available Examples
 
+### Knex
+
+- [MySQL (CommonJS)](./knex/mysql2/connect.cjs)
+- [MySQL (ESM)](./knex/mysql2/connect.mjs)
+- [MySQL (TypeScript)](./knex/mysql2/connect.ts)
+- [PostgreSQL (CommonJS)](./knex/pg/connect.cjs)
+- [PostgreSQL (ESM)](./knex/pg/connect.mjs)
+- [PostgreSQL (TypeScript)](./knex/pg/connect.ts)
+- [SQL Server (CommonJS)](./knex/tedious/connect.cjs)
+- [SQL Server (ESM)](./knex/tedious/connect.mjs)
+- [SQL Server (TypeScript)](./knex/tedious/connect.ts)
+
 ### TypeORM
 
 - [MySQL (CommonJS)](./typeorm/mysql2/connect.cjs)

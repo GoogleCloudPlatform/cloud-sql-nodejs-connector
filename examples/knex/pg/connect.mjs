@@ -15,24 +15,28 @@
 import {Connector} from '@google-cloud/cloud-sql-connector';
 import knex from 'knex';
 
-const connector = new Connector();
-const clientOpts = await connector.getOptions({
-  instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC',
-  authType: 'IAM',
-});
+export async function connect({ instanceConnectionName, user, db }) {
+  const connector = new Connector();
+  const clientOpts = await connector.getOptions({
+    instanceConnectionName,
+    ipType: 'PUBLIC',
+    authType: 'IAM',
+  });
 
-const database = knex({
-  client: 'pg',
-  connection: {
-    ...clientOpts,
-    user: 'my-service-account@my-project.iam',
-    database: 'my-database',
-  },
-});
+  const database = knex({
+    client: 'pg',
+    connection: {
+      ...clientOpts,
+      user,
+      database: db,
+    },
+  });
 
-const result = await database.first(database.raw('NOW() AS now'));
-console.log(`Current datetime: ${result['now']}`);
-
-await database.destroy();
-connector.close();
+  return {
+    database,
+    async close() {
+      await database.destroy();
+      connector.close();
+    }
+  };
+};

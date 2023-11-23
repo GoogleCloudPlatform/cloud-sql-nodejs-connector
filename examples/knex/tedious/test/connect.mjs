@@ -12,27 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Connector} from '@google-cloud/cloud-sql-connector';
-import knex from 'knex';
+import t from 'tap';
+import {connect} from '../connect.mjs';
 
-const connector = new Connector();
-const clientOpts = await connector.getOptions({
-  instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC',
-  authType: 'IAM',
+t.test('tedious knex mjs', async t => {
+  const { database, close } = await connect({
+    instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
+    user: process.env.SQLSERVER_USER,
+    password: process.env.SQLSERVER_PASS,
+    database: process.env.SQLSERVER_DB,
+  });
+  const {now} = await database.first(database.raw('GETUTCDATE() AS now'));
+  t.ok(now.getTime(), 'should have valid returned date object');
+  await close();
 });
-
-const database = knex({
-  client: 'mysql2',
-  connection: {
-    ...clientOpts,
-    user: 'my-service-account',
-    database: 'my-database',
-  },
-});
-
-const result = await database.first(database.raw('NOW() AS now'));
-console.log(`Current datetime: ${result['now']}`);
-
-await database.destroy();
-connector.close();
