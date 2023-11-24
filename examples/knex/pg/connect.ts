@@ -22,11 +22,11 @@ import knex from 'knex';
 export async function connect({
   instanceConnectionName,
   user,
-  db,
+  databaseName,
 }: {
   instanceConnectionName: string;
   user: string;
-  db: string;
+  databaseName: string;
 }) {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
@@ -40,7 +40,7 @@ export async function connect({
     connection: {
       ...clientOpts,
       user,
-      database: db,
+      database: databaseName,
     },
   });
 

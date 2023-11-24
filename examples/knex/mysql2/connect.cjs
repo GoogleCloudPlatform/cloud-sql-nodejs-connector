@@ -28,7 +28,7 @@ async function connect({ instanceConnectionName, user, databaseName }) {
     connection: {
       ...clientOpts,
       user,
-      databaseName,
+      database: databaseName,
     },
   });
 

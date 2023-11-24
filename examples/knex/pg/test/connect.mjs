@@ -19,7 +19,7 @@ t.test('pg knex mjs', async t => {
   const {database, close} = await connect({
     instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
     user: process.env.POSTGRES_IAM_USER,
-    db: process.env.POSTGRES_DB,
+    databaseName: process.env.POSTGRES_DB,
   });
   const {now} = await database.first(database.raw('NOW() AS now'));
   t.ok(now.getTime(), 'should have valid returned date object');
