@@ -18,6 +18,21 @@ some of the most popular database libraries and frameworks.
 - [SQL Server (ESM)](./knex/tedious/connect.mjs)
 - [SQL Server (TypeScript)](./knex/tedious/connect.ts)
 
+### Sequelize
+
+> [!WARNING]
+> Sequelize examples require Sequelize >=v7.0.0-alpha.27 (`npm install @sequelize/core`)
+
+- [MySQL (CommonJS)](./sequelize/mysql2/connect.cjs)
+- [MySQL (ESM)](./sequelize/mysql2/connect.mjs)
+- [MySQL (TypeScript)](./sequelize/mysql2/connect.ts)
+- [PostgreSQL (CommonJS)](./sequelize/pg/connect.cjs)
+- [PostgreSQL (ESM)](./sequelize/pg/connect.mjs)
+- [PostgreSQL (TypeScript)](./sequelize/pg/connect.ts)
+- [SQL Server (CommonJS)](./sequelize/tedious/connect.cjs)
+- [SQL Server (ESM)](./sequelize/tedious/connect.mjs)
+- [SQL Server (TypeScript)](./sequelize/tedious/connect.ts)
+
 ### TypeORM
 
 - [MySQL (CommonJS)](./typeorm/mysql2/connect.cjs)

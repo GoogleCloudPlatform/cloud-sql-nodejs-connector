@@ -19,19 +19,24 @@ import {
 } from '@google-cloud/cloud-sql-connector';
 import {Sequelize} from '@sequelize/core';
 
-const main = async () => {
+export async function connect({
+  instanceConnectionName,
+  username,
+  password,
+  databaseName,
+}) {
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
-    instanceConnectionName: 'my-project:region:my-instance',
+    instanceConnectionName,
     ipType: IpAddressTypes.PUBLIC,
     authType: AuthTypes.PASSWORD,
   });
 
   const database = new Sequelize({
     dialect: 'mssql',
-    username: 'my-user',
-    password: 'my-password',
-    database: 'my-database',
+    username,
+    password,
+    database: databaseName,
     dialectOptions: {
       options: {
         ...clientOpts,
@@ -40,10 +45,12 @@ const main = async () => {
   });
 
   await database.authenticate();
-  console.log('Successfully connected to database.');
 
-  await database.close();
-  connector.close();
-};
-
-main();
+  return {
+    database,
+    async close() {
+      await database.close();
+      connector.close();
+    },
+  };
+}

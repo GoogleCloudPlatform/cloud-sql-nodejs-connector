@@ -12,35 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  AuthTypes,
-  Connector,
-  IpAddressTypes,
-} from '@google-cloud/cloud-sql-connector';
+import {Connector} from '@google-cloud/cloud-sql-connector';
 import {Sequelize} from '@sequelize/core';
 
-const main = async () => {
+export async function connect({ instanceConnectionName, username, databaseName }) {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
-    instanceConnectionName: 'my-project:region:my-instance',
-    ipType: IpAddressTypes.PUBLIC,
-    authType: AuthTypes.IAM,
+    instanceConnectionName,
+    ipType: 'PUBLIC',
+    authType: 'IAM',
   });
 
   const database = new Sequelize({
-    dialect: 'postgres',
-    username: 'my-service-account',
-    database: 'my-database',
+    dialect: 'mysql',
+    username,
+    database: databaseName,
     dialectOptions: {
       ...clientOpts,
     },
   });
 
   await database.authenticate();
-  console.log('Successfully connected to database.');
 
-  await database.close();
-  connector.close();
+  return {
+    database,
+    async close() {
+      await database.close();
+      connector.close();
+    }
+  };
 };
-
-main();
