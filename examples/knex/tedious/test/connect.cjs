@@ -20,7 +20,7 @@ t.test('tedious knex cjs', async t => {
     instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
     user: process.env.SQLSERVER_USER,
     password: process.env.SQLSERVER_PASS,
-    database: process.env.SQLSERVER_DB,
+    databaseName: process.env.SQLSERVER_DB,
   });
   const {now} = await database.first(database.raw('GETUTCDATE() AS now'));
   t.ok(now.getTime(), 'should have valid returned date object');

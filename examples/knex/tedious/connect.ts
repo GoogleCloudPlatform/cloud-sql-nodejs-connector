@@ -19,7 +19,12 @@ import {
 } from '@google-cloud/cloud-sql-connector';
 import knex from 'knex';
 
-export async function connect({instanceConnectionName, user, password, db}) {
+export async function connect({
+  instanceConnectionName,
+  user,
+  password,
+  databaseName,
+}) {
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
     instanceConnectionName,
@@ -37,7 +42,7 @@ export async function connect({instanceConnectionName, user, password, db}) {
       server: '0.0.0.0',
       user,
       password,
-      database: db,
+      database: databaseName,
       options: {
         ...clientOpts,
       },

@@ -15,7 +15,7 @@
 const {Connector} = require('@google-cloud/cloud-sql-connector');
 const knex = require('knex');
 
-async function connect({ instanceConnectionName, user, db }) {
+async function connect({ instanceConnectionName, user, databaseName }) {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
     instanceConnectionName,
@@ -28,7 +28,7 @@ async function connect({ instanceConnectionName, user, db }) {
     connection: {
       ...clientOpts,
       user,
-      database: db,
+      database: databaseName,
     },
   });
 
