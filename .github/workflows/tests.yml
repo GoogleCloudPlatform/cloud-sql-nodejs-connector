@@ -34,7 +34,7 @@ jobs:
     name: Unit tests
     strategy:
       matrix:
-        node-version: [v14.x, v16.x, v18.x]
+        node-version: [v14.x, v16.x, v18.x, v20.x]
         os: [ubuntu-latest, macos-latest, windows-latest]
         exclude:
           - os: windows-latest
@@ -145,7 +145,7 @@ jobs:
     name: System tests
     strategy:
       matrix:
-        node-version: [v14.x, v16.x, v18.x]
+        node-version: [v14.x, v16.x, v18.x, v20.x]
         os: [ubuntu-latest, macos-latest, windows-latest]
         exclude:
           - os: windows-latest
