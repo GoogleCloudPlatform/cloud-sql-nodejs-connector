@@ -13,16 +13,15 @@
 // limitations under the License.
 
 import t from 'tap';
-import {connect} from './connect.mjs';
+import {connect} from '../connect.mjs';
 
-t.test('tedious typeorm mjs', async t => {
+t.test('pg typeorm mjs', async t => {
   const { dataSource, close } = await connect({
-    instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
-    username: process.env.SQLSERVER_USER,
-    password: process.env.SQLSERVER_PASS,
-    database: process.env.SQLSERVER_DB,
+    instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
+    username: process.env.POSTGRES_IAM_USER,
+    database: process.env.POSTGRES_DB,
   });
-  const [{ now }] = await dataSource.manager.query('SELECT GETUTCDATE() as now')
+  const [{ now }] = await dataSource.manager.query('SELECT NOW() as now');
   t.ok(now.getTime(), 'should have valid returned date object');
   await close();
 });

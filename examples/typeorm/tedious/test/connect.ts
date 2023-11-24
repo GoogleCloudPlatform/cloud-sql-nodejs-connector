@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import t from 'tap';
-import {connect} from './connect';
+import {connect} from '../connect';
 
 t.test('tedious typeorm ts', async t => {
   const {dataSource, close} = await connect({

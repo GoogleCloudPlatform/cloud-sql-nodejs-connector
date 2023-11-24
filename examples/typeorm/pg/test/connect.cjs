@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import t from 'tap';
-import {connect} from './connect';
+const t = require('tap');
+const connector = require('../connect.cjs');
 
-t.test('mysql typeorm ts', async t => {
-  const {dataSource, close} = await connect({
-    instanceConnectionName: process.env.MYSQL_IAM_CONNECTION_NAME,
-    username: process.env.MYSQL_IAM_USER,
-    database: process.env.MYSQL_DB,
+t.test('pg typeorm cjs', async t => {
+  const { dataSource, close } = await connector.connect({
+    instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
+    username: process.env.POSTGRES_IAM_USER,
+    database: process.env.POSTGRES_DB,
   });
-  const [{now}] = await dataSource.manager.query('SELECT NOW() as now');
+  const [{ now }] = await dataSource.manager.query('SELECT NOW() as now')
   t.ok(now.getTime(), 'should have valid returned date object');
   await close();
 });

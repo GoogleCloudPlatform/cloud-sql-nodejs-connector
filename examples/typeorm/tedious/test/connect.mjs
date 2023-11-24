@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const t = require('tap');
-const connector = require('./connect.cjs');
+import t from 'tap';
+import {connect} from '../connect.mjs';
 
-t.test('tedious typeorm cjs', async t => {
-  const { dataSource, close } = await connector.connect({
+t.test('tedious typeorm mjs', async t => {
+  const { dataSource, close } = await connect({
     instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
     username: process.env.SQLSERVER_USER,
     password: process.env.SQLSERVER_PASS,
