@@ -46,12 +46,6 @@ You can install the library using `npm install`:
 npm install @google-cloud/cloud-sql-connector
 ```
 
-## Usage
-
-The connector package is meant to be used alongside a database driver, in the
-following examples you can see how to create a new connector and get valid
-options that can then be used when starting a new connection.
-
 ### APIs and Services
 
 This library requires the following to successfully make Cloud SQL Connections:
@@ -76,6 +70,12 @@ or consult the [Node.js google-auth-library][google-auth].
 [adc]: https://cloud.google.com/docs/authentication#adc
 [set-adc]: https://cloud.google.com/docs/authentication/provide-credentials-adc
 [google-auth]: https://cloud.google.com/nodejs/docs/reference/google-auth-library/latest#ways-to-authenticate
+
+## Usage
+
+The connector package is meant to be used alongside a database driver, in the
+following examples you can see how to create a new connector and get valid
+options that can then be used when starting a new connection.
 
 ### Using with PostgreSQL
 
