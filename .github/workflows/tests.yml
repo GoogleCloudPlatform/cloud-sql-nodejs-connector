@@ -318,7 +318,7 @@ jobs:
       contents: 'read'
       id-token: 'write'
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     steps:
 
