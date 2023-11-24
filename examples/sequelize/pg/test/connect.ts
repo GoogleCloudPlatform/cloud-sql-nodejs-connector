@@ -12,27 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Connector} from '@google-cloud/cloud-sql-connector';
-import {Sequelize} from '@sequelize/core';
+import t from 'tap';
+import {connect} from '../connect';
 
-const connector = new Connector();
-const clientOpts = await connector.getOptions({
-  instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC',
-  authType: 'IAM',
+t.test('pg sequelize ts', async t => {
+  const {database, close} = await connect({
+    instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
+    username: process.env.POSTGRES_IAM_USER,
+    databaseName: process.env.POSTGRES_DB,
+  });
+  const [[{now}]] = await database.query('SELECT NOW() AS now');
+  t.strictSame(
+    now.slice(0, 10),
+    new Date(now).toJSON().slice(0, 10),
+    'should have valid returned date object'
+  );
+  await close();
 });
-
-const database = new Sequelize({
-  dialect: 'mysql',
-  username: 'my-service-account',
-  database: 'my-database',
-  dialectOptions: {
-    ...clientOpts,
-  },
-});
-
-await database.authenticate();
-console.log('Successfully connected to database.');
-
-await database.close();
-connector.close();

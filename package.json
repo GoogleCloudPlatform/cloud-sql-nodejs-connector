@@ -55,6 +55,7 @@
     "show-full-coverage": true
   },
   "devDependencies": {
+    "@sequelize/core": "^7.0.0-alpha.29",
     "@types/node": "^20.4.9",
     "@types/pg": "^8.10.1",
     "@types/semver": "^7.5.0",
@@ -63,8 +64,8 @@
     "@typescript-eslint/eslint-plugin": "^6.3.0",
     "eslint-plugin-prettier": "^5.0.0",
     "gts": "^5.0.0",
-    "mssql": "^9.3.2",
     "knex": "^3.0.1",
+    "mssql": "^9.3.2",
     "mysql2": "^3.2.0",
     "nock": "^13.3.0",
     "pg": "^8.10.0",

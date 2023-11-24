@@ -15,31 +15,34 @@
 const {Connector} = require('@google-cloud/cloud-sql-connector');
 const {Sequelize} = require('@sequelize/core');
 
-const main = async () => {
+async function connect({ instanceConnectionName, username, databaseName }) {
   const connector = new Connector();
-  const clientOpts = await connector.getTediousOptions({
-    instanceConnectionName: 'my-project:region:my-instance',
+  const clientOpts = await connector.getOptions({
+    instanceConnectionName,
     ipType: 'PUBLIC',
-    authType: 'PASSWORD',
+    authType: 'IAM',
   });
 
   const database = new Sequelize({
-    dialect: 'mssql',
-    username: 'my-user',
-    password: 'my-password',
-    database: 'my-database',
+    dialect: 'mysql',
+    username,
+    database: databaseName,
     dialectOptions: {
-      options: {
-        ...clientOpts,
-      },
+      ...clientOpts,
     },
   });
 
   await database.authenticate();
-  console.log('Successfully connected to database.');
 
-  await database.close();
-  connector.close();
+  return {
+    database,
+    async close() {
+      await database.close();
+      connector.close();
+    }
+  };
 };
 
-main();
+module.exports = {
+  connect,
+};
