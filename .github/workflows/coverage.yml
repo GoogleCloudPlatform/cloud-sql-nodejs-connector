@@ -61,7 +61,7 @@ jobs:
 
       - name: Calculate base code coverage
         run: |
-          export CUR_COVER=$(npx tap | xargs -0 node -p 'parseInt(process.argv[1].split("\nAll files")[1].split("|")[1].trim(), 10)')
+          export CUR_COVER=$(npx tap test | xargs -0 node -p 'parseInt(process.argv[1].split("\nAll files")[1].split("|")[1].trim(), 10)')
           echo "CUR_COVER=$CUR_COVER" >> $GITHUB_ENV
 
       - name: Checkout PR branch
@@ -75,7 +75,7 @@ jobs:
 
       - name: Calculate PR code coverage
         run: |
-          export PR_COVER=$(npx tap | xargs -0 node -p 'parseInt(process.argv[1].split("\nAll files")[1].split("|")[1].trim(), 10)')
+          export PR_COVER=$(npx tap test | xargs -0 node -p 'parseInt(process.argv[1].split("\nAll files")[1].split("|")[1].trim(), 10)')
           echo "PR_COVER=$PR_COVER" >> $GITHUB_ENV
 
       - name: Verify code coverage. If your reading this and the step has failed, please add tests to cover your changes.
