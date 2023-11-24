@@ -388,5 +388,5 @@ jobs:
           SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
           SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
           SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
-        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/{mysql2,pg,tedious}/*.test{.cjs,.mjs,.ts} -o test_results.tap
+        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/{mysql2,pg,tedious}/test/*{.cjs,.mjs,.ts} -o test_results.tap
         timeout-minutes: 5
