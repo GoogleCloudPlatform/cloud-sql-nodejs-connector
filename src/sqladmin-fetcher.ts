@@ -81,9 +81,7 @@ export class SQLAdminFetcher {
     let auth: GoogleAuth<AuthClient>;
 
     if (loginAuth instanceof GoogleAuth) {
-      auth = new GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
-      });
+      auth = loginAuth;
     } else {
       auth = new GoogleAuth({
         authClient: loginAuth, // either an `AuthClient` or undefined
