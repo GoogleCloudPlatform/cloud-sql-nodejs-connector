@@ -366,7 +366,7 @@ const connector = new Connector({
 });
 ```
 
-This can be extremely useful to leverage the `Connector` with a service account that differs from that
+This can be useful to leverage the `Connector` with a service account that differs from that
 of the Application Default Credentials.
 
 The below example showcases how to initialize a `Connector` from a service account key that is
