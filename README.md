@@ -383,12 +383,11 @@ if (!keysEnvVar) {
 }
 const keys = JSON.parse(keysEnvVar);
 
-const auth = new GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/sqlservice.admin']
-});
-
 const connector = new Connector({
-    auth: auth.fromJSON(keys),
+  auth: new GoogleAuth({
+    credentials: keys,
+    scopes: ['https://www.googleapis.com/auth/sqlservice.admin']
+  }),
 });
 ```
 
