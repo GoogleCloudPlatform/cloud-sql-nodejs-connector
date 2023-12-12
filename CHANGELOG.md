@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.2.0...v1.2.1) (2023-12-12)
+
+
+### Bug Fixes
+
+* **SQLAdminFetcher:** Use `loginAuth` for `auth` ([#275](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/275)) ([c403d0a](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/c403d0a3d83428ff4ce2864dcc8390d02b69cbda))
+
 ## [1.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.1.0...v1.2.0) (2023-11-15)
 
 
