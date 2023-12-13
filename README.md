@@ -362,9 +362,15 @@ import {GoogleAuth} from 'google-auth-library';
 import {Connector} from '@google-cloud/cloud-sql-connector';
 
 const connector = new Connector({
-  auth: new GoogleAuth(),
+  auth: new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/sqlservice.admin']
+  }),
 });
 ```
+
+This can be useful when configuring credentials that differ from
+Application Default Credentials. See the [documentation][google-auth-creds]
+on the `google-auth-library` for more information.
 
 ## Additional customization via Environment Variables
 
@@ -431,3 +437,4 @@ Apache Version 2.0
 See [LICENSE](./LICENSE)
 
 [credentials-json-file]: https://github.com/googleapis/google-cloud-node#download-your-service-account-credentials-json-file
+[google-auth-creds]: https://cloud.google.com/nodejs/docs/reference/google-auth-library/latest#loading-credentials-from-environment-variables
