@@ -362,7 +362,9 @@ import {GoogleAuth} from 'google-auth-library';
 import {Connector} from '@google-cloud/cloud-sql-connector';
 
 const connector = new Connector({
-  auth: new GoogleAuth(),
+  auth: new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/sqlservice.admin']
+  }),
 });
 ```
 
