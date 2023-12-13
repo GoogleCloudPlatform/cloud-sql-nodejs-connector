@@ -367,29 +367,8 @@ const connector = new Connector({
 ```
 
 This can be useful when configuring credentials that differ from
-Application Default Credentials.
-
-The below example showcases how to initialize a `Connector` from a service account key that is
-[loaded into an environment variable][google-auth-load-creds].
-
-```js
-import {Connector} from '@google-cloud/cloud-sql-connector';
-import {GoogleAuth} from 'google-auth-library';
-
-// load the environment variable with our keys
-const keysEnvVar = process.env.CREDS
-if (!keysEnvVar) {
-  throw new Error('The $CREDS environment variable was not found!');
-}
-const keys = JSON.parse(keysEnvVar);
-
-const connector = new Connector({
-  auth: new GoogleAuth({
-    credentials: keys,
-    scopes: ['https://www.googleapis.com/auth/sqlservice.admin']
-  }),
-});
-```
+Application Default Credentials. See the [documentation][google-auth-creds]
+on the `google-auth-library` for more information.
 
 ## Additional customization via Environment Variables
 
@@ -456,4 +435,4 @@ Apache Version 2.0
 See [LICENSE](./LICENSE)
 
 [credentials-json-file]: https://github.com/googleapis/google-cloud-node#download-your-service-account-credentials-json-file
-[google-auth-load-creds]: https://cloud.google.com/nodejs/docs/reference/google-auth-library/latest#loading-credentials-from-environment-variables
+[google-auth-creds]: https://cloud.google.com/nodejs/docs/reference/google-auth-library/latest#loading-credentials-from-environment-variables
