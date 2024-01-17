@@ -65,14 +65,14 @@
     "eslint-plugin-prettier": "^5.0.0",
     "gts": "^5.0.0",
     "knex": "^3.0.1",
-    "mssql": "^9.3.2",
+    "mssql": "^10.0.0",
     "mysql2": "^3.2.0",
     "nock": "^13.3.0",
     "pg": "^8.10.0",
     "semver": "^7.5.1",
     "tap": "^18.5.8",
     "tedious": "^16.1.0",
-    "typeorm": "^0.3.17",
+    "typeorm": "^0.3.19",
     "typescript": "^5.1.6"
   },
   "engines": {
