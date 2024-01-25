@@ -87,8 +87,5 @@
     "gaxios": "^6.1.1",
     "google-auth-library": "^9.2.0",
     "p-throttle": "^5.1.0"
-  },
-  "overrides": {
-    "tedious": "^16.1.0"
   }
 }
