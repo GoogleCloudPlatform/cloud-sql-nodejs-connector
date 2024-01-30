@@ -372,6 +372,26 @@ This can be useful when configuring credentials that differ from
 Application Default Credentials. See the [documentation][google-auth-creds]
 on the `google-auth-library` for more information.
 
+### Setting a custom quota project
+
+The custom **Google Auth Library** `auth` property can also be used to set
+auth-specific properties such as a custom quota project. Following up from the
+previous example, here's how you can set a custom quota project using a custom
+`auth` credential:
+
+```js
+import {GoogleAuth} from 'google-auth-library';
+import {Connector} from '@google-cloud/cloud-sql-connector';
+
+const connector = new Connector({
+  auth: new GoogleAuth({
+    clientOptions: {
+      quotaProjectId: '<custom quota project>',
+    },
+  }),
+});
+```
+
 ## Additional customization via Environment Variables
 
 It is possible to change some of the library default behavior via environment
