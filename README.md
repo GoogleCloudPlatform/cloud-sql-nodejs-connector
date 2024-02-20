@@ -202,6 +202,41 @@ connection.close();
 connector.close();
 ```
 
+### Using a Local Proxy Tunnel
+
+Another possible way to use the Cloud SQL Node.js Connector creating a
+local proxy server that creates a tunnel to the secured connection stablished
+using the `Connector.startLocalProxy()` method instead of
+`Connector.getOptions()`.
+
+This alternative approach enables usage of the Connector library with
+unsupported drivers such as [Prisma](https://www.prisma.io/). Here is an
+example on how to use it with its PostgreSQL driver:
+
+```js
+import {Connector} from '@google-cloud/cloud-sql-connector';
+import {PrismaClient} from '@prisma/client';
+
+const connector = new Connector();
+await connector.startLocalProxy({
+  instanceConnectionName: 'my-project:us-east1:my-instance',
+  listenOptions: { path: '.s.PGSQL.5432' },
+});
+const hostPath = process.cwd();
+
+const datasourceUrl =
+ `postgresql://my-user:password@localhost/dbName?host=${hostPath}`;
+const prisma = new PrismaClient({ datasourceUrl });
+
+connector.close();
+await prisma.$disconnect();
+```
+
+Note: When using **Prisma**, each driver has its own way to properly configure
+the `listenOptions` and `datasourceUrl` combinations depending on the database
+type. For examples on each of the supported Cloud SQL databases consult our
+[Prisma samples](./examples/README.md#prisma).
+
 ### Specifying IP Address Type
 
 The Cloud SQL Connector for Node.js can be used to connect to Cloud SQL

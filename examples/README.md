@@ -6,6 +6,18 @@ some of the most popular database libraries and frameworks.
 
 ## Available Examples
 
+### Prisma
+
+- [MySQL (CommonJS)](./prisma/mysql/connect.cjs)
+- [MySQL (ESM)](./prisma/mysql/connect.mjs)
+- [MySQL (TypeScript)](./prisma/mysql/connect.ts)
+- [PostgreSQL (CommonJS)](./prisma/postgresql/connect.cjs)
+- [PostgreSQL (ESM)](./prisma/postgresql/connect.mjs)
+- [PostgreSQL (TypeScript)](./prisma/postgresql/connect.ts)
+- [SQL Server (CommonJS)](./prisma/sqlserver/connect.cjs)
+- [SQL Server (ESM)](./prisma/sqlserver/connect.mjs)
+- [SQL Server (TypeScript)](./prisma/sqlserver/connect.ts)
+
 ### Knex
 
 - [MySQL (CommonJS)](./knex/mysql2/connect.cjs)

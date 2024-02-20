@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {Server, Socket, createServer} from 'node:net';
 import tls from 'node:tls';
+import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
@@ -33,6 +35,32 @@ export declare interface ConnectionOptions {
   authType?: AuthTypes;
   ipType?: IpAddressTypes;
   instanceConnectionName: string;
+}
+
+// Synced from nodejs definitely typed repo, ref:
+// https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
+interface ListenOptions {
+  port?: number | undefined;
+  host?: string | undefined;
+  backlog?: number | undefined;
+  path?: string | undefined;
+  exclusive?: boolean | undefined;
+  readableAll?: boolean | undefined;
+  writableAll?: boolean | undefined;
+  ipv6Only?: boolean | undefined;
+  signal?: AbortSignal | undefined;
+}
+interface ServerOptions {
+  allowHalfOpen?: boolean | undefined;
+  pauseOnConnect?: boolean | undefined;
+  noDelay?: boolean | undefined;
+  keepAlive?: boolean | undefined;
+  keepAliveInitialDelay?: number | undefined;
+}
+
+export declare interface SocketConnectionOptions extends ConnectionOptions {
+  listenOptions: ListenOptions;
+  serverOptions?: ServerOptions | undefined;
 }
 
 interface StreamFunction {
@@ -157,6 +185,8 @@ interface ConnectorOptions {
 export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
+  private readonly localProxies: Set<Server>;
+  private readonly sockets: Set<Socket>;
 
   constructor(opts: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
@@ -164,6 +194,8 @@ export class Connector {
       loginAuth: opts.auth,
       sqlAdminAPIEndpoint: opts.sqlAdminAPIEndpoint,
     });
+    this.localProxies = new Set();
+    this.sockets = new Set();
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance
@@ -265,11 +297,56 @@ export class Connector {
     };
   }
 
-  // clear up the event loop from the internal cloud sql
+  async startLocalProxy({
+    authType,
+    ipType,
+    instanceConnectionName,
+    listenOptions,
+    serverOptions,
+  }: SocketConnectionOptions): Promise<void> {
+    const {stream} = await this.getOptions({
+      authType,
+      ipType,
+      instanceConnectionName,
+    });
+
+    // Opens a local server that listens
+    // to the location defined by `listenOptions`
+    const server = createServer(serverOptions);
+    this.localProxies.add(server);
+
+    /* c8 ignore next 3 */
+    server.once('error', err => {
+      console.error(err);
+    });
+
+    // Once a connection is stablished, pipe data from the
+    // local proxy server to the secure TCP Socket and vice-versa.
+    server.once('connection', c => {
+      const s = stream();
+      this.sockets.add(s);
+      this.sockets.add(c);
+      c.pipe(s);
+      s.pipe(c);
+    });
+
+    const listen = promisify(server.listen) as Function;
+    await listen.call(server, listenOptions);
+  }
+
+  // Clear up the event loop from the internal cloud sql
   // instances timeout callbacks that refresh instance info
+  // along with any sockets and tunnel servers that may
+  // have been used to expose a local proxy tunnel.
   close(): void {
     for (const instance of this.instances.values()) {
       instance.cancelRefresh();
+    }
+    for (const server of this.localProxies) {
+      server.close();
+    }
+    for (const socket of this.sockets) {
+      socket.destroy();
     }
   }
 }
