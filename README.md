@@ -204,8 +204,8 @@ connector.close();
 
 ### Using a Local Proxy Tunnel
 
-Another possible way to use the Cloud SQL Node.js Connector creating a
-local proxy server that creates a tunnel to the secured connection stablished
+Another possible way to use the Cloud SQL Node.js Connector is by creating a
+local proxy server that tunnels to the secured connection established
 using the `Connector.startLocalProxy()` method instead of
 `Connector.getOptions()`.
 
