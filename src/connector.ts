@@ -23,6 +23,17 @@ import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
 
+// These Socket types are subsets from nodejs definitely typed repo, ref:
+// https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
+export declare interface TCPSocketOptions {
+  port: number | undefined;
+}
+export declare interface UnixSocketOptions {
+  path: string | undefined;
+  readableAll?: boolean | undefined;
+  writableAll?: boolean | undefined;
+}
+
 // ConnectionOptions are the arguments that the user can provide
 // to the Connector.getOptions method when calling it, e.g:
 // const connector = new Connector()
@@ -37,30 +48,8 @@ export declare interface ConnectionOptions {
   instanceConnectionName: string;
 }
 
-// Synced from nodejs definitely typed repo, ref:
-// https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
-interface ListenOptions {
-  port?: number | undefined;
-  host?: string | undefined;
-  backlog?: number | undefined;
-  path?: string | undefined;
-  exclusive?: boolean | undefined;
-  readableAll?: boolean | undefined;
-  writableAll?: boolean | undefined;
-  ipv6Only?: boolean | undefined;
-  signal?: AbortSignal | undefined;
-}
-interface ServerOptions {
-  allowHalfOpen?: boolean | undefined;
-  pauseOnConnect?: boolean | undefined;
-  noDelay?: boolean | undefined;
-  keepAlive?: boolean | undefined;
-  keepAliveInitialDelay?: number | undefined;
-}
-
 export declare interface SocketConnectionOptions extends ConnectionOptions {
-  listenOptions: ListenOptions;
-  serverOptions?: ServerOptions | undefined;
+  listenOptions: TCPSocketOptions | UnixSocketOptions;
 }
 
 interface StreamFunction {
@@ -302,7 +291,6 @@ export class Connector {
     ipType,
     instanceConnectionName,
     listenOptions,
-    serverOptions,
   }: SocketConnectionOptions): Promise<void> {
     const {stream} = await this.getOptions({
       authType,
@@ -312,7 +300,7 @@ export class Connector {
 
     // Opens a local server that listens
     // to the location defined by `listenOptions`
-    const server = createServer(serverOptions);
+    const server = createServer();
     this.localProxies.add(server);
 
     /* c8 ignore next 3 */
@@ -331,13 +319,22 @@ export class Connector {
     });
 
     const listen = promisify(server.listen) as Function;
-    await listen.call(server, listenOptions);
+    const newOptions: any = {};
+    if ((listenOptions as TCPSocketOptions).port) {
+      newOptions.host = 'localhost';
+      newOptions.port = (listenOptions as TCPSocketOptions).port;
+    } else {
+      newOptions.path = (listenOptions as UnixSocketOptions).path;
+      newOptions.readableAll = (listenOptions as UnixSocketOptions).readableAll;
+      newOptions.writableAll = (listenOptions as UnixSocketOptions).writableAll;
+    }
+    await listen.call(server, newOptions);
   }
 
   // Clear up the event loop from the internal cloud sql
-  // instances timeout callbacks that refresh instance info
-  // along with any sockets and tunnel servers that may
-  // have been used to expose a local proxy tunnel.
+  // instances timeout callbacks that refreshs instance info.
+  //
+  // Also clear up any local proxy servers and socket connections.
   close(): void {
     for (const instance of this.instances.values()) {
       instance.cancelRefresh();
