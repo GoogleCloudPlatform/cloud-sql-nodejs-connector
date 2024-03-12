@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.4](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.2.3...v1.2.4) (2024-03-12)
+
+
+### Bug Fixes
+
+* update dependencies to latest versions ([#314](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/314)) ([0f9d40b](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/0f9d40b5cde9e8b893d2ef5e88245f333a264c1a))
+
 ## [1.2.3](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.2.2...v1.2.3) (2024-02-13)
 
 
