@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {AuthClient, GoogleAuth} from 'google-auth-library';
-import {sqladmin_v1beta4} from '@googleapis/sqladmin';
-import {instance as gaxios} from 'gaxios';
-const {Sqladmin} = sqladmin_v1beta4;
-import {InstanceConnectionInfo} from './instance-connection-info';
-import {SslCert} from './ssl-cert';
-import {parseCert} from './crypto';
-import {IpAddresses, parseIpAddresses} from './ip-addresses';
-import {CloudSQLConnectorError} from './errors';
-import {getNearestExpiration} from './time';
-import {AuthTypes} from './auth-types';
+import { AuthClient, GoogleAuth } from 'google-auth-library';
+import { sqladmin_v1beta4 } from '@googleapis/sqladmin';
+import { instance as gaxios } from 'gaxios';
+const { Sqladmin } = sqladmin_v1beta4;
+import { InstanceConnectionInfo } from './instance-connection-info';
+import { SslCert } from './ssl-cert';
+import { parseCert } from './crypto';
+import { IpAddresses, parseIpAddresses } from './ip-addresses';
+import { CloudSQLConnectorError } from './errors';
+import { getNearestExpiration } from './time';
+import { AuthTypes } from './auth-types';
 
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
@@ -71,13 +71,14 @@ function cleanGaxiosConfig() {
 export interface SQLAdminFetcherOptions {
   loginAuth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
+  universeDomain?: string;
 }
 
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth<AuthClient>;
 
-  constructor({loginAuth, sqlAdminAPIEndpoint}: SQLAdminFetcherOptions = {}) {
+  constructor({ loginAuth, sqlAdminAPIEndpoint, universeDomain }: SQLAdminFetcherOptions = {}) {
     let auth: GoogleAuth<AuthClient>;
 
     if (loginAuth instanceof GoogleAuth) {
@@ -98,6 +99,7 @@ export class SQLAdminFetcher {
           version: 'LIBRARY_SEMVER_VERSION',
         },
       ],
+      universeDomain: universeDomain,
     });
 
     if (loginAuth instanceof GoogleAuth) {
@@ -137,7 +139,7 @@ export class SQLAdminFetcher {
       res.data.dnsName
     );
 
-    const {serverCaCert} = res.data;
+    const { serverCaCert } = res.data;
     if (!serverCaCert || !serverCaCert.cert || !serverCaCert.expirationTime) {
       throw new CloudSQLConnectorError({
         message: 'Cannot connect to instance, no valid CA certificate found',
@@ -145,7 +147,7 @@ export class SQLAdminFetcher {
       });
     }
 
-    const {region} = res.data;
+    const { region } = res.data;
     if (!region) {
       throw new CloudSQLConnectorError({
         message: 'Cannot connect to instance, no valid region found',
@@ -171,7 +173,7 @@ export class SQLAdminFetcher {
   }
 
   async getEphemeralCertificate(
-    {projectId, instanceId}: InstanceConnectionInfo,
+    { projectId, instanceId }: InstanceConnectionInfo,
     publicKey: string,
     authType: AuthTypes
   ): Promise<SslCert> {
@@ -212,7 +214,7 @@ export class SQLAdminFetcher {
       });
     }
 
-    const {ephemeralCert} = res.data;
+    const { ephemeralCert } = res.data;
     if (!ephemeralCert || !ephemeralCert.cert) {
       throw new CloudSQLConnectorError({
         message:
@@ -223,7 +225,7 @@ export class SQLAdminFetcher {
 
     // NOTE: If the SQL Admin generateEphemeralCert API starts returning
     // the expirationTime info, this certificate parsing is no longer needed
-    const {cert, expirationTime} = await parseCert(ephemeralCert.cert);
+    const { cert, expirationTime } = await parseCert(ephemeralCert.cert);
 
     const nearestExpiration = getNearestExpiration(
       Date.parse(expirationTime),
