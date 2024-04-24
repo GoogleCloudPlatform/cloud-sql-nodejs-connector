@@ -13,13 +13,13 @@
 // limitations under the License.
 
 import tls from 'node:tls';
-import { AuthClient, GoogleAuth } from 'google-auth-library';
-import { CloudSQLInstance } from './cloud-sql-instance';
-import { getSocket } from './socket';
-import { IpAddressTypes } from './ip-addresses';
-import { AuthTypes } from './auth-types';
-import { SQLAdminFetcher } from './sqladmin-fetcher';
-import { CloudSQLConnectorError } from './errors';
+import {AuthClient, GoogleAuth} from 'google-auth-library';
+import {CloudSQLInstance} from './cloud-sql-instance';
+import {getSocket} from './socket';
+import {IpAddressTypes} from './ip-addresses';
+import {AuthTypes} from './auth-types';
+import {SQLAdminFetcher} from './sqladmin-fetcher';
+import {CloudSQLConnectorError} from './errors';
 
 // ConnectionOptions are the arguments that the user can provide
 // to the Connector.getOptions method when calling it, e.g:
@@ -151,9 +151,9 @@ interface ConnectorOptions {
   auth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
   /**
-  * The Trusted Partner Cloud (TPC) Domain DNS of the service used to make requests.
-  * Defaults to `googleapis.com`.
-  */
+   * The Trusted Partner Cloud (TPC) Domain DNS of the service used to make requests.
+   * Defaults to `googleapis.com`.
+   */
   universeDomain?: string;
 }
 
@@ -188,7 +188,7 @@ export class Connector {
     ipType = IpAddressTypes.PUBLIC,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
-    const { instances } = this;
+    const {instances} = this;
     await instances.loadInstance({
       ipType,
       authType,
