@@ -150,6 +150,11 @@ class CloudSQLInstanceMap extends Map {
 interface ConnectorOptions {
   auth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
+  /**
+   * The Trusted Partner Cloud (TPC) Domain DNS of the service used to make requests.
+   * Defaults to `googleapis.com`.
+   */
+  universeDomain?: string;
 }
 
 // The Connector class is the main public API to interact
@@ -163,6 +168,7 @@ export class Connector {
     this.sqlAdminFetcher = new SQLAdminFetcher({
       loginAuth: opts.auth,
       sqlAdminAPIEndpoint: opts.sqlAdminAPIEndpoint,
+      universeDomain: opts.universeDomain,
     });
   }
 

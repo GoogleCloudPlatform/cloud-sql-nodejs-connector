@@ -71,13 +71,18 @@ function cleanGaxiosConfig() {
 export interface SQLAdminFetcherOptions {
   loginAuth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
+  universeDomain?: string;
 }
 
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth<AuthClient>;
 
-  constructor({loginAuth, sqlAdminAPIEndpoint}: SQLAdminFetcherOptions = {}) {
+  constructor({
+    loginAuth,
+    sqlAdminAPIEndpoint,
+    universeDomain,
+  }: SQLAdminFetcherOptions = {}) {
     let auth: GoogleAuth<AuthClient>;
 
     if (loginAuth instanceof GoogleAuth) {
@@ -98,6 +103,7 @@ export class SQLAdminFetcher {
           version: 'LIBRARY_SEMVER_VERSION',
         },
       ],
+      universeDomain: universeDomain,
     });
 
     if (loginAuth instanceof GoogleAuth) {
