@@ -39,6 +39,8 @@ jobs:
         exclude:
           - os: windows-latest
             node-version: "v14.x"
+          - os: macos-latest
+            node-version: "v14.x"
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -149,6 +151,8 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         exclude:
           - os: windows-latest
+            node-version: "v14.x"
+          - os: macos-latest
             node-version: "v14.x"
       fail-fast: false
     permissions:
