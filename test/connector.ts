@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { EventEmitter } from 'node:events';
+import {EventEmitter} from 'node:events';
 import t from 'tap';
-import { Connector } from '../src/connector';
-import { setupCredentials } from './fixtures/setup-credentials';
-import { IpAddressTypes } from '../src/ip-addresses';
-import { CA_CERT, CLIENT_CERT, CLIENT_KEY } from './fixtures/certs';
-import { AuthTypes } from '../src/auth-types';
-import { SQLAdminFetcherOptions } from '../src/sqladmin-fetcher';
+import {Connector} from '../src/connector';
+import {setupCredentials} from './fixtures/setup-credentials';
+import {IpAddressTypes} from '../src/ip-addresses';
+import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
+import {AuthTypes} from '../src/auth-types';
+import {SQLAdminFetcherOptions} from '../src/sqladmin-fetcher';
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -76,7 +76,7 @@ t.test('Connector missing instance info error', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -130,7 +130,7 @@ t.test('Connector bad instance info error', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -186,7 +186,7 @@ t.test('start only a single instance info per connection name', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -242,7 +242,7 @@ t.test('Connector reusing instance on mismatching auth type', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -306,7 +306,7 @@ t.test('Connector reusing instance on mismatching ip type', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -371,7 +371,7 @@ t.test('Connector factory method mismatch auth type', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -427,7 +427,7 @@ t.test('Connector factory method mismatch ip type', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -482,7 +482,7 @@ t.test('Connector, supporting Tedious driver', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -560,7 +560,7 @@ t.test('Connector force refresh on socket connection error', async t => {
 
   // Mocks CloudSQLInstance to spy on forceRefresh calls
   let forceRefresh = false;
-  const { CloudSQLInstance } = t.mockRequire('../src/cloud-sql-instance', {
+  const {CloudSQLInstance} = t.mockRequire('../src/cloud-sql-instance', {
     '../src/crypto': {
       generateKeys: async () => ({
         publicKey: '-----BEGIN PUBLIC KEY-----',
@@ -574,7 +574,7 @@ t.test('Connector force refresh on socket connection error', async t => {
 
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
         getInstanceMetadata() {
@@ -632,17 +632,17 @@ t.test('Connector, custom sqlAdminAPIEndpoint', async t => {
   let actualsqlAdminAPIEndpoint: string | undefined;
   // mocks sql admin fetcher to check that the custom
   // sqlAdminAPIEndpoint is correctly passed into it
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
-        constructor({ sqlAdminAPIEndpoint }: SQLAdminFetcherOptions) {
+        constructor({sqlAdminAPIEndpoint}: SQLAdminFetcherOptions) {
           actualsqlAdminAPIEndpoint = sqlAdminAPIEndpoint;
         }
       },
     },
   });
 
-  new Connector({ sqlAdminAPIEndpoint: expectedsqlAdminAPIEndpoint });
+  new Connector({sqlAdminAPIEndpoint: expectedsqlAdminAPIEndpoint});
 
   t.same(actualsqlAdminAPIEndpoint, expectedsqlAdminAPIEndpoint);
 });
@@ -652,17 +652,17 @@ t.test('Connector, custom universeDomain', async t => {
   let actualUniverseDomain: string | undefined;
   // mocks sql admin fetcher to check that the custom
   // universeDomain is correctly passed into it
-  const { Connector } = t.mockRequire('../src/connector', {
+  const {Connector} = t.mockRequire('../src/connector', {
     '../src/sqladmin-fetcher': {
       SQLAdminFetcher: class {
-        constructor({ universeDomain }: SQLAdminFetcherOptions) {
+        constructor({universeDomain}: SQLAdminFetcherOptions) {
           actualUniverseDomain = universeDomain;
         }
       },
     },
   });
 
-  new Connector({ universeDomain: expectedUniverseDomain });
+  new Connector({universeDomain: expectedUniverseDomain});
 
   t.same(actualUniverseDomain, expectedUniverseDomain);
 });
