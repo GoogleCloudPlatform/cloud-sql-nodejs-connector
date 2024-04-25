@@ -814,3 +814,23 @@ t.test('Connector, custom sqlAdminAPIEndpoint', async t => {
 
   t.same(actualsqlAdminAPIEndpoint, expectedsqlAdminAPIEndpoint);
 });
+
+t.test('Connector, custom universeDomain', async t => {
+  const expectedUniverseDomain = 'mydomain.com';
+  let actualUniverseDomain: string | undefined;
+  // mocks sql admin fetcher to check that the custom
+  // universeDomain is correctly passed into it
+  const {Connector} = t.mockRequire('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        constructor({universeDomain}: SQLAdminFetcherOptions) {
+          actualUniverseDomain = universeDomain;
+        }
+      },
+    },
+  });
+
+  new Connector({universeDomain: expectedUniverseDomain});
+
+  t.same(actualUniverseDomain, expectedUniverseDomain);
+});
