@@ -16,7 +16,6 @@ import {
   Connector,
   ConnectionOptions,
   DriverOptions,
-  TCPSocketOptions,
   UnixSocketOptions,
 } from './connector';
 import {IpAddressTypes} from './ip-addresses';
@@ -26,7 +25,6 @@ export {
   Connector,
   type ConnectionOptions,
   type DriverOptions,
-  type TCPSocketOptions,
   type UnixSocketOptions,
 };
 export {IpAddressTypes};
