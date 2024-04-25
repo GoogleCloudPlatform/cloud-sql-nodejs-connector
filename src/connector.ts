@@ -336,7 +336,11 @@ export class Connector {
     });
 
     const listen = promisify(server.listen) as Function;
-    await listen.call(server, listenOptions);
+    await listen.call(server, {
+      path: listenOptions.path,
+      readableAll: listenOptions.readableAll,
+      writableAll: listenOptions.writableAll,
+    });
   }
 
   // Clear up the event loop from the internal cloud sql
