@@ -25,9 +25,6 @@ import {CloudSQLConnectorError} from './errors';
 
 // These Socket types are subsets from nodejs definitely typed repo, ref:
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
-export declare interface TCPSocketOptions {
-  port: number | undefined;
-}
 export declare interface UnixSocketOptions {
   path: string | undefined;
   readableAll?: boolean | undefined;
@@ -49,7 +46,7 @@ export declare interface ConnectionOptions {
 }
 
 export declare interface SocketConnectionOptions extends ConnectionOptions {
-  listenOptions: TCPSocketOptions | UnixSocketOptions;
+  listenOptions: UnixSocketOptions;
 }
 
 interface StreamFunction {
@@ -286,6 +283,20 @@ export class Connector {
     };
   }
 
+  // Connector.startLocalProxy is an alternative to Connector.getOptions that
+  // creates a local Unix domain socket to listen and proxy data to and from a
+  // Cloud SQL instance. Can be used alongside a database driver or ORM e.g:
+  //
+  // const path = resolve('.s.PGSQL.5432'); // postgres-required socket filename
+  // const connector = new Connector();
+  // await connector.startLocalProxy({
+  //   instanceConnectionName,
+  //   ipType: 'PUBLIC',
+  //   listenOptions: {path},
+  // });
+  // const datasourceUrl =
+  //  `postgresql://${user}@localhost/${database}?host=${process.cwd()}`;
+  // const prisma = new PrismaClient({ datasourceUrl });
   async startLocalProxy({
     authType,
     ipType,
@@ -319,16 +330,7 @@ export class Connector {
     });
 
     const listen = promisify(server.listen) as Function;
-    const newOptions: any = {};
-    if ((listenOptions as TCPSocketOptions).port) {
-      newOptions.host = 'localhost';
-      newOptions.port = (listenOptions as TCPSocketOptions).port;
-    } else {
-      newOptions.path = (listenOptions as UnixSocketOptions).path;
-      newOptions.readableAll = (listenOptions as UnixSocketOptions).readableAll;
-      newOptions.writableAll = (listenOptions as UnixSocketOptions).writableAll;
-    }
-    await listen.call(server, newOptions);
+    await listen.call(server, listenOptions);
   }
 
   // Clear up the event loop from the internal cloud sql
