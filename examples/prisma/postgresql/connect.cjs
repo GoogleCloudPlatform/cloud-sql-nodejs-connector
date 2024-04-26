@@ -12,29 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {execSync} = require('node:child_process');
 const {resolve} = require('node:path');
-const t = require('tap');
+const {Connector} = require('@google-cloud/cloud-sql-connector');
+const {PrismaClient} = require('@prisma/client');
 
-function generatePrismaClient() {
-  const schemaPath = resolve(__dirname, '../schema.prisma');
+async function connect({instanceConnectionName, user, database}) {
+  const path = resolve('.s.PGSQL.5432'); // postgres-required socket filename
+  const connector = new Connector();
+  await connector.startLocalProxy({
+    instanceConnectionName,
+    ipType: 'PUBLIC',
+    authType: 'IAM',
+    listenOptions: {path},
+  });
 
-  execSync(`npx prisma generate --schema=${schemaPath}`);
+  // note that the host parameter needs to point to the parent folder of
+  // the socket provided in the `path` Connector option, in this example
+  // that is going to be the current working directory
+  const datasourceUrl = `postgresql://${user}@localhost/${database}?host=${process.cwd()}`;
+  const prisma = new PrismaClient({datasourceUrl});
+
+  return {
+    prisma,
+    async close() {
+      await prisma.$disconnect();
+      connector.close();
+    },
+  };
 }
 
-t.test('mysql prisma cjs', async t => {
-  // prisma client generation should normally be part of a regular Prisma
-  // setup on user end but in order to tests in many different databases
-  // we run the generation step at runtime for each variation
-  generatePrismaClient();
-
-  const {connect} = require('../connect.cjs');
-  const {prisma, close} = await connect({
-    instanceConnectionName: process.env.MYSQL_IAM_CONNECTION_NAME,
-    user: process.env.MYSQL_IAM_USER,
-    database: process.env.MYSQL_DB,
-  });
-  const [{now}] = await prisma.$queryRaw`SELECT NOW() as now`;
-  t.ok(now.getTime(), 'should have valid returned date object');
-  await close();
-});
+module.exports = {
+  connect,
+};
