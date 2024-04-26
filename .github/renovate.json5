@@ -16,6 +16,12 @@
     {
       "matchManagers": ["github-actions"],
       "groupName": "dependencies for github"
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "devDependencies (non-major)",       
+      "schedule": ["on monday", "after 1am and before 7am"]
     }
   ],
   "ignoreDeps": ["typescript"]
