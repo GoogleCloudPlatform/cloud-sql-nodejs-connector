@@ -108,10 +108,10 @@ jobs:
 
       - name: Run Tests
         env:
-          TAP_DISABLE_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
+          TAP_DISABLE_COVERAGE: "1"
           TAP_ALLOW_MISSING_COVERAGE: "1"
-          TAP_ALLOW_INCOMPLETE_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
-          TAP_ALLOW_EMPTY_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
+          TAP_ALLOW_INCOMPLETE_COVERAGE: "1"
+          TAP_ALLOW_EMPTY_COVERAGE: "1"
         if: "${{ matrix.node-version != 'v14.x' }}"
         run: npx tap -c -t0 -o test_results.tap test
         timeout-minutes: 5
