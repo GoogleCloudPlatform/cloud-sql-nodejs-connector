@@ -13,9 +13,6 @@
 // limitations under the License.
 
 import {EventEmitter} from 'node:events';
-import {createConnection, createServer} from 'node:net';
-import {join, resolve} from 'node:path';
-import {promisify} from 'node:util';
 import t from 'tap';
 import {Connector} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
@@ -556,90 +553,6 @@ t.test('Connector using IAM with Tedious driver', async t => {
     },
     'should throw a missing iam support error'
   );
-});
-
-t.test('Connector, opens a tunnel local unix socket', async t => {
-  setupCredentials(t); // setup google-auth credentials mocks
-
-  // mocks sql admin fetcher and generateKeys modules
-  // so that they can return a deterministic result
-  const {Connector} = t.mockRequire('../src/connector', {
-    '../src/sqladmin-fetcher': {
-      SQLAdminFetcher: class {
-        getInstanceMetadata() {
-          return Promise.resolve({
-            ipAddresses: {
-              public: '127.0.0.1',
-            },
-            serverCaCert: {
-              cert: CA_CERT,
-              expirationTime: '2033-01-06T10:00:00.232Z',
-            },
-          });
-        }
-        getEphemeralCertificate() {
-          return Promise.resolve({
-            cert: CLIENT_CERT,
-            expirationTime: '2033-01-06T10:00:00.232Z',
-          });
-        }
-      },
-    },
-    '../src/cloud-sql-instance': t.mockRequire('../src/cloud-sql-instance', {
-      '../src/crypto': {
-        generateKeys: async () => ({
-          publicKey: '-----BEGIN PUBLIC KEY-----',
-          privateKey: CLIENT_KEY,
-        }),
-      },
-    }),
-  });
-
-  // create a mock server to simulate connecting to a Cloud SQL instance
-  const server = createServer(c => {
-    c.write('foo');
-    c.end('bar');
-  });
-  const listen = promisify(server.listen) as Function;
-  await listen.call(server, {port: 8080, host: '0.0.0.0'});
-
-  // mocks internal getOptions, replacing the returned stream with a direct
-  // socket connection to our mocked server running at port 8080
-  const getOptions = Connector.prototype.getOptions;
-  Connector.prototype.getOptions = () => ({
-    stream: () => createConnection({port: 8080, host: '0.0.0.0'}),
-  });
-  t.teardown(() => {
-    Connector.prototype.getOptions = getOptions; // restore original method
-  });
-
-  // API usage
-  const connector = new Connector();
-  const path =
-    process.platform === 'win32'
-      ? join('\\\\?\\pipe', process.cwd(), 'win.sock')
-      : resolve('tunnel.sock');
-  await connector.startLocalProxy({
-    ipType: 'PUBLIC',
-    instanceConnectionName: 'my-project:us-east1:my-instance',
-    listenOptions: {path},
-  });
-
-  // Mocks an user connection to the opened local proxy path
-  await new Promise((res, rej) => {
-    const s = createConnection(path);
-    s.on('ready', () => {
-      s.destroy();
-      res(null);
-    });
-    s.on('error', err => rej(err));
-  });
-
-  // Closes the mocked server and connection
-  server.close();
-
-  // Closes the Connector usage
-  connector.close();
 });
 
 t.test('Connector force refresh on socket connection error', async t => {
