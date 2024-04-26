@@ -50,6 +50,8 @@
   },
   "tap": {
     "serial": [
+      "examples/prisma/mysql",
+      "examples/prisma/postgresql",
       "test/serial"
     ],
     "show-full-coverage": true

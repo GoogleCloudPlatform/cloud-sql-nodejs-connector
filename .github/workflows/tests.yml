@@ -108,10 +108,10 @@ jobs:
 
       - name: Run Tests
         env:
-          TAP_DISABLE_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
-          TAP_ALLOW_MISSING_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
-          TAP_ALLOW_INCOMPLETE_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
-          TAP_ALLOW_EMPTY_COVERAGE: "${{ matrix.os == 'windows-latest' && '1' || '0' }}"
+          TAP_DISABLE_COVERAGE: "1"
+          TAP_ALLOW_MISSING_COVERAGE: "1"
+          TAP_ALLOW_INCOMPLETE_COVERAGE: "1"
+          TAP_ALLOW_EMPTY_COVERAGE: "1"
         if: "${{ matrix.node-version != 'v14.x' }}"
         run: npx tap -c -t0 -o test_results.tap test
         timeout-minutes: 5
@@ -335,6 +335,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Prisma on node v16.x and up
+        if: "${{ matrix.node-version != 'v14.x' }}"
+        run: npm install prisma
+      
       - name: Setup self-direct dependency
         run: npm link
 
@@ -392,5 +396,5 @@ jobs:
           SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
           SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
           SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
-        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/{mysql2,pg,tedious}/test/*{.cjs,.mjs,.ts} -o test_results.tap
+        run: npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/*/test/*{.cjs,.mjs,.ts} -o test_results.tap
         timeout-minutes: 5

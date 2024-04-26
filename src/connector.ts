@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {Server, Socket, createServer} from 'node:net';
 import tls from 'node:tls';
+import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
@@ -20,6 +22,14 @@ import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
+
+// These Socket types are subsets from nodejs definitely typed repo, ref:
+// https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
+export declare interface UnixSocketOptions {
+  path: string | undefined;
+  readableAll?: boolean | undefined;
+  writableAll?: boolean | undefined;
+}
 
 // ConnectionOptions are the arguments that the user can provide
 // to the Connector.getOptions method when calling it, e.g:
@@ -33,6 +43,10 @@ export declare interface ConnectionOptions {
   authType?: AuthTypes;
   ipType?: IpAddressTypes;
   instanceConnectionName: string;
+}
+
+export declare interface SocketConnectionOptions extends ConnectionOptions {
+  listenOptions: UnixSocketOptions;
 }
 
 interface StreamFunction {
@@ -162,6 +176,8 @@ interface ConnectorOptions {
 export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
+  private readonly localProxies: Set<Server>;
+  private readonly sockets: Set<Socket>;
 
   constructor(opts: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
@@ -170,6 +186,8 @@ export class Connector {
       sqlAdminAPIEndpoint: opts.sqlAdminAPIEndpoint,
       universeDomain: opts.universeDomain,
     });
+    this.localProxies = new Set();
+    this.sockets = new Set();
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance
@@ -271,11 +289,73 @@ export class Connector {
     };
   }
 
-  // clear up the event loop from the internal cloud sql
-  // instances timeout callbacks that refresh instance info
+  // Connector.startLocalProxy is an alternative to Connector.getOptions that
+  // creates a local Unix domain socket to listen and proxy data to and from a
+  // Cloud SQL instance. Can be used alongside a database driver or ORM e.g:
+  //
+  // const path = resolve('.s.PGSQL.5432'); // postgres-required socket filename
+  // const connector = new Connector();
+  // await connector.startLocalProxy({
+  //   instanceConnectionName,
+  //   ipType: 'PUBLIC',
+  //   listenOptions: {path},
+  // });
+  // const datasourceUrl =
+  //  `postgresql://${user}@localhost/${database}?host=${process.cwd()}`;
+  // const prisma = new PrismaClient({ datasourceUrl });
+  async startLocalProxy({
+    authType,
+    ipType,
+    instanceConnectionName,
+    listenOptions,
+  }: SocketConnectionOptions): Promise<void> {
+    const {stream} = await this.getOptions({
+      authType,
+      ipType,
+      instanceConnectionName,
+    });
+
+    // Opens a local server that listens
+    // to the location defined by `listenOptions`
+    const server = createServer();
+    this.localProxies.add(server);
+
+    /* c8 ignore next 3 */
+    server.once('error', err => {
+      console.error(err);
+    });
+
+    // Once a connection is stablished, pipe data from the
+    // local proxy server to the secure TCP Socket and vice-versa.
+    server.once('connection', c => {
+      const s = stream();
+      this.sockets.add(s);
+      this.sockets.add(c);
+      c.pipe(s);
+      s.pipe(c);
+    });
+
+    const listen = promisify(server.listen) as Function;
+    await listen.call(server, {
+      path: listenOptions.path,
+      readableAll: listenOptions.readableAll,
+      writableAll: listenOptions.writableAll,
+    });
+  }
+
+  // Clear up the event loop from the internal cloud sql
+  // instances timeout callbacks that refreshs instance info.
+  //
+  // Also clear up any local proxy servers and socket connections.
   close(): void {
     for (const instance of this.instances.values()) {
       instance.cancelRefresh();
+    }
+    for (const server of this.localProxies) {
+      server.close();
+    }
+    for (const socket of this.sockets) {
+      socket.destroy();
     }
   }
 }
