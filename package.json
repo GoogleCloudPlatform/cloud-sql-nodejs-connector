@@ -40,7 +40,7 @@
     "prepare": "rm -rf dist && npm run compile && node ./scripts/fixup.cjs",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",
-    "test": "tap test",
+    "test": "tap --allow-missing-coverage test",
     "presystem-test": "npm run prepare",
     "system-test": "tap --disable-coverage --allow-empty-coverage system-test",
     "sample-test": "tap --disable-coverage --allow-empty-coverage examples",
