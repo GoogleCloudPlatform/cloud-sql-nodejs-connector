@@ -179,7 +179,6 @@ export class Connector {
       stream() {
         const cloudSqlInstance = instances.getInstance({
           instanceConnectionName,
-          ipType,
           authType,
         });
         const {
