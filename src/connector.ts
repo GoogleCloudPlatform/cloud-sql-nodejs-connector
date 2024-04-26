@@ -91,15 +91,7 @@ class CloudSQLInstanceMap extends Map {
     // been setup there's no need to set it up again
     if (this.has(instanceConnectionName)) {
       const instance = this.get(instanceConnectionName);
-      if (instance.ipType && instance.ipType !== ipType) {
-        throw new CloudSQLConnectorError({
-          message:
-            `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
-            `but was previously called with ipType ${instance.ipType}. ` +
-            'If you require both for your use case, please use a new connector object.',
-          code: 'EMISMATCHIPTYPE',
-        });
-      } else if (instance.authType && instance.authType !== authType) {
+      if (instance.authType && instance.authType !== authType) {
         throw new CloudSQLConnectorError({
           message:
             `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
@@ -121,11 +113,9 @@ class CloudSQLInstanceMap extends Map {
 
   getInstance({
     instanceConnectionName,
-    ipType,
     authType,
   }: {
     instanceConnectionName: string;
-    ipType: IpAddressTypes;
     authType: AuthTypes;
   }): CloudSQLInstance {
     const connectionInstance = this.get(instanceConnectionName);
@@ -133,17 +123,6 @@ class CloudSQLInstanceMap extends Map {
       throw new CloudSQLConnectorError({
         message: `Cannot find info for instance: ${instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
-      });
-    } else if (
-      connectionInstance.ipType &&
-      connectionInstance.ipType !== ipType
-    ) {
-      throw new CloudSQLConnectorError({
-        message:
-          `getOptions called for instance ${instanceConnectionName} with ipType ${ipType}, ` +
-          `but was previously called with ipType ${connectionInstance.ipType}. ` +
-          'If you require both for your use case, please use a new connector object.',
-        code: 'EMISMATCHIPTYPE',
       });
     } else if (
       connectionInstance.authType &&
@@ -218,7 +197,6 @@ export class Connector {
       stream() {
         const cloudSqlInstance = instances.getInstance({
           instanceConnectionName,
-          ipType,
           authType,
         });
         const {
