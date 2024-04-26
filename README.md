@@ -232,6 +232,9 @@ connector.close();
 await prisma.$disconnect();
 ```
 
+For examples on each of the supported Cloud SQL databases consult our
+[Prisma samples](./examples/README.md#prisma).
+
 ### Specifying IP Address Type
 
 The Cloud SQL Connector for Node.js can be used to connect to Cloud SQL
