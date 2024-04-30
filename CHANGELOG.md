@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.2.4...v1.3.0) (2024-04-30)
+
+
+### Features
+
+* add `universeDomain` option to Connector ([#331](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/331)) ([651634d](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/651634d7000ea34cc65bd651a2f4796ecbbb2579))
+* add local Unix domain socket support ([#336](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/336)) ([72575ba](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/72575baeaa191f3fbce17b76002751b0e0bcce91))
+
+
+### Bug Fixes
+
+* enable IP type switching ([#338](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/338)) ([450f2f5](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/450f2f5c7733cd4dd5c6fa1be14a889e94bea2a2))
+
 ## [1.2.4](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.2.3...v1.2.4) (2024-03-12)
 
 
