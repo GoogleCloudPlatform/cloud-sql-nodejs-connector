@@ -8,7 +8,7 @@
 
 [![CI][ci-badge]][ci-build]
 [![npm][npm-badge]][npm-docs]
-[![NPM Downloads][npm-downloads]
+[! NPM Downloads][npm-downloads]
 
 
 [ci-badge]: https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/actions/workflows/tests.yml/badge.svg?event=push
