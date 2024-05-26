@@ -319,6 +319,7 @@ export class Connector {
       readableAll: listenOptions.readableAll,
       writableAll: listenOptions.writableAll,
     });
+    console.log("Listening on server...")
   }
 
   // Clear up the event loop from the internal cloud sql
