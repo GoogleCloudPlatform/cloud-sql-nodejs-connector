@@ -32,6 +32,9 @@ export async function connect({instanceConnectionName, user, database}) {
   const datasourceUrl = `postgresql://${user}@localhost/${database}?host=${process.cwd()}`;
   const prisma = new PrismaClient({datasourceUrl});
 
+  // Return PrismaClient and close() function. Call close() when you are
+  // done using the PrismaClient to ensure client gracefully disconnects and
+  // local Unix socket file created by the Connector is deleted.
   return {
     prisma,
     async close() {
