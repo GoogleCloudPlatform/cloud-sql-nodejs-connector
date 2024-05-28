@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Server, Socket, createServer } from 'node:net';
+import {Server, Socket, createServer} from 'node:net';
 import tls from 'node:tls';
-import { promisify } from 'node:util';
-import { AuthClient, GoogleAuth } from 'google-auth-library';
-import { CloudSQLInstance } from './cloud-sql-instance';
-import { getSocket } from './socket';
-import { IpAddressTypes } from './ip-addresses';
-import { AuthTypes } from './auth-types';
-import { SQLAdminFetcher } from './sqladmin-fetcher';
-import { CloudSQLConnectorError } from './errors';
+import {promisify} from 'node:util';
+import {AuthClient, GoogleAuth} from 'google-auth-library';
+import {CloudSQLInstance} from './cloud-sql-instance';
+import {getSocket} from './socket';
+import {IpAddressTypes} from './ip-addresses';
+import {AuthTypes} from './auth-types';
+import {SQLAdminFetcher} from './sqladmin-fetcher';
+import {CloudSQLConnectorError} from './errors';
 
 // These Socket types are subsets from nodejs definitely typed repo, ref:
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
@@ -185,7 +185,7 @@ export class Connector {
     ipType = IpAddressTypes.PUBLIC,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
-    const { instances } = this;
+    const {instances} = this;
     await instances.loadInstance({
       ipType,
       authType,
@@ -287,7 +287,7 @@ export class Connector {
     instanceConnectionName,
     listenOptions,
   }: SocketConnectionOptions): Promise<void> {
-    const { stream } = await this.getOptions({
+    const {stream} = await this.getOptions({
       authType,
       ipType,
       instanceConnectionName,
@@ -312,14 +312,13 @@ export class Connector {
       c.pipe(s);
       s.pipe(c);
     });
-    console.log("About to listen on server...")
+
     const listen = promisify(server.listen) as Function;
     await listen.call(server, {
       path: listenOptions.path,
       readableAll: listenOptions.readableAll,
       writableAll: listenOptions.writableAll,
     });
-    console.log("Listening on server...")
   }
 
   // Clear up the event loop from the internal cloud sql
