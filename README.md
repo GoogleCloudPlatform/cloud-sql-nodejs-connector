@@ -211,6 +211,11 @@ local proxy server that tunnels to the secured connection established
 using the `Connector.startLocalProxy()` method instead of
 `Connector.getOptions()`.
 
+> [!NOTE]
+>
+> The `startLocalProxy()` method is currently only supported for MySQL and PostgreSQL
+> as it uses a Unix domain socket which SQL Server does not currently support.
+
 This alternative approach enables usage of the Connector library with
 unsupported drivers such as [Prisma](https://www.prisma.io/). Here is an
 example on how to use it with its PostgreSQL driver:
