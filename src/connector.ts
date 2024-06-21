@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Server, Socket, createServer} from 'node:net';
+import { Server, Socket, createServer } from 'node:net';
 import tls from 'node:tls';
-import {promisify} from 'node:util';
-import {AuthClient, GoogleAuth} from 'google-auth-library';
-import {CloudSQLInstance} from './cloud-sql-instance';
-import {getSocket} from './socket';
-import {IpAddressTypes} from './ip-addresses';
-import {AuthTypes} from './auth-types';
-import {SQLAdminFetcher} from './sqladmin-fetcher';
-import {CloudSQLConnectorError} from './errors';
+import { promisify } from 'node:util';
+import { AuthClient, GoogleAuth } from 'google-auth-library';
+import { CloudSQLInstance } from './cloud-sql-instance';
+import { getSocket } from './socket';
+import { IpAddressTypes } from './ip-addresses';
+import { AuthTypes } from './auth-types';
+import { SQLAdminFetcher } from './sqladmin-fetcher';
+import { CloudSQLConnectorError } from './errors';
 
 // These Socket types are subsets from nodejs definitely typed repo, ref:
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
@@ -185,7 +185,7 @@ export class Connector {
     ipType = IpAddressTypes.PUBLIC,
     instanceConnectionName,
   }: ConnectionOptions): Promise<DriverOptions> {
-    const {instances} = this;
+    const { instances } = this;
     await instances.loadInstance({
       ipType,
       authType,
@@ -287,7 +287,7 @@ export class Connector {
     instanceConnectionName,
     listenOptions,
   }: SocketConnectionOptions): Promise<void> {
-    const {stream} = await this.getOptions({
+    const { stream } = await this.getOptions({
       authType,
       ipType,
       instanceConnectionName,
@@ -303,9 +303,9 @@ export class Connector {
       console.error(err);
     });
 
-    // Once a connection is stablished, pipe data from the
+    // When a connection is established, pipe data from the
     // local proxy server to the secure TCP Socket and vice-versa.
-    server.once('connection', c => {
+    server.on('connection', c => {
       const s = stream();
       this.sockets.add(s);
       this.sockets.add(c);
