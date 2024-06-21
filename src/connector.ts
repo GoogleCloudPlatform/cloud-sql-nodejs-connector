@@ -303,9 +303,9 @@ export class Connector {
       console.error(err);
     });
 
-    // Once a connection is stablished, pipe data from the
+    // When a connection is established, pipe data from the
     // local proxy server to the secure TCP Socket and vice-versa.
-    server.once('connection', c => {
+    server.on('connection', c => {
       const s = stream();
       this.sockets.add(s);
       this.sockets.add(c);
