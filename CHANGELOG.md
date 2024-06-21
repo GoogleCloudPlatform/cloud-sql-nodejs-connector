@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.3.1...v1.3.2) (2024-06-21)
+
+
+### Bug Fixes
+
+* allow multiple connections via `.startLocalProxy` socket ([#366](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/366)) ([cce7aad](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/cce7aad09cfcae601e40e57df9d89831b86f645b))
+
 ## [1.3.1](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.3.0...v1.3.1) (2024-06-11)
 
 
