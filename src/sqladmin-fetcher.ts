@@ -51,12 +51,14 @@ const defaultGaxiosHttpMethodsToRetry = [
 function setupGaxiosConfig() {
   gaxios.defaults = {
     retryConfig: {
-      retry: 3,
+      retry: 5,
       // Make sure to add POST to the list of default methods to retry
       // since it's used in IAM generateAccessToken requests that needs retry
       httpMethodsToRetry: ['POST', ...defaultGaxiosHttpMethodsToRetry],
       // Should retry on non-http error codes such as ECONNRESET, ETIMEOUT, etc
       noResponseRetries: 3,
+      // Defaults to: [[100, 199], [408, 408], [429, 429], [500, 599]]
+      statusCodesToRetry: [[500, 599]],
     },
   };
 }
