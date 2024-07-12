@@ -59,6 +59,10 @@ function setupGaxiosConfig() {
       noResponseRetries: 3,
       // Defaults to: [[100, 199], [408, 408], [429, 429], [500, 599]]
       statusCodesToRetry: [[500, 599]],
+      // The multiplier by which to increase the delay time between the
+      // completion of failed requests, and the initiation of the subsequent
+      // retrying request. Defaults to 2.
+      retryDelayMultiplier: 1.618,
     },
   };
 }
