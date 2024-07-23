@@ -19,18 +19,14 @@ on:
   push:
     branches:
       - main
-  pull_request_target:
-    types: [labeled]
   schedule:
-  - cron:  '0 2 * * *'
+    - cron: "0 2 * * *"
 
 # Declare default permissions as read only.
 permissions: read-all
 
 jobs:
   unit-tests:
-    # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
-    if: "${{ (github.event.action != 'labeled' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name) || github.event.label.name == 'tests: run' }}"
     name: Unit tests
     strategy:
       matrix:
@@ -52,41 +48,21 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Remove PR label
-        if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            try {
-              await github.rest.issues.removeLabel({
-                name: 'tests: run',
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number
-              });
-            } catch (e) {
-              console.log('Failed to remove label. Another job may have already removed it!');
-            }
-
       - name: Checkout code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Use Nodejs ${{ matrix.node-version }}
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
         with:
           node-version: ${{ matrix.node-version }}
 
-      - id: 'auth'
+      - id: auth
         name: Authenticate to Google Cloud
         if: ${{ github.event_name == 'schedule' || github.event_name == 'push' }}
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
         with:
-          workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
-          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.PROVIDER_NAME }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
           access_token_lifetime: 600s
 
       - name: Install dependencies
@@ -142,8 +118,6 @@ jobs:
           ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
 
   system-tests:
-    # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
-    if: "${{ (github.event.action != 'labeled' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name) || github.event.label.name == 'tests: run' }}"
     name: System tests
     strategy:
       matrix:
@@ -156,36 +130,16 @@ jobs:
             node-version: "v14.x"
       fail-fast: false
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      contents: "read"
+      id-token: "write"
       issues: write
       pull-requests: write
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Remove PR label
-        if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            try {
-              await github.rest.issues.removeLabel({
-                name: 'tests: run',
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number
-              });
-            } catch (e) {
-              console.log('Failed to remove label. Another job may have already removed it!');
-            }
-
       - name: Checkout Repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
@@ -198,35 +152,35 @@ jobs:
       - name: Transpile TypeScript
         run: npm run prepare
 
-      - id: 'auth'
+      - id: auth
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
         with:
-          workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
-          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.PROVIDER_NAME }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
           access_token_lifetime: 600s
 
-      - id: 'secrets'
+      - id: secrets
         name: Get secrets
         uses: google-github-actions/get-secretmanager-secrets@dc4a1392bad0fd60aee00bb2097e30ef07a1caae # v2.1.3
         with:
           secrets: |-
-            MYSQL_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
-            MYSQL_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
-            MYSQL_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
-            MYSQL_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_NODE
-            MYSQL_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
-            MYSQL_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
-            POSTGRES_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
-            POSTGRES_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
-            POSTGRES_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
-            POSTGRES_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_NODE
-            POSTGRES_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
-            POSTGRES_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
-            SQLSERVER_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
-            SQLSERVER_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
-            SQLSERVER_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
-            SQLSERVER_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
+            MYSQL_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
+            MYSQL_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
+            MYSQL_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
+            MYSQL_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_NODE
+            MYSQL_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
+            MYSQL_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
+            POSTGRES_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
+            POSTGRES_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
+            POSTGRES_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
+            POSTGRES_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_NODE
+            POSTGRES_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
+            POSTGRES_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
+            SQLSERVER_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
+            SQLSERVER_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
+            SQLSERVER_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
+            SQLSERVER_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
 
       # the following steps are node14-only and can be safely removed
       # once node@14 is no longer supported
@@ -242,48 +196,48 @@ jobs:
 
       - name: Run System Tests v14.x
         env:
-          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
-          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
-          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
-          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
-          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
-          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
-          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
-          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
-          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
-          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
-          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
-          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
-          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
-          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
-          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
-          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
+          MYSQL_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}"
+          MYSQL_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}"
+          MYSQL_USER: "${{ steps.secrets.outputs.MYSQL_USER }}"
+          MYSQL_IAM_USER: "${{ steps.secrets.outputs.MYSQL_IAM_USER }}"
+          MYSQL_PASS: "${{ steps.secrets.outputs.MYSQL_PASS }}"
+          MYSQL_DB: "${{ steps.secrets.outputs.MYSQL_DB }}"
+          POSTGRES_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}"
+          POSTGRES_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}"
+          POSTGRES_USER: "${{ steps.secrets.outputs.POSTGRES_USER }}"
+          POSTGRES_IAM_USER: "${{ steps.secrets.outputs.POSTGRES_IAM_USER }}"
+          POSTGRES_PASS: "${{ steps.secrets.outputs.POSTGRES_PASS }}"
+          POSTGRES_DB: "${{ steps.secrets.outputs.POSTGRES_DB }}"
+          SQLSERVER_CONNECTION_NAME: "${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}"
+          SQLSERVER_USER: "${{ steps.secrets.outputs.SQLSERVER_USER }}"
+          SQLSERVER_PASS: "${{ steps.secrets.outputs.SQLSERVER_PASS }}"
+          SQLSERVER_DB: "${{ steps.secrets.outputs.SQLSERVER_DB }}"
         if: "${{ matrix.node-version == 'v14.x' }}"
         run: npx tap -c -t0 --no-coverage --no-ts --node-arg="--require" --node-arg="./scripts/tap16-adapter.js" --node-arg="--no-warnings" --node-arg="--loader" --node-arg="ts-node/esm" system-test -o test_results.tap
         timeout-minutes: 5
 
       - name: Run System Tests
         env:
-          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
-          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
-          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
-          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
-          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
-          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
-          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
-          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
-          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
-          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
-          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
-          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
-          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
-          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
-          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
-          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
+          MYSQL_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}"
+          MYSQL_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}"
+          MYSQL_USER: "${{ steps.secrets.outputs.MYSQL_USER }}"
+          MYSQL_IAM_USER: "${{ steps.secrets.outputs.MYSQL_IAM_USER }}"
+          MYSQL_PASS: "${{ steps.secrets.outputs.MYSQL_PASS }}"
+          MYSQL_DB: "${{ steps.secrets.outputs.MYSQL_DB }}"
+          POSTGRES_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}"
+          POSTGRES_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}"
+          POSTGRES_USER: "${{ steps.secrets.outputs.POSTGRES_USER }}"
+          POSTGRES_IAM_USER: "${{ steps.secrets.outputs.POSTGRES_IAM_USER }}"
+          POSTGRES_PASS: "${{ steps.secrets.outputs.POSTGRES_PASS }}"
+          POSTGRES_DB: "${{ steps.secrets.outputs.POSTGRES_DB }}"
+          SQLSERVER_CONNECTION_NAME: "${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}"
+          SQLSERVER_USER: "${{ steps.secrets.outputs.SQLSERVER_USER }}"
+          SQLSERVER_PASS: "${{ steps.secrets.outputs.SQLSERVER_PASS }}"
+          SQLSERVER_DB: "${{ steps.secrets.outputs.SQLSERVER_DB }}"
         if: "${{ matrix.node-version != 'v14.x' }}"
         run: npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
         timeout-minutes: 5
-      
+
       - name: Convert test output to XML
         if: ${{ matrix.node-version != 'v14.x' && (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
         run: cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
@@ -310,22 +264,12 @@ jobs:
           ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
 
   sample-tests:
-    # run job on proper workflow event triggers (skip job for pull_request event from forks and only run pull_request_target for "tests: run" label)
-    if: "${{ (github.event.action != 'labeled' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name) || github.event.label.name == 'tests: run' }}"
     name: Sample tests
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
@@ -338,7 +282,7 @@ jobs:
       - name: Install Prisma on node v16.x and up
         if: "${{ matrix.node-version != 'v14.x' }}"
         run: npm install prisma
-      
+
       - name: Setup self-direct dependency
         run: npm link
 
@@ -348,53 +292,53 @@ jobs:
       - name: Transpile TypeScript
         run: npm run prepare
 
-      - id: 'auth'
+      - id: auth
         name: Authenticate to Google Cloud
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
         with:
-          workload_identity_provider: ${{ secrets.PROVIDER_NAME }}
-          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.PROVIDER_NAME }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
           access_token_lifetime: 600s
 
-      - id: 'secrets'
+      - id: secrets
         name: Get secrets
         uses: google-github-actions/get-secretmanager-secrets@dc4a1392bad0fd60aee00bb2097e30ef07a1caae # v2.1.3
         with:
           secrets: |-
-            MYSQL_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
-            MYSQL_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
-            MYSQL_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
-            MYSQL_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_NODE
-            MYSQL_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
-            MYSQL_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
-            POSTGRES_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
-            POSTGRES_IAM_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
-            POSTGRES_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
-            POSTGRES_IAM_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_NODE
-            POSTGRES_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
-            POSTGRES_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
-            SQLSERVER_CONNECTION_NAME:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
-            SQLSERVER_USER:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
-            SQLSERVER_PASS:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
-            SQLSERVER_DB:${{ secrets.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
+            MYSQL_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_CONNECTION_NAME
+            MYSQL_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_IAM_CONNECTION_NAME
+            MYSQL_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER
+            MYSQL_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_USER_IAM_NODE
+            MYSQL_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_PASS
+            MYSQL_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/MYSQL_DB
+            POSTGRES_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_CONNECTION_NAME
+            POSTGRES_IAM_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_IAM_CONNECTION_NAME
+            POSTGRES_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER
+            POSTGRES_IAM_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_USER_IAM_NODE
+            POSTGRES_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_PASS
+            POSTGRES_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/POSTGRES_DB
+            SQLSERVER_CONNECTION_NAME:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_CONNECTION_NAME
+            SQLSERVER_USER:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_USER
+            SQLSERVER_PASS:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_PASS
+            SQLSERVER_DB:${{ vars.GOOGLE_CLOUD_PROJECT }}/SQLSERVER_DB
 
       - name: Run Sample Tests
         env:
-          MYSQL_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}'
-          MYSQL_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}'
-          MYSQL_USER: '${{ steps.secrets.outputs.MYSQL_USER }}'
-          MYSQL_IAM_USER: '${{ steps.secrets.outputs.MYSQL_IAM_USER }}'
-          MYSQL_PASS: '${{ steps.secrets.outputs.MYSQL_PASS }}'
-          MYSQL_DB: '${{ steps.secrets.outputs.MYSQL_DB }}'
-          POSTGRES_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}'
-          POSTGRES_IAM_CONNECTION_NAME: '${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}'
-          POSTGRES_USER: '${{ steps.secrets.outputs.POSTGRES_USER }}'
-          POSTGRES_IAM_USER: '${{ steps.secrets.outputs.POSTGRES_IAM_USER }}'
-          POSTGRES_PASS: '${{ steps.secrets.outputs.POSTGRES_PASS }}'
-          POSTGRES_DB: '${{ steps.secrets.outputs.POSTGRES_DB }}'
-          SQLSERVER_CONNECTION_NAME: '${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}'
-          SQLSERVER_USER: '${{ steps.secrets.outputs.SQLSERVER_USER }}'
-          SQLSERVER_PASS: '${{ steps.secrets.outputs.SQLSERVER_PASS }}'
-          SQLSERVER_DB: '${{ steps.secrets.outputs.SQLSERVER_DB }}'
+          MYSQL_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_CONNECTION_NAME }}"
+          MYSQL_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.MYSQL_IAM_CONNECTION_NAME }}"
+          MYSQL_USER: "${{ steps.secrets.outputs.MYSQL_USER }}"
+          MYSQL_IAM_USER: "${{ steps.secrets.outputs.MYSQL_IAM_USER }}"
+          MYSQL_PASS: "${{ steps.secrets.outputs.MYSQL_PASS }}"
+          MYSQL_DB: "${{ steps.secrets.outputs.MYSQL_DB }}"
+          POSTGRES_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_CONNECTION_NAME }}"
+          POSTGRES_IAM_CONNECTION_NAME: "${{ steps.secrets.outputs.POSTGRES_IAM_CONNECTION_NAME }}"
+          POSTGRES_USER: "${{ steps.secrets.outputs.POSTGRES_USER }}"
+          POSTGRES_IAM_USER: "${{ steps.secrets.outputs.POSTGRES_IAM_USER }}"
+          POSTGRES_PASS: "${{ steps.secrets.outputs.POSTGRES_PASS }}"
+          POSTGRES_DB: "${{ steps.secrets.outputs.POSTGRES_DB }}"
+          SQLSERVER_CONNECTION_NAME: "${{ steps.secrets.outputs.SQLSERVER_CONNECTION_NAME }}"
+          SQLSERVER_USER: "${{ steps.secrets.outputs.SQLSERVER_USER }}"
+          SQLSERVER_PASS: "${{ steps.secrets.outputs.SQLSERVER_PASS }}"
+          SQLSERVER_DB: "${{ steps.secrets.outputs.SQLSERVER_DB }}"
         run: npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/*/test/*{.cjs,.mjs,.ts} -o test_results.tap
         timeout-minutes: 5
