@@ -119,6 +119,10 @@ jobs:
 
   system-tests:
     name: System tests
+    # run integration tests on all builds except pull requests from forks or dependabot
+    if: |
+      github.event_name != 'pull_request' || 
+      (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     strategy:
       matrix:
         node-version: [v14.x, v16.x, v20.x]
@@ -265,6 +269,10 @@ jobs:
 
   sample-tests:
     name: Sample tests
+    # run sample tests on all builds except pull requests from forks or dependabot
+    if: |
+      github.event_name != 'pull_request' || 
+      (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     permissions:
       contents: read
       id-token: write
