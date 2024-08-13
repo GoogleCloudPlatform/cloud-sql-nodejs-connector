@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.4](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.3.3...v1.3.4) (2024-08-02)
+
+
+### Bug Fixes
+
+* only retry 5xx Cloud SQL Admin API errors ([#375](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/375)) ([67bff82](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/67bff82f331a1fff1e22c759be6bfdcd33101f7e))
+
 ## [1.3.3](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.3.2...v1.3.3) (2024-07-09)
 
 
