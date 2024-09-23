@@ -159,7 +159,7 @@ export class SQLAdminFetcher {
     }
 
     // Resolve dnsName into IP address for PSC enabled instances.
-    // Note that we have to check for PSC enablement also because CAS instances
+    // Note that we have to check for PSC enablement because CAS instances
     // also set the dnsName field.
     if (res.data.dnsName && res.data.pscEnabled) {
       ipAddresses.psc = res.data.dnsName;
