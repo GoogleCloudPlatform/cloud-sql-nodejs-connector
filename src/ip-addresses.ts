@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {sqladmin_v1beta4} from '@googleapis/sqladmin';
 import {CloudSQLConnectorError} from './errors';
 
 export enum IpAddressTypes {
@@ -56,36 +55,6 @@ const getPSCIpAddress = (ipAddresses: IpAddresses) => {
   }
   return ipAddresses.psc;
 };
-
-export function parseIpAddresses(
-  ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined,
-  dnsName: string | null | undefined
-): IpAddresses {
-  const ipAddresses: IpAddresses = {};
-  if (ipResponse) {
-    for (const ip of ipResponse) {
-      if (ip.type === 'PRIMARY' && ip.ipAddress) {
-        ipAddresses.public = ip.ipAddress;
-      }
-      if (ip.type === 'PRIVATE' && ip.ipAddress) {
-        ipAddresses.private = ip.ipAddress;
-      }
-    }
-  }
-
-  if (dnsName) {
-    ipAddresses.psc = dnsName;
-  }
-
-  if (!ipAddresses.public && !ipAddresses.private && !ipAddresses.psc) {
-    throw new CloudSQLConnectorError({
-      message: 'Cannot connect to instance, it has no supported IP addresses',
-      code: 'ENOSQLADMINIPADDRESS',
-    });
-  }
-
-  return ipAddresses;
-}
 
 export function selectIpAddress(
   ipAddresses: IpAddresses,
