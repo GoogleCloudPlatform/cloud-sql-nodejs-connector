@@ -199,6 +199,7 @@ t.test('getInstanceMetadata custom SQL Admin API endpoint', async t => {
   );
 });
 
+// dnsName without PSC enabled should result in no PSC ip type
 t.test('getInstanceMetadata no ip', async t => {
   const instanceConnectionInfo: InstanceConnectionInfo = {
     projectId: 'no-ip-project',
