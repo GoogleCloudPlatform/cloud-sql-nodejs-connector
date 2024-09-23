@@ -28,6 +28,7 @@ interface IpAddress {
 interface SQLAdminClientGetResponse {
   dnsName?: string;
   ipAddresses?: IpAddress[];
+  pscEnabled?: boolean;
   region?: string;
   serverCaCert?: {} | ReturnType<typeof serverCaCertResponse>;
 }
@@ -208,7 +209,8 @@ t.test('getInstanceMetadata no ip', async t => {
   };
   mockSQLAdminGetInstanceMetadata(instanceConnectionInfo, {
     dnsName: 'abcde.12345.us-central1.sql.goog',
-    ipAddresses: [{}],
+    ipAddresses: [],
+    pscEnabled: false,
   });
 
   const fetcher = new SQLAdminFetcher();
