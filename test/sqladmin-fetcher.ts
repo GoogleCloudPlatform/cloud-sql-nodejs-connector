@@ -211,17 +211,12 @@ t.test('getInstanceMetadata no ip', async t => {
   });
 
   const fetcher = new SQLAdminFetcher();
-  const instanceMetadata = await fetcher.getInstanceMetadata(
-    instanceConnectionInfo
-  );
-  t.match(
-    instanceMetadata,
+  t.rejects(
+    fetcher.getInstanceMetadata(instanceConnectionInfo),
     {
-      ipAddresses: {
-        private: '0.0.0.0',
-      },
+      code: 'ENOSQLADMINIPADDRESS',
     },
-    'should return expected instance metadata containing private ip'
+    'should throw no ip type found'
   );
 });
 
