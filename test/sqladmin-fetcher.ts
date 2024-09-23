@@ -108,6 +108,10 @@ const mockSQLAdminGetInstanceMetadata = (
           type: 'PRIVATE',
           ipAddress: '10.0.0.1',
         },
+        {
+          type: 'OUTGOING',
+          ipAddress: '0.0.0.1',
+        },
       ],
       pscEnabled: true,
       region: regionId,
