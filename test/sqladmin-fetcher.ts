@@ -208,7 +208,7 @@ t.test('getInstanceMetadata no ip', async t => {
   };
   mockSQLAdminGetInstanceMetadata(instanceConnectionInfo, {
     dnsName: 'abcde.12345.us-central1.sql.goog',
-    ipAddresses: [],
+    ipAddresses: [{}],
   });
 
   const fetcher = new SQLAdminFetcher();
