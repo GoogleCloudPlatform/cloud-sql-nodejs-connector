@@ -19,7 +19,7 @@ const {Sqladmin} = sqladmin_v1beta4;
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
 import {parseCert} from './crypto';
-import {IpAddresses, parseIpAddresses} from './ip-addresses';
+import {IpAddresses} from './ip-addresses';
 import {CloudSQLConnectorError} from './errors';
 import {getNearestExpiration} from './time';
 import {AuthTypes} from './auth-types';
