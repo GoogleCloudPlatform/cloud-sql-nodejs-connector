@@ -28,6 +28,7 @@ interface IpAddress {
 interface SQLAdminClientGetResponse {
   dnsName?: string;
   ipAddresses?: IpAddress[];
+  pscEnabled?: boolean;
   region?: string;
   serverCaCert?: {} | ReturnType<typeof serverCaCertResponse>;
 }
@@ -97,16 +98,22 @@ const mockSQLAdminGetInstanceMetadata = (
 
   sqlAdminClient.get = () => ({
     data: {
+      dnsName: 'abcde.12345.us-central1.sql.goog',
       ipAddresses: [
         {
           type: 'PRIMARY',
           ipAddress: '0.0.0.0',
         },
         {
+          type: 'PRIVATE',
+          ipAddress: '10.0.0.1',
+        },
+        {
           type: 'OUTGOING',
           ipAddress: '0.0.0.1',
         },
       ],
+      pscEnabled: true,
       region: regionId,
       serverCaCert: serverCaCertResponse(instanceId),
       ...overrides,
@@ -175,6 +182,8 @@ t.test('getInstanceMetadata', async t => {
     {
       ipAddresses: {
         public: '0.0.0.0',
+        private: '10.0.0.1',
+        psc: 'abcde.12345.us-central1.sql.goog',
       },
       serverCaCert: {
         cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
@@ -195,33 +204,26 @@ t.test('getInstanceMetadata custom SQL Admin API endpoint', async t => {
   );
 });
 
-t.test('getInstanceMetadata private ip', async t => {
+// dnsName without PSC enabled should result in no PSC ip type
+t.test('getInstanceMetadata no ip', async t => {
   const instanceConnectionInfo: InstanceConnectionInfo = {
-    projectId: 'private-ip-project',
+    projectId: 'no-ip-project',
     regionId: 'us-east1',
-    instanceId: 'private-ip-instance',
+    instanceId: 'no-ip-instance',
   };
   mockSQLAdminGetInstanceMetadata(instanceConnectionInfo, {
-    ipAddresses: [
-      {
-        type: 'PRIVATE',
-        ipAddress: '0.0.0.0',
-      },
-    ],
+    dnsName: 'abcde.12345.us-central1.sql.goog',
+    ipAddresses: [],
+    pscEnabled: false,
   });
 
   const fetcher = new SQLAdminFetcher();
-  const instanceMetadata = await fetcher.getInstanceMetadata(
-    instanceConnectionInfo
-  );
-  t.match(
-    instanceMetadata,
+  t.rejects(
+    fetcher.getInstanceMetadata(instanceConnectionInfo),
     {
-      ipAddresses: {
-        private: '0.0.0.0',
-      },
+      code: 'ENOSQLADMINIPADDRESS',
     },
-    'should return expected instance metadata containing private ip'
+    'should throw no ip type found'
   );
 });
 

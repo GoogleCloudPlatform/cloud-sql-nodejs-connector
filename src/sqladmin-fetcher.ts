@@ -19,7 +19,7 @@ const {Sqladmin} = sqladmin_v1beta4;
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
 import {parseCert} from './crypto';
-import {IpAddresses, parseIpAddresses} from './ip-addresses';
+import {IpAddresses} from './ip-addresses';
 import {CloudSQLConnectorError} from './errors';
 import {getNearestExpiration} from './time';
 import {AuthTypes} from './auth-types';
@@ -124,6 +124,40 @@ export class SQLAdminFetcher {
     }
   }
 
+  private parseIpAddresses(
+    ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined,
+    dnsName: string | null | undefined,
+    pscEnabled: boolean | null | undefined
+  ): IpAddresses {
+    const ipAddresses: IpAddresses = {};
+    if (ipResponse) {
+      for (const ip of ipResponse) {
+        if (ip.type === 'PRIMARY' && ip.ipAddress) {
+          ipAddresses.public = ip.ipAddress;
+        }
+        if (ip.type === 'PRIVATE' && ip.ipAddress) {
+          ipAddresses.private = ip.ipAddress;
+        }
+      }
+    }
+
+    // Resolve dnsName into IP address for PSC enabled instances.
+    // Note that we have to check for PSC enablement because CAS instances
+    // also set the dnsName field.
+    if (dnsName && pscEnabled) {
+      ipAddresses.psc = dnsName;
+    }
+
+    if (!ipAddresses.public && !ipAddresses.private && !ipAddresses.psc) {
+      throw new CloudSQLConnectorError({
+        message: 'Cannot connect to instance, it has no supported IP addresses',
+        code: 'ENOSQLADMINIPADDRESS',
+      });
+    }
+
+    return ipAddresses;
+  }
+
   async getInstanceMetadata({
     projectId,
     regionId,
@@ -146,9 +180,10 @@ export class SQLAdminFetcher {
       });
     }
 
-    const ipAddresses = parseIpAddresses(
+    const ipAddresses = this.parseIpAddresses(
       res.data.ipAddresses,
-      res.data.dnsName
+      res.data.dnsName,
+      res.data.pscEnabled
     );
 
     const {serverCaCert} = res.data;
