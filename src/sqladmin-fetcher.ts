@@ -124,6 +124,40 @@ export class SQLAdminFetcher {
     }
   }
 
+  private parseIpAddresses(
+    ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined,
+    dnsName: string | null | undefined,
+    pscEnabled: boolean | null | undefined
+  ): IpAddresses {
+    const ipAddresses: IpAddresses = {};
+    if (ipResponse) {
+      for (const ip of ipResponse) {
+        if (ip.type === 'PRIMARY' && ip.ipAddress) {
+          ipAddresses.public = ip.ipAddress;
+        }
+        if (ip.type === 'PRIVATE' && ip.ipAddress) {
+          ipAddresses.private = ip.ipAddress;
+        }
+      }
+    }
+
+    // Resolve dnsName into IP address for PSC enabled instances.
+    // Note that we have to check for PSC enablement because CAS instances
+    // also set the dnsName field.
+    if (dnsName && pscEnabled) {
+      ipAddresses.psc = dnsName;
+    }
+
+    if (!ipAddresses.public && !ipAddresses.private && !ipAddresses.psc) {
+      throw new CloudSQLConnectorError({
+        message: 'Cannot connect to instance, it has no supported IP addresses',
+        code: 'ENOSQLADMINIPADDRESS',
+      });
+    }
+
+    return ipAddresses;
+  }
+
   async getInstanceMetadata({
     projectId,
     regionId,
@@ -146,31 +180,11 @@ export class SQLAdminFetcher {
       });
     }
 
-    const ipAddresses: IpAddresses = {};
-    if (res.data.ipAddresses) {
-      for (const ip of res.data.ipAddresses) {
-        if (ip.type === 'PRIMARY' && ip.ipAddress) {
-          ipAddresses.public = ip.ipAddress;
-        }
-        if (ip.type === 'PRIVATE' && ip.ipAddress) {
-          ipAddresses.private = ip.ipAddress;
-        }
-      }
-    }
-
-    // Resolve dnsName into IP address for PSC enabled instances.
-    // Note that we have to check for PSC enablement because CAS instances
-    // also set the dnsName field.
-    if (res.data.dnsName && res.data.pscEnabled) {
-      ipAddresses.psc = res.data.dnsName;
-    }
-
-    if (!ipAddresses.public && !ipAddresses.private && !ipAddresses.psc) {
-      throw new CloudSQLConnectorError({
-        message: 'Cannot connect to instance, it has no supported IP addresses',
-        code: 'ENOSQLADMINIPADDRESS',
-      });
-    }
+    const ipAddresses = this.parseIpAddresses(
+      res.data.ipAddresses,
+      res.data.dnsName,
+      res.data.pscEnabled
+    );
 
     const {serverCaCert} = res.data;
     if (!serverCaCert || !serverCaCert.cert || !serverCaCert.expirationTime) {
