@@ -75,6 +75,8 @@ export class CloudSQLInstance {
   public port = 3307;
   public privateKey?: string;
   public serverCaCert?: SslCert;
+  public serverCaMode?: string | null | undefined;
+  public dnsName?: string | null | undefined;
 
   constructor({
     ipType,
@@ -193,6 +195,8 @@ export class CloudSQLInstance {
     const host = selectIpAddress(metadata.ipAddresses, this.ipType);
     const privateKey = rsaKeys.privateKey;
     const serverCaCert = metadata.serverCaCert;
+    this.serverCaMode = metadata.serverCaMode;
+    this.dnsName = metadata.dnsName;
 
     const currentValues = {
       ephemeralCert: this.ephemeralCert,

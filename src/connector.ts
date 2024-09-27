@@ -206,6 +206,8 @@ export class Connector {
           port,
           privateKey,
           serverCaCert,
+          serverCaMode,
+          dnsName,
         } = cloudSqlInstance;
 
         if (
@@ -223,6 +225,8 @@ export class Connector {
             port,
             privateKey,
             serverCaCert,
+            serverCaMode,
+            dnsName,
           });
           tlsSocket.once('error', async () => {
             await cloudSqlInstance.forceRefresh();
