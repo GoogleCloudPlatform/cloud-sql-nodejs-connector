@@ -75,8 +75,8 @@ export class CloudSQLInstance {
   public port = 3307;
   public privateKey?: string;
   public serverCaCert?: SslCert;
-  public serverCaMode?: string | null | undefined;
-  public dnsName?: string | null | undefined;
+  public serverCaMode = '';
+  public dnsName = '';
 
   constructor({
     ipType,

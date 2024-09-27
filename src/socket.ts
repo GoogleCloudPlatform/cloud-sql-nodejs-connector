@@ -26,14 +26,14 @@ interface SocketOptions {
   instanceInfo: InstanceConnectionInfo;
   privateKey: string;
   serverCaCert: SslCert;
-  serverCaMode?: string | null | undefined;
-  dnsName?: string | null | undefined;
+  serverCaMode: string;
+  dnsName: string;
 }
 
 export function validateCertificate(
   instanceInfo: InstanceConnectionInfo,
-  serverCaMode?: string | null | undefined,
-  dnsName?: string | null | undefined
+  serverCaMode: string,
+  dnsName: string
 ) {
   return (hostname: string, cert: tls.PeerCertificate): Error | undefined => {
     if (serverCaMode == 'GOOGLE_MANAGED_CAS_CA') {

@@ -27,8 +27,8 @@ import {AuthTypes} from './auth-types';
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
   serverCaCert: SslCert;
-  serverCaMode?: string | null | undefined;
-  dnsName?: string | null | undefined;
+  serverCaMode: string;
+  dnsName: string;
 }
 
 interface RequestBody {
@@ -218,8 +218,8 @@ export class SQLAdminFetcher {
         cert: serverCaCert.cert,
         expirationTime: serverCaCert.expirationTime,
       },
-      serverCaMode: res.data.serverCaMode,
-      dnsName: res.data.dnsName,
+      serverCaMode: res.data.serverCaMode || '',
+      dnsName: res.data.dnsName || '',
     };
   }
 
