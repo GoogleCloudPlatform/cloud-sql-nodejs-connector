@@ -65,3 +65,31 @@ t.test('open IAM connection and retrieves standard pg tables', async t => {
   await client.end();
   connector.close();
 });
+
+t.test(
+  'open connection to CAS-based CA instance and retrieves standard pg tables',
+  async t => {
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({
+      instanceConnectionName: process.env.POSTGRES_CAS_CONNECTION_NAME,
+      ipType: 'PUBLIC',
+      authType: 'PASSWORD',
+    });
+    const client = new Client({
+      ...clientOpts,
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_CAS_PASS,
+      database: process.env.POSTGRES_DB,
+    });
+    client.connect();
+
+    const {
+      rows: [result],
+    } = await client.query('SELECT NOW();');
+    const returnedDate = result['now'];
+    t.ok(returnedDate.getTime(), 'should have valid returned date object');
+
+    await client.end();
+    connector.close();
+  }
+);

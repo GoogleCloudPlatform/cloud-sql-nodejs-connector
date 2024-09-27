@@ -36,7 +36,7 @@ export function validateCertificate(
   dnsName: string
 ) {
   return (hostname: string, cert: tls.PeerCertificate): Error | undefined => {
-    if (serverCaMode == 'GOOGLE_MANAGED_CAS_CA') {
+    if (serverCaMode === 'GOOGLE_MANAGED_CAS_CA') {
       return tls.checkServerIdentity(dnsName, cert);
     }
     if (!cert || !cert.subject) {
