@@ -124,3 +124,22 @@ t.test('validateCertificate mismatch CAS CA', async t => {
     'should return an invalid altname error'
   );
 });
+
+t.test('validateCertificate valid CAS CA', async t => {
+  const cert = {
+    subjectaltname: 'DNS:abcde.12345.us-central1.sql.goog',
+  } as tls.PeerCertificate;
+  t.match(
+    validateCertificate(
+      {
+        projectId: 'my-project',
+        regionId: 'region-id',
+        instanceId: 'my-instance',
+      },
+      'GOOGLE_MANAGED_CAS_CA',
+      'abcde.12345.us-central1.sql.goog'
+    )('hostname', cert),
+    undefined,
+    'DNS name matches SAN in cert'
+  );
+});
