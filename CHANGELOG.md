@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.3.4...v1.4.0) (2024-09-30)
+
+
+### Features
+
+* support Cloud SQL CAS-based instances ([#390](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/390)) ([5d2c02f](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/5d2c02fb564b029490598d17bca82eefda0f659f))
+
+
+### Bug Fixes
+
+* only add PSC ipType if PSC is enabled ([#388](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/388)) ([28905c9](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/28905c9e65de325973c48b55626cd8f37f55888c))
+
 ## [1.3.4](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.3.3...v1.3.4) (2024-08-02)
 
 
