@@ -101,3 +101,26 @@ t.test('validateCertificate mismatch', async t => {
     'should return a missing cert to verify error'
   );
 });
+
+t.test('validateCertificate mismatch CAS CA', async t => {
+  const cert = {
+    subjectaltname: 'DNS:abcde.12345.us-central1.sql.goog',
+  } as tls.PeerCertificate;
+  t.match(
+    validateCertificate(
+      {
+        projectId: 'my-project',
+        regionId: 'region-id',
+        instanceId: 'my-instance',
+      },
+      'GOOGLE_MANAGED_CAS_CA',
+      'bad.dns.us-central1.sql.goog'
+    )('hostname', cert),
+    {
+      message:
+        "Hostname/IP does not match certificate's altnames: Host: bad.dns.us-central1.sql.goog. is not in the cert's altnames: DNS:abcde.12345.us-central1.sql.goog",
+      code: 'ERR_TLS_CERT_ALTNAME_INVALID',
+    },
+    'should return an invalid altname error'
+  );
+});
