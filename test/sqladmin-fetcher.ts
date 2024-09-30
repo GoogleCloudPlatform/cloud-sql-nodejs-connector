@@ -116,6 +116,7 @@ const mockSQLAdminGetInstanceMetadata = (
       pscEnabled: true,
       region: regionId,
       serverCaCert: serverCaCertResponse(instanceId),
+      serverCaMode: 'GOOGLE_MANAGED_INTERNAL_CA',
       ...overrides,
     },
   });
@@ -189,6 +190,8 @@ t.test('getInstanceMetadata', async t => {
         cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
         expirationTime: '2033-01-06T10:00:00.232Z',
       },
+      serverCaMode: 'GOOGLE_MANAGED_INTERNAL_CA',
+      dnsName: 'abcde.12345.us-central1.sql.goog',
     },
     'should return expected instance metadata object'
   );

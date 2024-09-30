@@ -41,6 +41,8 @@ t.test('getSocket', async t => {
         cert: CA_CERT,
         expirationTime: '2033-01-06T10:00:00.232Z',
       },
+      serverCaMode: 'GOOGLE_MANAGED_INTERNAL_CA',
+      dnsName: 'abcde.12345.us-central1.sql.goog',
     });
 
     socket.on('secureConnect', () => {
@@ -61,11 +63,15 @@ t.test('getSocket', async t => {
 
 t.test('validateCertificate no cert', async t => {
   t.match(
-    validateCertificate({
-      projectId: 'my-project',
-      regionId: 'region-id',
-      instanceId: 'my-instance',
-    })('hostname', {} as tls.PeerCertificate),
+    validateCertificate(
+      {
+        projectId: 'my-project',
+        regionId: 'region-id',
+        instanceId: 'my-instance',
+      },
+      'GOOGLE_MANAGED_INTERNAL_CA',
+      'abcde.12345.us-central1.sql.goog'
+    )('hostname', {} as tls.PeerCertificate),
     {code: 'ENOSQLADMINVERIFYCERT'},
     'should return a missing cert to verify error'
   );
@@ -78,16 +84,62 @@ t.test('validateCertificate mismatch', async t => {
     },
   } as tls.PeerCertificate;
   t.match(
-    validateCertificate({
-      projectId: 'my-project',
-      regionId: 'region-id',
-      instanceId: 'my-instance',
-    })('hostname', cert),
+    validateCertificate(
+      {
+        projectId: 'my-project',
+        regionId: 'region-id',
+        instanceId: 'my-instance',
+      },
+      'GOOGLE_MANAGED_INTERNAL_CA',
+      'abcde.12345.us-central1.sql.goog'
+    )('hostname', cert),
     {
       message:
         'Certificate had CN other-project:other-instance, expected my-project:my-instance',
       code: 'EBADSQLADMINVERIFYCERT',
     },
     'should return a missing cert to verify error'
+  );
+});
+
+t.test('validateCertificate mismatch CAS CA', async t => {
+  const cert = {
+    subjectaltname: 'DNS:abcde.12345.us-central1.sql.goog',
+  } as tls.PeerCertificate;
+  t.match(
+    validateCertificate(
+      {
+        projectId: 'my-project',
+        regionId: 'region-id',
+        instanceId: 'my-instance',
+      },
+      'GOOGLE_MANAGED_CAS_CA',
+      'bad.dns.us-central1.sql.goog'
+    )('hostname', cert),
+    {
+      message:
+        "Hostname/IP does not match certificate's altnames: Host: bad.dns.us-central1.sql.goog. is not in the cert's altnames: DNS:abcde.12345.us-central1.sql.goog",
+      code: 'ERR_TLS_CERT_ALTNAME_INVALID',
+    },
+    'should return an invalid altname error'
+  );
+});
+
+t.test('validateCertificate valid CAS CA', async t => {
+  const cert = {
+    subjectaltname: 'DNS:abcde.12345.us-central1.sql.goog',
+  } as tls.PeerCertificate;
+  t.match(
+    validateCertificate(
+      {
+        projectId: 'my-project',
+        regionId: 'region-id',
+        instanceId: 'my-instance',
+      },
+      'GOOGLE_MANAGED_CAS_CA',
+      'abcde.12345.us-central1.sql.goog'
+    )('hostname', cert),
+    undefined,
+    'DNS name matches SAN in cert'
   );
 });

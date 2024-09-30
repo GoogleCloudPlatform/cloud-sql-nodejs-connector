@@ -26,10 +26,19 @@ interface SocketOptions {
   instanceInfo: InstanceConnectionInfo;
   privateKey: string;
   serverCaCert: SslCert;
+  serverCaMode: string;
+  dnsName: string;
 }
 
-export function validateCertificate(instanceInfo: InstanceConnectionInfo) {
+export function validateCertificate(
+  instanceInfo: InstanceConnectionInfo,
+  serverCaMode: string,
+  dnsName: string
+) {
   return (hostname: string, cert: tls.PeerCertificate): Error | undefined => {
+    if (serverCaMode === 'GOOGLE_MANAGED_CAS_CA') {
+      return tls.checkServerIdentity(dnsName, cert);
+    }
     if (!cert || !cert.subject) {
       return new CloudSQLConnectorError({
         message: 'No certificate to verify',
@@ -54,6 +63,8 @@ export function getSocket({
   instanceInfo,
   privateKey,
   serverCaCert,
+  serverCaMode,
+  dnsName,
 }: SocketOptions): tls.TLSSocket {
   const socketOpts = {
     host,
@@ -64,7 +75,11 @@ export function getSocket({
       key: privateKey,
       minVersion: 'TLSv1.3',
     }),
-    checkServerIdentity: validateCertificate(instanceInfo),
+    checkServerIdentity: validateCertificate(
+      instanceInfo,
+      serverCaMode,
+      dnsName
+    ),
   };
   const tlsSocket = tls.connect(socketOpts);
   tlsSocket.setKeepAlive(true, DEFAULT_KEEP_ALIVE_DELAY_MS);
