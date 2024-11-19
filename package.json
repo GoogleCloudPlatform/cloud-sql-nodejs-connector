@@ -65,7 +65,7 @@
     "@types/tedious": "^4.0.9",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "eslint-plugin-prettier": "^5.0.0",
-    "gts": "^5.0.0",
+    "gts": "^6.0.0",
     "knex": "^3.0.1",
     "mssql": "^10.0.0",
     "mysql2": "^3.2.0",
