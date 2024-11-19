@@ -58,7 +58,7 @@
   },
   "devDependencies": {
     "@sequelize/core": "^7.0.0-alpha.29",
-    "@types/node": "^20.4.9",
+    "@types/node": "^22.0.0",
     "@types/pg": "^8.10.1",
     "@types/semver": "^7.5.0",
     "@types/tap": "^15.0.11",
