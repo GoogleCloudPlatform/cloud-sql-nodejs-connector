@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.4.0...v1.5.0) (2024-12-11)
+
+
+### Features
+
+* update minimum supported Node version to 18 ([#403](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/403)) ([19d99a7](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/19d99a71af311c6dd63965dff2fbe023efa6cc35))
+
 ## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.3.4...v1.4.0) (2024-09-30)
 
 
