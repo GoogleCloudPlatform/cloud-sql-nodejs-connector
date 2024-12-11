@@ -65,7 +65,7 @@
     "@types/tedious": "^4.0.9",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "eslint-plugin-prettier": "^5.0.0",
-    "gts": "^6.0.2",
+    "gts": "^5.0.0",
     "knex": "^3.0.1",
     "mssql": "^10.0.0",
     "mysql2": "^3.2.0",
@@ -75,7 +75,7 @@
     "tap": "^21.0.0",
     "tedious": "^16.1.0",
     "typeorm": "^0.3.19",
-    "typescript": "^5.7.2"
+    "typescript": "^5.1.6"
   },
   "engines": {
     "node": ">=18"
@@ -87,7 +87,7 @@
   "dependencies": {
     "@googleapis/sqladmin": "^24.0.0",
     "gaxios": "^6.1.1",
-    "google-auth-library": "^9.14.2",
+    "google-auth-library": "^9.2.0",
     "p-throttle": "^5.1.0"
   }
 }
