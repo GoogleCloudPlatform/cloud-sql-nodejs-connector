@@ -13,62 +13,57 @@
 // limitations under the License.
 
 import t from 'tap';
-import semver from 'semver';
-import {Connector} from '@google-cloud/cloud-sql-connector';
-
+import { Connector } from '@google-cloud/cloud-sql-connector';
+import { Connection, Request } 
 t.test(
   'open connection and run basic sqlserver commands',
-  // the connector-supported versions of tedious do not support node14
-  {skip: semver.lt(process.versions.node, '16.0.0')},
   async t => {
-  // dynamically load tedious in order to allow for skipping node14
-  const {Connection, Request} = await import('tedious');
-  const connector = new Connector();
-  const clientOpts = await connector.getTediousOptions({
-    instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
-    ipType: 'PUBLIC'
-  });
-  const connection = new Connection({
-    server: '0.0.0.0',
-    authentication: {
-      type: 'default',
-      options: {
-        userName: process.env.SQLSERVER_USER,
-        password: process.env.SQLSERVER_PASS,
+    const connector = new Connector();
+    const clientOpts = await connector.getTediousOptions({
+      instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
+      ipType: 'PUBLIC'
+    });
+    const connection = new Connection({
+      server: '0.0.0.0',
+      authentication: {
+        type: 'default',
+        options: {
+          userName: process.env.SQLSERVER_USER,
+          password: process.env.SQLSERVER_PASS,
+        },
       },
-    },
-    options: {
-      ...clientOpts,
-      port: 9999,
-      database: process.env.SQLSERVER_DB,
-    },
-  })
-
-  await new Promise((res, rej) => {
-    connection.connect(err => {
-      if (err) {
-        return rej(err)
-      }
-      res()
+      options: {
+        ...clientOpts,
+        port: 9999,
+        database: process.env.SQLSERVER_DB,
+      },
     })
-  })
 
-  const res = await new Promise((res, rej) => {
-    let result;
-    const req = new Request('SELECT GETUTCDATE()', (err) => {
-      if (err) {
-        throw err;
-      }
+    await new Promise((res, rej) => {
+      connection.connect(err => {
+        if (err) {
+          return rej(err)
+        }
+        res()
+      })
     })
-    req.on('error', (err) => { rej(err); });
-    req.on('row', (columns) => { result = columns; });
-    req.on('requestCompleted', () => { res(result); });
-    connection.execSql(req);
-  })
 
-  const [{value: utcDateResult}] = res;
-  t.ok(utcDateResult.getTime(), 'should have valid returned date object');
+    const res = await new Promise((res, rej) => {
+      let result;
+      const req = new Request('SELECT GETUTCDATE()', (err) => {
+        if (err) {
+          throw err;
+        }
+      })
+      req.on('error', (err) => { rej(err); });
+      req.on('row', (columns) => { result = columns; });
+      req.on('requestCompleted', () => { res(result); });
+      connection.execSql(req);
+    })
 
-  connection.close();
-  connector.close();
-});
+    const [{ value: utcDateResult }] = res;
+    t.ok(utcDateResult.getTime(), 'should have valid returned date object');
+
+    connection.close();
+    connector.close();
+  });

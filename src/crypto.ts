@@ -18,54 +18,6 @@ import {SslCert} from './ssl-cert';
 import {cryptoModule} from './node-crypto';
 import {CloudSQLConnectorError} from './errors';
 
-// The following is a fallback certificate parser for node14 to work around
-// its lack of support to the X509Certificate class parser, this block of code
-// can be safely removed once node14 is no longer supported, along with any
-// `node14ParseCert` call and its unit tests.
-// --- node@14 cert parse fallback start
-import net from 'node:net';
-import tls from 'node:tls';
-
-const node14ParseCert = (cert: string): SslCert => {
-  const isPeerCertificate = (
-    obj: object | tls.PeerCertificate
-  ): obj is tls.PeerCertificate =>
-    (obj as tls.PeerCertificate).valid_to !== undefined;
-
-  let socket;
-  let parsed;
-  try {
-    socket = new tls.TLSSocket(new net.Socket(), {
-      secureContext: tls.createSecureContext({cert}),
-    });
-    parsed = socket.getCertificate();
-  } catch (err: unknown) {
-    throw new CloudSQLConnectorError({
-      message: 'Failed to parse as X.509 certificate.',
-      code: 'EPARSESQLADMINEPH',
-      errors: [err as Error],
-    });
-  }
-
-  if (parsed && isPeerCertificate(parsed)) {
-    const expirationTime = parsed.valid_to;
-    socket.destroy();
-    socket = undefined;
-    parsed = undefined;
-
-    return {
-      cert,
-      expirationTime,
-    };
-  }
-  /* c8 ignore next 5 */
-  throw new CloudSQLConnectorError({
-    message: 'Could not read ephemeral certificate.',
-    code: 'EPARSESQLADMINEPH',
-  });
-};
-// --- node@14 cert parse fallback end
-
 export async function generateKeys(): Promise<RSAKeys> {
   const crypto = await cryptoModule();
   const keygen = promisify(crypto.generateKeyPair);
@@ -90,27 +42,24 @@ export async function generateKeys(): Promise<RSAKeys> {
 
 export async function parseCert(cert: string): Promise<SslCert> {
   const {X509Certificate} = await cryptoModule();
-  if (X509Certificate) {
-    try {
-      const parsed = new X509Certificate(cert);
-      if (parsed && parsed.validTo) {
-        return {
-          cert,
-          expirationTime: parsed.validTo,
-        };
-      }
-
-      throw new CloudSQLConnectorError({
-        message: 'Could not read ephemeral certificate.',
-        code: 'EPARSESQLADMINEPH',
-      });
-    } catch (err: unknown) {
-      throw new CloudSQLConnectorError({
-        message: 'Failed to parse as X.509 certificate.',
-        code: 'EPARSESQLADMINEPH',
-        errors: [err as Error],
-      });
+  try {
+    const parsed = new X509Certificate(cert);
+    if (parsed && parsed.validTo) {
+      return {
+        cert,
+        expirationTime: parsed.validTo,
+      };
     }
+
+    throw new CloudSQLConnectorError({
+      message: 'Could not read ephemeral certificate.',
+      code: 'EPARSESQLADMINEPH',
+    });
+  } catch (err: unknown) {
+    throw new CloudSQLConnectorError({
+      message: 'Failed to parse as X.509 certificate.',
+      code: 'EPARSESQLADMINEPH',
+      errors: [err as Error],
+    });
   }
-  return node14ParseCert(cert);
 }
