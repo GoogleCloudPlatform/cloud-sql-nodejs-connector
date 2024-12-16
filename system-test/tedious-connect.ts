@@ -13,70 +13,63 @@
 // limitations under the License.
 
 import t from 'tap';
-import semver from 'semver';
 import {Connector, IpAddressTypes} from '@google-cloud/cloud-sql-connector';
+import {Connection, Request} from 'tedious';
 
-t.test(
-  'open connection and run basic sqlserver commands',
-  // the connector-supported versions of tedious do not support node14
-  {skip: semver.lt(process.versions.node, '16.0.0')},
-  async t => {
-    // dynamically load tedious in order to allow for skipping node14
-    const {Connection, Request} = await import('tedious');
-    const connector = new Connector();
-    const clientOpts = await connector.getTediousOptions({
-      instanceConnectionName: String(process.env.SQLSERVER_CONNECTION_NAME),
-      ipType: IpAddressTypes.PUBLIC,
-    });
-    const connection = new Connection({
-      server: '0.0.0.0',
-      authentication: {
-        type: 'default',
-        options: {
-          userName: String(process.env.SQLSERVER_USER),
-          password: String(process.env.SQLSERVER_PASS),
-        },
-      },
+t.test('open connection and run basic sqlserver commands', async t => {
+  const connector = new Connector();
+  const clientOpts = await connector.getTediousOptions({
+    instanceConnectionName: String(process.env.SQLSERVER_CONNECTION_NAME),
+    ipType: IpAddressTypes.PUBLIC,
+  });
+  const connection = new Connection({
+    server: '0.0.0.0',
+    authentication: {
+      type: 'default',
       options: {
-        ...clientOpts,
-        port: 9999,
-        database: String(process.env.SQLSERVER_DB),
+        userName: String(process.env.SQLSERVER_USER),
+        password: String(process.env.SQLSERVER_PASS),
       },
+    },
+    options: {
+      ...clientOpts,
+      port: 9999,
+      database: String(process.env.SQLSERVER_DB),
+    },
+  });
+
+  await new Promise((res, rej) => {
+    connection.connect(err => {
+      if (err) {
+        return rej(err);
+      }
+      res(null);
     });
+  });
 
-    await new Promise((res, rej) => {
-      connection.connect(err => {
-        if (err) {
-          return rej(err);
-        }
-        res(null);
-      });
+  type ColumnValue = import('tedious').ColumnValue;
+  const res: ColumnValue[] = await new Promise((res, rej) => {
+    let result: ColumnValue[];
+    const req = new Request('SELECT GETUTCDATE()', err => {
+      if (err) {
+        throw err;
+      }
     });
-
-    type ColumnValue = import('tedious').ColumnValue;
-    const res: ColumnValue[] = await new Promise((res, rej) => {
-      let result: ColumnValue[];
-      const req = new Request('SELECT GETUTCDATE()', err => {
-        if (err) {
-          throw err;
-        }
-      });
-      req.on('error', err => {
-        rej(err);
-      });
-      req.on('row', columns => {
-        result = columns;
-      });
-      req.on('requestCompleted', () => {
-        res(result);
-      });
-      connection.execSql(req);
+    req.on('error', err => {
+      rej(err);
     });
+    req.on('row', columns => {
+      result = columns;
+    });
+    req.on('requestCompleted', () => {
+      res(result);
+    });
+    connection.execSql(req);
+  });
 
-    const [{value: utcDateResult}] = res;
-    t.ok(utcDateResult.getTime(), 'should have valid returned date object');
+  const [{value: utcDateResult}] = res;
+  t.ok(utcDateResult.getTime(), 'should have valid returned date object');
 
-    connection.close();
-    connector.close();
-  }
-);
+  connection.close();
+  connector.close();
+});

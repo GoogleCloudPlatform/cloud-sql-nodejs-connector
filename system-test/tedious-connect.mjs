@@ -13,20 +13,14 @@
 // limitations under the License.
 
 import t from 'tap';
-import semver from 'semver';
 import {Connector} from '@google-cloud/cloud-sql-connector';
+import {Connection, Request} from 'tedious';
 
-t.test(
-  'open connection and run basic sqlserver commands',
-  // the connector-supported versions of tedious do not support node14
-  {skip: semver.lt(process.versions.node, '16.0.0')},
-  async t => {
-  // dynamically load tedious in order to allow for skipping node14
-  const {Connection, Request} = await import('tedious');
+t.test('open connection and run basic sqlserver commands', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
     instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
-    ipType: 'PUBLIC'
+    ipType: 'PUBLIC',
   });
   const connection = new Connection({
     server: '0.0.0.0',
@@ -42,29 +36,35 @@ t.test(
       port: 9999,
       database: process.env.SQLSERVER_DB,
     },
-  })
+  });
 
   await new Promise((res, rej) => {
     connection.connect(err => {
       if (err) {
-        return rej(err)
+        return rej(err);
       }
-      res()
-    })
-  })
+      res();
+    });
+  });
 
   const res = await new Promise((res, rej) => {
     let result;
-    const req = new Request('SELECT GETUTCDATE()', (err) => {
+    const req = new Request('SELECT GETUTCDATE()', err => {
       if (err) {
         throw err;
       }
-    })
-    req.on('error', (err) => { rej(err); });
-    req.on('row', (columns) => { result = columns; });
-    req.on('requestCompleted', () => { res(result); });
+    });
+    req.on('error', err => {
+      rej(err);
+    });
+    req.on('row', columns => {
+      result = columns;
+    });
+    req.on('requestCompleted', () => {
+      res(result);
+    });
     connection.execSql(req);
-  })
+  });
 
   const [{value: utcDateResult}] = res;
   t.ok(utcDateResult.getTime(), 'should have valid returned date object');
