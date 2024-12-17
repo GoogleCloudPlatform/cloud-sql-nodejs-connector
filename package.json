@@ -35,8 +35,8 @@
   ],
   "license": "Apache-2.0",
   "scripts": {
-    "clean": "rm -rf dist",
-    "compile": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json",
+    "clean": "rm -rf dist ; rm -rf dist-test",
+    "compile": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json && tsc -p tsconfig-systemtest.json && tsc -p tsconfig-systemtest-esm.json",
     "prepare": "rm -rf dist && npm run compile && node ./scripts/fixup.cjs",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",

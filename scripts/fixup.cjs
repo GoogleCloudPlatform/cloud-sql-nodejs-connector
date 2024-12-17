@@ -20,6 +20,8 @@ const {readdir, readFile, writeFile} = require('node:fs/promises');
 
 const cjsDistFolder = resolve(__dirname, '../dist/cjs');
 const mjsDistFolder = resolve(__dirname, '../dist/mjs');
+const cjsSystemTestDistFolder = resolve(__dirname, '../dist-test/cjs');
+const mjsSystemTestDistFolder = resolve(__dirname, '../dist-test/mjs');
 
 async function addModuleSystemTypeFile() {
   await writeFile(
@@ -29,6 +31,15 @@ async function addModuleSystemTypeFile() {
 
   await writeFile(
     resolve(mjsDistFolder, 'package.json'),
+    JSON.stringify({ type: 'module' })
+  );
+  await writeFile(
+    resolve(cjsSystemTestDistFolder, 'package.json'),
+    JSON.stringify({ type: 'commonjs' })
+  );
+
+  await writeFile(
+    resolve(mjsSystemTestDistFolder, 'package.json'),
     JSON.stringify({ type: 'module' })
   );
 }
