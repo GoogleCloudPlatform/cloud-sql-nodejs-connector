@@ -82,6 +82,7 @@ export interface SQLAdminFetcherOptions {
   loginAuth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
   universeDomain?: string;
+  userAgent?: string;
 }
 
 export class SQLAdminFetcher {
@@ -92,6 +93,7 @@ export class SQLAdminFetcher {
     loginAuth,
     sqlAdminAPIEndpoint,
     universeDomain,
+    userAgent,
   }: SQLAdminFetcherOptions = {}) {
     let auth: GoogleAuth<AuthClient>;
 
@@ -111,6 +113,7 @@ export class SQLAdminFetcher {
         {
           product: 'cloud-sql-nodejs-connector',
           version: 'LIBRARY_SEMVER_VERSION',
+          comment: userAgent,
         },
       ],
       universeDomain: universeDomain,
