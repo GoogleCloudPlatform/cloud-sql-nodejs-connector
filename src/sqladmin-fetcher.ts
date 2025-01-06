@@ -174,7 +174,8 @@ export class SQLAdminFetcher {
       project: projectId,
       instance: instanceId,
     });
-
+    const userAgent = res.config.headers!['User-Agent'];
+    console.log('UserAgent: ', userAgent);
     if (!res.data) {
       throw new CloudSQLConnectorError({
         message:
