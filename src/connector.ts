@@ -148,6 +148,7 @@ interface ConnectorOptions {
    * Defaults to `googleapis.com`.
    */
   universeDomain?: string;
+  userAgent?: string;
 }
 
 // The Connector class is the main public API to interact
@@ -164,6 +165,7 @@ export class Connector {
       loginAuth: opts.auth,
       sqlAdminAPIEndpoint: opts.sqlAdminAPIEndpoint,
       universeDomain: opts.universeDomain,
+      userAgent: opts.userAgent,
     });
     this.localProxies = new Set();
     this.sockets = new Set();

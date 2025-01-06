@@ -545,3 +545,23 @@ t.test('Connector, custom universeDomain', async t => {
 
   t.same(actualUniverseDomain, expectedUniverseDomain);
 });
+
+t.test('Connector, custom userAgent', async t => {
+  const expectedUserAgent = 'custom-agent';
+  let actualUserAgent: string | undefined;
+  // mocks sql admin fetcher to check that the custom
+  // userAgent is correctly passed into it
+  const {Connector} = t.mockRequire('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        constructor({userAgent}: SQLAdminFetcherOptions) {
+          actualUserAgent = userAgent;
+        }
+      },
+    },
+  });
+
+  new Connector({userAgent: expectedUserAgent});
+
+  t.same(actualUserAgent, expectedUserAgent);
+});
