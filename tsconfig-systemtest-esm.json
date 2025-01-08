@@ -1,0 +1,23 @@
+{
+  "extends": "./node_modules/gts/tsconfig-google.json",
+  "exclude": [
+    "./test",
+    "./tap-snapshots"
+  ],
+  "include": [
+    "system-test/pg-tests.ts",
+    "system-test/mysql-tests.ts",
+    "system-test/tedious-tests.ts"
+  ],
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "outDir": "dist-test/mjs",
+    "module": "esnext",
+    "moduleResolution": "node",
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "extends": "./node_modules/gts/tsconfig-google.json",
+  "exclude": ["./test", "./tap-snapshots"],
+  "include": [
+    "system-test/pg-tests.ts",
+    "system-test/mysql-tests.ts",
+    "system-test/tedious-tests.ts"
+  ],
+  "compilerOptions": {
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "module": "node16",
+    "outDir": "dist-test/cjs"
+  }
+}
