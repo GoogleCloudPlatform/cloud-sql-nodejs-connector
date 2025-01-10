@@ -36,23 +36,26 @@ export function validateCertificate(
   dnsName: string
 ) {
   return (hostname: string, cert: tls.PeerCertificate): Error | undefined => {
-    if (serverCaMode === 'GOOGLE_MANAGED_CAS_CA') {
+    if (!serverCaMode || serverCaMode === 'GOOGLE_MANAGED_INTERNAL_CA') {
+      // Legacy CA Mode
+      if (!cert || !cert.subject) {
+        return new CloudSQLConnectorError({
+          message: 'No certificate to verify',
+          code: 'ENOSQLADMINVERIFYCERT',
+        });
+      }
+      const expectedCN = `${instanceInfo.projectId}:${instanceInfo.instanceId}`;
+      if (cert.subject.CN !== expectedCN) {
+        return new CloudSQLConnectorError({
+          message: `Certificate had CN ${cert.subject.CN}, expected ${expectedCN}`,
+          code: 'EBADSQLADMINVERIFYCERT',
+        });
+      }
+      return undefined;
+    } else {
+      // Standard TLS Verify Full hostname verification using SAN
       return tls.checkServerIdentity(dnsName, cert);
     }
-    if (!cert || !cert.subject) {
-      return new CloudSQLConnectorError({
-        message: 'No certificate to verify',
-        code: 'ENOSQLADMINVERIFYCERT',
-      });
-    }
-    const expectedCN = `${instanceInfo.projectId}:${instanceInfo.instanceId}`;
-    if (cert.subject.CN !== expectedCN) {
-      return new CloudSQLConnectorError({
-        message: `Certificate had CN ${cert.subject.CN}, expected ${expectedCN}`,
-        code: 'EBADSQLADMINVERIFYCERT',
-      });
-    }
-    return undefined;
   };
 }
 
