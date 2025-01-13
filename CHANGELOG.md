@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.5.0...v1.6.0) (2025-01-13)
+
+
+### Features
+
+* add support for custom user agent ([#410](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/410)) ([25f5ccd](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/25f5ccd9d4413b4baa13de3e9c060a1c92d5b63a))
+* Support Private CA for server certificates. ([#408](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/408)) ([36f1304](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/36f1304334770f0adae56da4f6dba6c0d5362fdc))
+
 ## [1.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.4.0...v1.5.0) (2024-12-11)
 
 

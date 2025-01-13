@@ -1,6 +1,6 @@
 {
   "name": "@google-cloud/cloud-sql-connector",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "A JavaScript library for connecting securely to your Cloud SQL instances",
   "author": "Google Inc.",
   "main": "./dist/cjs/index.js",
