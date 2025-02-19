@@ -75,7 +75,7 @@ to provide the information of the Cloud SQL environment to connect to via
 environment variables, e.g:
 
 ```sh
-POSTGRES_USER=my-user POSTGRES_PASS=my-password POSTGRES_DB=db-name POSTGRES_CONNECTION_NAME=my-project:region:my-instance npm run system-test
+POSTGRES_USER=my-user POSTGRES_PASS=my-password POSTGRES_DB=db-name POSTGRES_IAM_CONNECTION_NAME=my-project:region:my-instance npm run system-test
 ```
 
 If you're an external collaborator, don't worry about not having a Cloud SQL

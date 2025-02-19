@@ -17,7 +17,7 @@ const connector = require('../connect.cjs');
 
 t.test('mysql2 typeorm cjs', async t => {
   const { dataSource, close } = await connector.connect({
-    instanceConnectionName: process.env.MYSQL_IAM_CONNECTION_NAME,
+    instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
     username: process.env.MYSQL_IAM_USER,
     database: process.env.MYSQL_DB,
   });
