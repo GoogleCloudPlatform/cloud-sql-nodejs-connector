@@ -17,7 +17,7 @@ import {connect} from '../connect.mjs';
 
 t.test('pg typeorm mjs', async t => {
   const { dataSource, close } = await connect({
-    instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
+    instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
     username: process.env.POSTGRES_IAM_USER,
     database: process.env.POSTGRES_DB,
   });

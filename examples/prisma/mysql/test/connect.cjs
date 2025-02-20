@@ -30,7 +30,7 @@ t.test('mysql prisma cjs', async t => {
 
   const {connect} = require('../connect.cjs');
   const {prisma, close} = await connect({
-    instanceConnectionName: process.env.MYSQL_IAM_CONNECTION_NAME,
+    instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
     user: process.env.MYSQL_IAM_USER,
     database: process.env.MYSQL_DB,
   });

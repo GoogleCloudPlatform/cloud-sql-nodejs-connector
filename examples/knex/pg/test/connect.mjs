@@ -17,7 +17,7 @@ import {connect} from '../connect.mjs';
 
 t.test('pg knex mjs', async t => {
   const {database, close} = await connect({
-    instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
+    instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
     user: process.env.POSTGRES_IAM_USER,
     databaseName: process.env.POSTGRES_DB,
   });

@@ -17,7 +17,7 @@ const {connect} = require('../connect.cjs');
 
 t.test('mysql knex cjs', async t => {
   const {database, close} = await connect({
-    instanceConnectionName: process.env.MYSQL_IAM_CONNECTION_NAME,
+    instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
     user: process.env.MYSQL_IAM_USER,
     databaseName: process.env.MYSQL_DB,
   });

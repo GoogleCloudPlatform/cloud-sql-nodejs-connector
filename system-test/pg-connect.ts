@@ -47,7 +47,7 @@ t.test('open connection and retrieves standard pg tables', async t => {
 t.test('open IAM connection and retrieves standard pg tables', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
-    instanceConnectionName: String(process.env.POSTGRES_IAM_CONNECTION_NAME),
+    instanceConnectionName: String(process.env.POSTGRES_CONNECTION_NAME),
     ipType: IpAddressTypes.PUBLIC,
     authType: AuthTypes.IAM,
   });
