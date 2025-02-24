@@ -107,11 +107,13 @@ t.test('CloudSQLInstance', async t => {
       },
     };
     const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: failedFetcher,
-      limitRateInterval: 50,
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: failedFetcher,
+        limitRateInterval: 50,
+      },
     });
 
     await t.rejects(
@@ -125,11 +127,13 @@ t.test('CloudSQLInstance', async t => {
     const start = Date.now();
     let refreshCount = 0;
     const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: fetcher,
-      limitRateInterval: 50,
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: fetcher,
+        limitRateInterval: 50,
+      },
     });
     instance.refresh = () => {
       if (refreshCount === 2) {
@@ -165,11 +169,13 @@ t.test('CloudSQLInstance', async t => {
         },
       };
       const instance = new CloudSQLInstance({
-        ipType: IpAddressTypes.PUBLIC,
-        authType: AuthTypes.PASSWORD,
-        instanceConnectionName: 'my-project:us-east1:my-instance',
-        sqlAdminFetcher: failedFetcher,
-        limitRateInterval: 50,
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.PASSWORD,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: failedFetcher,
+          limitRateInterval: 50,
+        },
       });
       await (() =>
         new Promise((res): void => {
@@ -219,11 +225,13 @@ t.test('CloudSQLInstance', async t => {
         },
       };
       const instance = new CloudSQLInstance({
-        ipType: IpAddressTypes.PUBLIC,
-        authType: AuthTypes.PASSWORD,
-        instanceConnectionName: 'my-project:us-east1:my-instance',
-        sqlAdminFetcher: failedFetcher,
-        limitRateInterval: 50,
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.PASSWORD,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: failedFetcher,
+          limitRateInterval: 50,
+        },
       });
       await (() =>
         new Promise((res): void => {
@@ -247,11 +255,13 @@ t.test('CloudSQLInstance', async t => {
 
   t.test('forceRefresh', async t => {
     const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: fetcher,
-      limitRateInterval: 50,
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: fetcher,
+        limitRateInterval: 50,
+      },
     });
 
     await instance.refresh();
@@ -283,11 +293,13 @@ t.test('CloudSQLInstance', async t => {
 
   t.test('forceRefresh ongoing cycle', async t => {
     const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: fetcher,
-      limitRateInterval: 50,
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: fetcher,
+        limitRateInterval: 50,
+      },
     });
 
     let cancelRefreshCalled = false;
@@ -318,11 +330,13 @@ t.test('CloudSQLInstance', async t => {
 
   t.test('refresh post-forceRefresh', async t => {
     const instance = new CloudSQLInstance({
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      ipType: IpAddressTypes.PUBLIC,
-      limitRateInterval: 0,
-      sqlAdminFetcher: fetcher,
+      options: {
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        ipType: IpAddressTypes.PUBLIC,
+        limitRateInterval: 0,
+        sqlAdminFetcher: fetcher,
+      },
     });
 
     const start = Date.now();
@@ -355,11 +369,13 @@ t.test('CloudSQLInstance', async t => {
 
   t.test('refresh rate limit', async t => {
     const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      limitRateInterval: 50,
-      sqlAdminFetcher: fetcher,
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        limitRateInterval: 50,
+        sqlAdminFetcher: fetcher,
+      },
     });
     const start = Date.now();
     // starts out refresh logic
@@ -400,11 +416,13 @@ t.test('CloudSQLInstance', async t => {
       },
     };
     const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: slowFetcher,
-      limitRateInterval: 50,
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: slowFetcher,
+        limitRateInterval: 50,
+      },
     });
 
     // starts a new refresh cycle but do not await on it
@@ -425,11 +443,13 @@ t.test('CloudSQLInstance', async t => {
       },
     };
     const instance = new CloudSQLInstance({
-      ipType: IpAddressTypes.PUBLIC,
-      authType: AuthTypes.PASSWORD,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-      sqlAdminFetcher: slowFetcher,
-      limitRateInterval: 50,
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: slowFetcher,
+        limitRateInterval: 50,
+      },
     });
 
     // simulates an ongoing instance, already has data
@@ -459,11 +479,13 @@ t.test('CloudSQLInstance', async t => {
         },
       };
       const instance = new CloudSQLInstance({
-        ipType: IpAddressTypes.PUBLIC,
-        authType: AuthTypes.PASSWORD,
-        instanceConnectionName: 'my-project:us-east1:my-instance',
-        sqlAdminFetcher: failAndSlowFetcher,
-        limitRateInterval: 50,
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.PASSWORD,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: failAndSlowFetcher,
+          limitRateInterval: 50,
+        },
       });
 
       await instance.refresh();
@@ -492,11 +514,13 @@ t.test('CloudSQLInstance', async t => {
       };
 
       const instance = new CloudSQLInstance({
-        ipType: IpAddressTypes.PUBLIC,
-        authType: AuthTypes.PASSWORD,
-        instanceConnectionName: 'my-project:us-east1:my-instance',
-        sqlAdminFetcher: failAndSlowFetcher,
-        limitRateInterval: 50,
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.PASSWORD,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: failAndSlowFetcher,
+          limitRateInterval: 50,
+        },
       });
 
       await instance.refresh();
@@ -557,11 +581,13 @@ t.test('CloudSQLInstance', async t => {
       };
 
       const instance = new CloudSQLInstance({
-        ipType: IpAddressTypes.PUBLIC,
-        authType: AuthTypes.PASSWORD,
-        instanceConnectionName: 'my-project:us-east1:my-instance',
-        sqlAdminFetcher: updateFetcher,
-        limitRateInterval: 0,
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.PASSWORD,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: updateFetcher,
+          limitRateInterval: 0,
+        },
       });
       await (() =>
         new Promise((res): void => {
