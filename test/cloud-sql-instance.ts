@@ -80,6 +80,7 @@ t.test('CloudSQLInstance', async t => {
         projectId: 'my-project',
         regionId: 'us-east1',
         instanceId: 'my-instance',
+        domainName: undefined,
       },
       'should have expected connection info'
     );
