@@ -17,7 +17,7 @@ const connector = require('../connect.cjs');
 
 t.test('pg typeorm cjs', async t => {
   const { dataSource, close } = await connector.connect({
-    instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
+    instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
     username: process.env.POSTGRES_IAM_USER,
     database: process.env.POSTGRES_DB,
   });

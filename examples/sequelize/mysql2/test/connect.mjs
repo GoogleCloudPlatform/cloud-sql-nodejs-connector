@@ -17,7 +17,7 @@ import {connect} from '../connect.mjs';
 
 t.test('mysql sequelize mjs', async t => {
   const {database, close} = await connect({
-    instanceConnectionName: process.env.MYSQL_IAM_CONNECTION_NAME,
+    instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
     username: process.env.MYSQL_IAM_USER,
     databaseName: process.env.MYSQL_DB,
   });

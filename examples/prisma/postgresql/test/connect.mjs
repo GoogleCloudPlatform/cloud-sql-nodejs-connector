@@ -33,7 +33,7 @@ t.test('pg prisma mjs', async t => {
 
     const { connect } = await import('../connect.mjs');
     const { prisma, close } = await connect({
-        instanceConnectionName: process.env.POSTGRES_IAM_CONNECTION_NAME,
+        instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
         user: process.env.POSTGRES_IAM_USER,
         database: process.env.POSTGRES_DB,
     });
