@@ -86,8 +86,5 @@ export function getSocket({
   };
   const tlsSocket = tls.connect(socketOpts);
   tlsSocket.setKeepAlive(true, DEFAULT_KEEP_ALIVE_DELAY_MS);
-  // overrides the stream.connect method since the stream is already
-  // connected and some drivers might try to call it internally
-  tlsSocket.connect = () => tlsSocket;
   return tlsSocket;
 }
