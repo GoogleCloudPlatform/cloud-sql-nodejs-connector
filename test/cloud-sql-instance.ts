@@ -269,7 +269,10 @@ t.test('CloudSQLInstance', async t => {
       await CloudSQLInstance.prototype.refresh.call(instance);
       instance.refresh = CloudSQLInstance.prototype.refresh;
     };
-    await instance.forceRefresh();
+
+    instance.forceRefresh();
+    await instance.refreshComplete();
+
     t.ok(
       cancelRefreshCalled,
       'should cancelRefresh current refresh cycle on force refresh'
@@ -302,13 +305,8 @@ t.test('CloudSQLInstance', async t => {
       return CloudSQLInstance.prototype.refresh.call(instance);
     };
 
-    const forceRefreshPromise = instance.forceRefresh();
-    t.strictSame(
-      refreshPromise,
-      forceRefreshPromise,
-      'forceRefresh should return same promise ref from initial refresh call'
-    );
-    await forceRefreshPromise;
+    instance.forceRefresh();
+    await instance.refreshComplete()
 
     t.ok(
       !cancelRefreshCalled,

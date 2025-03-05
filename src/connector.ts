@@ -230,8 +230,8 @@ export class Connector {
             serverCaMode,
             dnsName,
           });
-          tlsSocket.once('error', async () => {
-            await cloudSqlInstance.forceRefresh();
+          tlsSocket.once('error', () => {
+            cloudSqlInstance.forceRefresh();
           });
           tlsSocket.once('secureConnect', async () => {
             cloudSqlInstance.setEstablishedConnection();

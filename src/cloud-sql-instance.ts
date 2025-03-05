@@ -106,14 +106,34 @@ export class CloudSQLInstance {
     }) as ReturnType<typeof pThrottle>;
   }
 
-  forceRefresh(): Promise<RefreshResult> {
+  forceRefresh(){
     // if a refresh is already ongoing, just await for its promise to fulfill
     // so that a new instance info is available before reconnecting
     if (this.next) {
-      return this.next;
+      return;
     }
     this.cancelRefresh();
-    return this.refresh();
+    this.scheduleRefresh(0);
+  }
+
+  // refreshComplete Returns a promise that resolves when the current refresh
+  // cycle has completed, either with success or failure. If no refresh is
+  // in progress, the promise will resolve immediately.
+  refreshComplete(): Promise<void> {
+    return new Promise((resolve) => {
+      // setTimeout() to yield execution to allow other refresh background
+      // tasks to start.
+      setTimeout(()=> {
+        if(this.next){
+          // If there is a refresh promise in progress, resolve this promise
+          // when the refresh is complete.
+          this.next.finally(resolve)
+        } else {
+          // Else resolve immediately.
+          resolve()
+        }
+      }, 0);
+    });
   }
 
   refresh(): Promise<RefreshResult> {
