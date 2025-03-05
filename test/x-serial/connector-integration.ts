@@ -92,6 +92,8 @@ t.test('Connector integration test', async t => {
   await new Promise((res, rej): void => {
     // driver factory method to retrieve a new socket
     const tlsSocket = opts.stream();
+    tlsSocket.connect(3307, 'localhost');
+
     tlsSocket.on('secureConnect', () => {
       t.ok(tlsSocket.authorized, 'socket connected');
       tlsSocket.end();

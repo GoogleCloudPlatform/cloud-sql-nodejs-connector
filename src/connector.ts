@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {createServer, Server, Socket} from 'node:net';
+import {createServer, Server} from 'node:net';
 import tls from 'node:tls';
 import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
@@ -22,6 +22,10 @@ import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
+import {SocketWrapper, SocketWrapperOptions} from './socket-wrapper';
+import stream from 'node:stream';
+import {resolveInstanceName} from './parse-instance-connection-name';
+import {InstanceConnectionInfo} from './instance-connection-info';
 
 // These Socket types are subsets from nodejs definitely typed repo, ref:
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
@@ -53,11 +57,13 @@ export declare interface SocketConnectionOptions extends ConnectionOptions {
 }
 
 interface StreamFunction {
-  (): tls.TLSSocket;
+  //eslint-disable-next-line   @typescript-eslint/no-explicit-any
+  (...opts: any | undefined): stream.Duplex;
 }
 
 interface PromisedStreamFunction {
-  (): Promise<tls.TLSSocket>;
+  //eslint-disable-next-line   @typescript-eslint/no-explicit-any
+  (...opts: any | undefined): Promise<stream.Duplex>;
 }
 
 // DriverOptions is the interface describing the object returned by
@@ -108,25 +114,34 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
     this.sqlAdminFetcher = sqlAdminFetcher;
   }
 
-  private cacheKey(opts: ConnectionOptions): string {
-    //TODO: for now, the cache key function must be synchronous.
-    //  When we implement the async connection info from
-    //  https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/pull/426
-    //  then the cache key should contain both the domain name
-    //  and the resolved instance name.
-    return (
-      (opts.instanceConnectionName || opts.domainName) +
-      '-' +
-      opts.authType +
-      '-' +
-      opts.ipType
-    );
+  private async cacheKey(
+    instanceName: InstanceConnectionInfo,
+    opts: ConnectionOptions
+  ): Promise<string> {
+    let key: Array<string>;
+    if (instanceName.domainName) {
+      key = [instanceName.domainName];
+    } else {
+      key = [
+        instanceName.projectId,
+        instanceName.regionId,
+        instanceName.instanceId,
+      ];
+    }
+    key.push(String(opts.authType));
+    key.push(String(opts.ipType));
+
+    return key.join('-');
   }
 
-  async loadInstance(opts: ConnectionOptions): Promise<void> {
+  async loadInstance(opts: ConnectionOptions): Promise<CloudSQLInstance> {
     // in case an instance to that connection name has already
     // been setup there's no need to set it up again
-    const key = this.cacheKey(opts);
+    const instanceName = await resolveInstanceName(
+      opts.instanceConnectionName,
+      opts.domainName
+    );
+    const key = await this.cacheKey(instanceName, opts);
     const entry = this.get(key);
     if (entry) {
       if (entry.isResolved()) {
@@ -134,7 +149,7 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
         if (!entry.instance?.isClosed()) {
           // The instance is open and the domain has not changed.
           // use the cached instance.
-          return;
+          return entry.promise;
         }
       } else if (entry.isError()) {
         // The instance failed it's initial refresh. Remove it from the
@@ -143,13 +158,12 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
         throw entry.err;
       } else {
         // The instance initial refresh is in progress.
-        await entry.promise;
-        return;
+        return entry.promise;
       }
     }
 
     // Start the refresh and add a cache entry.
-    const promise = CloudSQLInstance.getCloudSQLInstance({
+    const instanceOpts = {
       instanceConnectionName: opts.instanceConnectionName,
       domainName: opts.domainName,
       authType: opts.authType || AuthTypes.PASSWORD,
@@ -157,22 +171,15 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
       limitRateInterval: opts.limitRateInterval || 30 * 1000, // 30 sec
       sqlAdminFetcher: this.sqlAdminFetcher,
       checkDomainInterval: opts.checkDomainInterval,
-    });
+    };
+    const promise = CloudSQLInstance.getCloudSQLInstance(
+      instanceName,
+      instanceOpts
+    );
     this.set(key, new CacheEntry(promise));
 
     // Wait for the cache entry to resolve.
-    await promise;
-  }
-
-  getInstance(opts: ConnectionOptions): CloudSQLInstance {
-    const connectionInstance = this.get(this.cacheKey(opts));
-    if (!connectionInstance || !connectionInstance.instance) {
-      throw new CloudSQLConnectorError({
-        message: `Cannot find info for instance: ${opts.instanceConnectionName}`,
-        code: 'ENOINSTANCEINFO',
-      });
-    }
-    return connectionInstance.instance;
+    return promise;
   }
 }
 
@@ -193,7 +200,7 @@ export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
   private readonly localProxies: Set<Server>;
-  private readonly sockets: Set<Socket>;
+  private readonly sockets: Set<stream.Duplex>;
 
   constructor(opts: ConnectorOptions = {}) {
     this.sqlAdminFetcher = new SQLAdminFetcher({
@@ -207,69 +214,95 @@ export class Connector {
     this.sockets = new Set();
   }
 
-  // Connector.getOptions is a method that accepts a Cloud SQL instance
-  // connection name along with the connection type and returns an object
-  // that can be used to configure a driver to be used with Cloud SQL. e.g:
-  //
-  // const connector = new Connector()
-  // const opts = await connector.getOptions({
-  //   ipType: 'PUBLIC',
-  //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
-  // });
-  // const pool = new Pool(opts)
-  // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
-  async getOptions(opts: ConnectionOptions): Promise<DriverOptions> {
-    const {instances} = this;
-    await instances.loadInstance(opts);
+  async connect(opts: ConnectionOptions): Promise<tls.TLSSocket> {
+    const cloudSqlInstance = await this.instances.loadInstance(opts);
 
+    const {
+      instanceInfo,
+      ephemeralCert,
+      host,
+      port,
+      privateKey,
+      serverCaCert,
+      serverCaMode,
+      dnsName,
+    } = cloudSqlInstance;
+
+    if (
+      instanceInfo &&
+      ephemeralCert &&
+      host &&
+      port &&
+      privateKey &&
+      serverCaCert
+    ) {
+      const tlsSocket = getSocket({
+        instanceInfo,
+        ephemeralCert,
+        host,
+        port,
+        privateKey,
+        serverCaCert,
+        serverCaMode,
+        dnsName: instanceInfo.domainName || dnsName, // use the configured domain name, or the instance dnsName.
+      });
+      tlsSocket.once('error', () => {
+        cloudSqlInstance.forceRefresh();
+      });
+      tlsSocket.once('secureConnect', async () => {
+        cloudSqlInstance.setEstablishedConnection();
+      });
+      return tlsSocket;
+    }
+    throw new CloudSQLConnectorError({
+      message: 'Invalid Cloud SQL Instance info',
+      code: 'EBADINSTANCEINFO',
+    });
+  }
+
+  getOptions({
+    authType = AuthTypes.PASSWORD,
+    ipType = IpAddressTypes.PUBLIC,
+    instanceConnectionName,
+  }: ConnectionOptions): DriverOptions {
+    // bring 'this' into a closure-scope variable.
+    //eslint-disable-next-line   @typescript-eslint/no-this-alias
+    const connector = this;
     return {
-      stream() {
-        const cloudSqlInstance = instances.getInstance(opts);
-        const {
-          instanceInfo,
-          ephemeralCert,
-          host,
-          port,
-          privateKey,
-          serverCaCert,
-          serverCaMode,
-          dnsName,
-        } = cloudSqlInstance;
-
-        if (
-          instanceInfo &&
-          ephemeralCert &&
-          host &&
-          port &&
-          privateKey &&
-          serverCaCert
-        ) {
-          const tlsSocket = getSocket({
-            instanceInfo,
-            ephemeralCert,
-            host,
-            port,
-            privateKey,
-            serverCaCert,
-            serverCaMode,
-            dnsName: instanceInfo.domainName || dnsName, // use the configured domain name, or the instance dnsName.
-          });
-          tlsSocket.once('error', () => {
-            cloudSqlInstance.forceRefresh();
-          });
-          tlsSocket.once('secureConnect', async () => {
-            cloudSqlInstance.setEstablishedConnection();
-          });
-
-          cloudSqlInstance.addSocket(tlsSocket);
-
-          return tlsSocket;
+      stream(opts) {
+        let host;
+        let startConnection = false;
+        if (opts) {
+          if (opts?.config?.host) {
+            // Mysql driver passes the host in the options, and expects
+            // this to start the connection.
+            host = opts?.config?.host;
+            startConnection = true;
+          }
+          if (opts?.host) {
+            // Sql Server (Tedious) driver passes host in the options
+            // this to start the connection.
+            host = opts?.host;
+            startConnection = true;
+          }
+        } else {
+          // Postgres driver does not pass options.
+          // Postgres will call Socket.connect(port,host).
+          startConnection = false;
         }
 
-        throw new CloudSQLConnectorError({
-          message: 'Invalid Cloud SQL Instance info',
-          code: 'EBADINSTANCEINFO',
-        });
+        return new SocketWrapper(
+          new SocketWrapperOptions({
+            connector,
+            host,
+            startConnection,
+            connectionConfig: {
+              authType,
+              ipType,
+              instanceConnectionName,
+            },
+          })
+        );
       },
     };
   }
@@ -291,8 +324,8 @@ export class Connector {
       instanceConnectionName,
     });
     return {
-      async connector() {
-        return driverOptions.stream();
+      async connector(opts) {
+        return driverOptions.stream(opts);
       },
       // note: the connector handles a secured encrypted connection
       // with that in mind, the driver encryption is disabled here
