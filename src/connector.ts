@@ -154,6 +154,7 @@ interface ConnectorOptions {
 // The Connector class is the main public API to interact
 // with the Cloud SQL Node.js Connector.
 export class Connector {
+  private closed = false;
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
   private readonly localProxies: Set<Server>;
@@ -332,8 +333,9 @@ export class Connector {
   //
   // Also clear up any local proxy servers and socket connections.
   close(): void {
+    this.closed = true;
     for (const instance of this.instances.values()) {
-      instance.cancelRefresh();
+      instance.close();
     }
     for (const server of this.localProxies) {
       server.close();
