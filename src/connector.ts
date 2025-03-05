@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Server, Socket, createServer} from 'node:net';
+import {Server, createServer} from 'node:net';
 import tls from 'node:tls';
 import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
@@ -22,6 +22,8 @@ import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
+import {SocketWrapper, SocketWrapperOptions} from './socket-wrapper';
+import stream from 'node:stream';
 
 // These Socket types are subsets from nodejs definitely typed repo, ref:
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
@@ -42,7 +44,7 @@ export declare interface UnixSocketOptions {
 export declare interface ConnectionOptions {
   authType?: AuthTypes;
   ipType?: IpAddressTypes;
-  instanceConnectionName: string;
+  instanceConnectionName?: string;
 }
 
 export declare interface SocketConnectionOptions extends ConnectionOptions {
@@ -50,11 +52,13 @@ export declare interface SocketConnectionOptions extends ConnectionOptions {
 }
 
 interface StreamFunction {
-  (): tls.TLSSocket;
+  //eslint-disable-next-line   @typescript-eslint/no-explicit-any
+  (...opts: any | undefined): stream.Duplex;
 }
 
 interface PromisedStreamFunction {
-  (): Promise<tls.TLSSocket>;
+  //eslint-disable-next-line   @typescript-eslint/no-explicit-any
+  (...opts: any | undefined): Promise<stream.Duplex>;
 }
 
 // DriverOptions is the interface describing the object returned by
@@ -86,11 +90,17 @@ class CloudSQLInstanceMap extends Map {
     authType: AuthTypes;
     instanceConnectionName: string;
     sqlAdminFetcher: SQLAdminFetcher;
-  }): Promise<void> {
+  }): Promise<CloudSQLInstance> {
     // in case an instance to that connection name has already
     // been setup there's no need to set it up again
     if (this.has(instanceConnectionName)) {
       const instance = this.get(instanceConnectionName);
+      if (!instance) {
+        throw new CloudSQLConnectorError({
+          message: `Cannot find info for instance: ${instanceConnectionName}`,
+          code: 'ENOINSTANCEINFO',
+        });
+      }
       if (instance.authType && instance.authType !== authType) {
         throw new CloudSQLConnectorError({
           message:
@@ -100,42 +110,23 @@ class CloudSQLInstanceMap extends Map {
           code: 'EMISMATCHAUTHTYPE',
         });
       }
-      return;
+      return instance;
     }
+
     const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
       ipType,
       authType,
       instanceConnectionName,
       sqlAdminFetcher: sqlAdminFetcher,
     });
-    this.set(instanceConnectionName, connectionInstance);
-  }
-
-  getInstance({
-    instanceConnectionName,
-    authType,
-  }: {
-    instanceConnectionName: string;
-    authType: AuthTypes;
-  }): CloudSQLInstance {
-    const connectionInstance = this.get(instanceConnectionName);
     if (!connectionInstance) {
       throw new CloudSQLConnectorError({
         message: `Cannot find info for instance: ${instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
       });
-    } else if (
-      connectionInstance.authType &&
-      connectionInstance.authType !== authType
-    ) {
-      throw new CloudSQLConnectorError({
-        message:
-          `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
-          `but was previously called with authType ${connectionInstance.authType}. ` +
-          'If you require both for your use case, please use a new connector object.',
-        code: 'EMISMATCHAUTHTYPE',
-      });
     }
+    this.set(instanceConnectionName, connectionInstance);
+
     return connectionInstance;
   }
 }
@@ -158,7 +149,7 @@ export class Connector {
   private readonly instances: CloudSQLInstanceMap;
   private readonly sqlAdminFetcher: SQLAdminFetcher;
   private readonly localProxies: Set<Server>;
-  private readonly sockets: Set<Socket>;
+  private readonly sockets: Set<stream.Duplex>;
 
   constructor(opts: ConnectorOptions = {}) {
     this.instances = new CloudSQLInstanceMap();
@@ -171,79 +162,132 @@ export class Connector {
     this.localProxies = new Set();
     this.sockets = new Set();
   }
-
-  // Connector.getOptions is a method that accepts a Cloud SQL instance
-  // connection name along with the connection type and returns an object
-  // that can be used to configure a driver to be used with Cloud SQL. e.g:
-  //
-  // const connector = new Connector()
-  // const opts = await connector.getOptions({
-  //   ipType: 'PUBLIC',
-  //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
-  // });
-  // const pool = new Pool(opts)
-  // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
-  async getOptions({
+  async loadInstance({
     authType = AuthTypes.PASSWORD,
     ipType = IpAddressTypes.PUBLIC,
     instanceConnectionName,
-  }: ConnectionOptions): Promise<DriverOptions> {
-    const {instances} = this;
-    await instances.loadInstance({
+  }: ConnectionOptions): Promise<CloudSQLInstance> {
+    if (!instanceConnectionName) {
+      throw new CloudSQLConnectorError({
+        code: 'ENOTCONFIGURED',
+        message: 'Instance connection name missing.',
+      });
+    }
+
+    const inst = await this.instances.loadInstance({
       ipType,
       authType,
       instanceConnectionName,
       sqlAdminFetcher: this.sqlAdminFetcher,
     });
 
-    return {
-      stream() {
-        const cloudSqlInstance = instances.getInstance({
-          instanceConnectionName,
-          authType,
-        });
-        const {
-          instanceInfo,
-          ephemeralCert,
-          host,
-          port,
-          privateKey,
-          serverCaCert,
-          serverCaMode,
-          dnsName,
-        } = cloudSqlInstance;
+    return inst;
+  }
 
-        if (
-          instanceInfo &&
-          ephemeralCert &&
-          host &&
-          port &&
-          privateKey &&
-          serverCaCert
-        ) {
-          const tlsSocket = getSocket({
-            instanceInfo,
-            ephemeralCert,
-            host,
-            port,
-            privateKey,
-            serverCaCert,
-            serverCaMode,
-            dnsName: instanceInfo.domainName || dnsName, // use the configured domain name, or the instance dnsName.
-          });
-          tlsSocket.once('error', () => {
-            cloudSqlInstance.forceRefresh();
-          });
-          tlsSocket.once('secureConnect', async () => {
-            cloudSqlInstance.setEstablishedConnection();
-          });
-          return tlsSocket;
+  async connect({
+    authType = AuthTypes.PASSWORD,
+    ipType = IpAddressTypes.PUBLIC,
+    instanceConnectionName,
+  }: ConnectionOptions): Promise<tls.TLSSocket> {
+    if (!instanceConnectionName) {
+      throw new CloudSQLConnectorError({
+        code: 'ENOTCONFIGURED',
+        message: 'Instance connection name missing.',
+      });
+    }
+
+    const cloudSqlInstance = await this.loadInstance({
+      ipType,
+      authType,
+      instanceConnectionName,
+    });
+
+    const {
+      instanceInfo,
+      ephemeralCert,
+      host,
+      port,
+      privateKey,
+      serverCaCert,
+      serverCaMode,
+      dnsName,
+    } = cloudSqlInstance;
+
+    if (
+      instanceInfo &&
+      ephemeralCert &&
+      host &&
+      port &&
+      privateKey &&
+      serverCaCert
+    ) {
+      const tlsSocket = getSocket({
+        instanceInfo,
+        ephemeralCert,
+        host,
+        port,
+        privateKey,
+        serverCaCert,
+        serverCaMode,
+        dnsName: instanceInfo.domainName || dnsName, // use the configured domain name, or the instance dnsName.
+      });
+      tlsSocket.once('error', () => {
+        cloudSqlInstance.forceRefresh();
+      });
+      tlsSocket.once('secureConnect', async () => {
+        cloudSqlInstance.setEstablishedConnection();
+      });
+      return tlsSocket;
+    }
+    throw new CloudSQLConnectorError({
+      message: 'Invalid Cloud SQL Instance info',
+      code: 'EBADINSTANCEINFO',
+    });
+  }
+
+  getOptions({
+    authType = AuthTypes.PASSWORD,
+    ipType = IpAddressTypes.PUBLIC,
+    instanceConnectionName,
+  }: ConnectionOptions): DriverOptions {
+    // bring 'this' into a closure-scope variable.
+    //eslint-disable-next-line   @typescript-eslint/no-this-alias
+    const connector = this;
+    return {
+      stream(opts) {
+        let host;
+        let startConnection = false;
+        if (opts) {
+          if (opts?.config?.host) {
+            // Mysql driver passes the host in the options, and expects
+            // this to start the connection.
+            host = opts?.config?.host;
+            startConnection = true;
+          }
+          if (opts?.host) {
+            // Sql Server (Tedious) driver passes host in the options
+            // this to start the connection.
+            host = opts?.host;
+            startConnection = true;
+          }
+        } else {
+          // Postgres driver does not pass options.
+          // Postgres will call Socket.connect(port,host).
+          startConnection = false;
         }
 
-        throw new CloudSQLConnectorError({
-          message: 'Invalid Cloud SQL Instance info',
-          code: 'EBADINSTANCEINFO',
-        });
+        return new SocketWrapper(
+          new SocketWrapperOptions({
+            connector,
+            host,
+            startConnection,
+            connectionConfig: {
+              authType,
+              ipType,
+              instanceConnectionName,
+            },
+          })
+        );
       },
     };
   }
@@ -265,8 +309,8 @@ export class Connector {
       instanceConnectionName,
     });
     return {
-      async connector() {
-        return driverOptions.stream();
+      async connector(opts) {
+        return driverOptions.stream(opts);
       },
       // note: the connector handles a secured encrypted connection
       // with that in mind, the driver encryption is disabled here
