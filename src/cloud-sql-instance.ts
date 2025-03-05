@@ -69,6 +69,7 @@ export class CloudSQLInstance {
   private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private throttle?: any;
+  private closed = false;
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
@@ -106,37 +107,45 @@ export class CloudSQLInstance {
     }) as ReturnType<typeof pThrottle>;
   }
 
-  forceRefresh(){
+  forceRefresh(): Promise<void> {
     // if a refresh is already ongoing, just await for its promise to fulfill
     // so that a new instance info is available before reconnecting
     if (this.next) {
-      return;
+      return new Promise(resolve => {
+        if (this.next) {
+          this.next.finally(resolve);
+        } else {
+          resolve();
+        }
+      });
     }
+
     this.cancelRefresh();
     this.scheduleRefresh(0);
-  }
 
-  // refreshComplete Returns a promise that resolves when the current refresh
-  // cycle has completed, either with success or failure. If no refresh is
-  // in progress, the promise will resolve immediately.
-  refreshComplete(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       // setTimeout() to yield execution to allow other refresh background
-      // tasks to start.
-      setTimeout(()=> {
-        if(this.next){
+      // task to start.
+      setTimeout(() => {
+        if (this.next) {
           // If there is a refresh promise in progress, resolve this promise
           // when the refresh is complete.
-          this.next.finally(resolve)
+          this.next.finally(resolve);
         } else {
           // Else resolve immediately.
-          resolve()
+          resolve();
         }
       }, 0);
     });
   }
 
   refresh(): Promise<RefreshResult> {
+    if (this.closed) {
+      this.scheduledRefreshID = undefined;
+      this.next = undefined;
+      return Promise.reject('closed');
+    }
+
     const currentRefreshId = this.scheduledRefreshID;
 
     // Since forceRefresh might be invoked during an ongoing refresh
@@ -203,6 +212,12 @@ export class CloudSQLInstance {
   // used to create new connections to a Cloud SQL instance. It throws in
   // case any of the internal steps fails.
   private async performRefresh(): Promise<RefreshResult> {
+    if (this.closed) {
+      // The connector may be closed while the rate limiter delayed
+      // a call to performRefresh() so check this.closed before continuing.
+      return Promise.reject('closed');
+    }
+
     const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
       await this.sqlAdminFetcher.getInstanceMetadata(this.instanceInfo);
@@ -264,6 +279,9 @@ export class CloudSQLInstance {
   }
 
   private scheduleRefresh(delay: number): void {
+    if (this.closed) {
+      return;
+    }
     this.scheduledRefreshID = setTimeout(() => this.refresh(), delay);
   }
 
@@ -279,5 +297,12 @@ export class CloudSQLInstance {
   // not be thrown to the final user.
   setEstablishedConnection(): void {
     this.establishedConnection = true;
+  }
+
+  // close stops any refresh process in progress and prevents future refresh
+  // connections.
+  close(): void {
+    this.closed = true;
+    this.cancelRefresh();
   }
 }

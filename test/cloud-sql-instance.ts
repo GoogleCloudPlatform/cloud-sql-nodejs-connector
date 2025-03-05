@@ -270,8 +270,7 @@ t.test('CloudSQLInstance', async t => {
       instance.refresh = CloudSQLInstance.prototype.refresh;
     };
 
-    instance.forceRefresh();
-    await instance.refreshComplete();
+    await instance.forceRefresh();
 
     t.ok(
       cancelRefreshCalled,
@@ -293,7 +292,7 @@ t.test('CloudSQLInstance', async t => {
     let cancelRefreshCalled = false;
     let refreshCalled = false;
 
-    const refreshPromise = instance.refresh();
+    instance.refresh();
 
     instance.cancelRefresh = () => {
       cancelRefreshCalled = true;
@@ -305,8 +304,7 @@ t.test('CloudSQLInstance', async t => {
       return CloudSQLInstance.prototype.refresh.call(instance);
     };
 
-    instance.forceRefresh();
-    await instance.refreshComplete()
+    await instance.forceRefresh();
 
     t.ok(
       !cancelRefreshCalled,
@@ -476,6 +474,43 @@ t.test('CloudSQLInstance', async t => {
       instance.cancelRefresh();
 
       t.ok('should not leave hanging setTimeout');
+    }
+  );
+
+  t.test(
+    'close on established connection and ongoing failed cycle',
+    async t => {
+      let metadataCount = 0;
+      const failAndSlowFetcher = {
+        ...fetcher,
+        async getInstanceMetadata() {
+          await (() => new Promise(res => setTimeout(res, 50)))();
+          metadataCount++;
+          return fetcher.getInstanceMetadata();
+        },
+      };
+
+      const instance = new CloudSQLInstance({
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: failAndSlowFetcher,
+        limitRateInterval: 50,
+      });
+
+      await instance.refresh();
+      instance.setEstablishedConnection();
+
+      // starts a new refresh cycle but do not await on it
+      instance.close();
+      await instance.forceRefresh();
+      t.equal(metadataCount, 1, 'No refresh after close');
+
+      await t.rejects(
+        instance.refresh(),
+        'closed',
+        'Refresh after close rejected.'
+      );
     }
   );
 
