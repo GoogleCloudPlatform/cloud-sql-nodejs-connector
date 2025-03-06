@@ -17,6 +17,4 @@ export interface InstanceConnectionInfo {
   regionId: string;
   instanceId: string;
   domainName: string | undefined;
-
-
 }

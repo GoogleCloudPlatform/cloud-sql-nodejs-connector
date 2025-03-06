@@ -141,9 +141,7 @@ t.test(
   async t => {
     const connector = new Connector();
     const clientOpts = await connector.getOptions({
-      instanceConnectionName: String(
-        process.env.POSTGRES_CUSTOMER_CAS_DOMAIN_NAME
-      ),
+      domainName: String(process.env.POSTGRES_CUSTOMER_CAS_DOMAIN_NAME),
     });
     const client = new Client({
       ...clientOpts,
@@ -173,9 +171,7 @@ t.test(
   async t => {
     const connector = new Connector();
     const clientOpts = await connector.getOptions({
-      instanceConnectionName: String(
-        process.env.POSTGRES_CUSTOMER_CAS_INVALID_DOMAIN_NAME
-      ),
+      domainName: String(process.env.POSTGRES_CUSTOMER_CAS_INVALID_DOMAIN_NAME),
     });
     const client = new Client({
       ...clientOpts,
@@ -202,3 +198,4 @@ t.test(
     }
   }
 );
+

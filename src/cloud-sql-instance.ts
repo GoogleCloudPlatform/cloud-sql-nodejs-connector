@@ -14,7 +14,10 @@
 
 import {IpAddressTypes, selectIpAddress} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
-import {resolveInstanceName} from './parse-instance-connection-name';
+import {
+  isSameInstance,
+  resolveInstanceName,
+} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
 import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
@@ -57,7 +60,10 @@ export class CloudSQLInstance {
   ): Promise<CloudSQLInstance> {
     const instance = new CloudSQLInstance({
       options: options,
-      instanceInfo: await resolveInstanceName(options.instanceConnectionName, options.domainName),
+      instanceInfo: await resolveInstanceName(
+        options.instanceConnectionName,
+        options.domainName
+      ),
     });
     await instance.refresh();
     return instance;
@@ -311,5 +317,19 @@ export class CloudSQLInstance {
 
   isClosed(): boolean {
     return this.closed;
+  }
+  async checkDomainChanged() {
+    if (!this.instanceInfo.domainName) {
+      return;
+    }
+
+    const newInfo = await resolveInstanceName(
+      undefined,
+      this.instanceInfo.domainName
+    );
+    if (!isSameInstance(this.instanceInfo, newInfo)) {
+      // Domain name changed. Close and remove, then create a new map entry.
+      this.close();
+    }
   }
 }

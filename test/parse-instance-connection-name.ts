@@ -215,7 +215,7 @@ t.test('resolveInstanceName Mock DNS', async t => {
   );
 
   t.same(
-    await resolveInstanceName(undefined,'db.example.com'),
+    await resolveInstanceName(undefined, 'db.example.com'),
     {
       projectId: 'my-project',
       regionId: 'region-1',
@@ -237,25 +237,25 @@ t.test('resolveInstanceName Mock DNS', async t => {
   );
 
   await t.rejects(
-    resolveInstanceName(undefined,'bad.example.com'),
+    resolveInstanceName(undefined, 'bad.example.com'),
     {code: 'EBADDOMAINCONNECTIONNAME'},
     'should throw type error if an extra item is provided'
   );
 
   await t.rejects(
-    resolveInstanceName(undefined,'no-record.example.com'),
+    resolveInstanceName(undefined, 'no-record.example.com'),
     {code: 'EDOMAINNAMELOOKUPERROR'},
     'should throw type error if an extra item is provided'
   );
 
   await t.rejects(
-    resolveInstanceName(undefined,''),
+    resolveInstanceName(undefined, ''),
     {code: 'ENOCONNECTIONNAME'},
     'should throw type error if the connection name is empty'
   );
 
   await t.rejects(
-    resolveInstanceName(undefined,'bad-name'),
+    resolveInstanceName(undefined, 'bad-name'),
     {code: 'EBADCONNECTIONNAME'},
     'should throw type error if the connection name is empty'
   );

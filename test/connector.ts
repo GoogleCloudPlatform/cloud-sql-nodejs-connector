@@ -20,7 +20,6 @@ import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {AuthTypes} from '../src/auth-types';
 import {SQLAdminFetcherOptions} from '../src/sqladmin-fetcher';
-import {resolveTxtRecord} from '../src/dns-lookup';
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
@@ -219,6 +218,10 @@ t.test('start only a single instance info per connection name', async t => {
           return {
             ipType: IpAddressTypes.PUBLIC,
             authType: AuthTypes.PASSWORD,
+            checkDomainChanged() {},
+            isClosed() {
+              return false;
+            },
           };
         },
       },
@@ -238,62 +241,68 @@ t.test('start only a single instance info per connection name', async t => {
   });
 });
 
-t.test('Connector with mismatching auth type creates separate instances', async t => {
-  setupCredentials(t);
-  let instancesCreated = 0;
-  // mocks sql admin fetcher and generateKeys modules
-  // so that they can return a deterministic result
-  const {Connector} = t.mockRequire('../src/connector', {
-    '../src/sqladmin-fetcher': {
-      SQLAdminFetcher: class {
-        getInstanceMetadata() {
-          return Promise.resolve({
-            ipAddresses: {
-              public: '127.0.0.1',
-            },
-            serverCaCert: {
-              cert: CA_CERT,
+t.test(
+  'Connector with mismatching auth type creates separate instances',
+  async t => {
+    setupCredentials(t);
+    let instancesCreated = 0;
+    // mocks sql admin fetcher and generateKeys modules
+    // so that they can return a deterministic result
+    const {Connector} = t.mockRequire('../src/connector', {
+      '../src/sqladmin-fetcher': {
+        SQLAdminFetcher: class {
+          getInstanceMetadata() {
+            return Promise.resolve({
+              ipAddresses: {
+                public: '127.0.0.1',
+              },
+              serverCaCert: {
+                cert: CA_CERT,
+                expirationTime: '2033-01-06T10:00:00.232Z',
+              },
+            });
+          }
+          getEphemeralCertificate() {
+            return Promise.resolve({
+              cert: CLIENT_CERT,
               expirationTime: '2033-01-06T10:00:00.232Z',
-            },
-          });
-        }
-        getEphemeralCertificate() {
-          return Promise.resolve({
-            cert: CLIENT_CERT,
-            expirationTime: '2033-01-06T10:00:00.232Z',
-          });
-        }
-      },
-    },
-    '../src/cloud-sql-instance': {
-      CloudSQLInstance: {
-        async getCloudSQLInstance() {
-          instancesCreated++
-          return {
-            ipType: IpAddressTypes.PUBLIC,
-            authType: AuthTypes.PASSWORD,
-          };
+            });
+          }
         },
       },
-    },
-  });
+      '../src/cloud-sql-instance': {
+        CloudSQLInstance: {
+          async getCloudSQLInstance() {
+            instancesCreated++;
+            return {
+              ipType: IpAddressTypes.PUBLIC,
+              authType: AuthTypes.PASSWORD,
+            };
+          },
+        },
+      },
+    });
 
-  const connector = new Connector();
-  await connector.getOptions({
-    ipType: 'PUBLIC',
-    authType: 'PASSWORD',
-    instanceConnectionName: 'foo:bar:baz',
-  });
+    const connector = new Connector();
+    await connector.getOptions({
+      ipType: 'PUBLIC',
+      authType: 'PASSWORD',
+      instanceConnectionName: 'foo:bar:baz',
+    });
 
-
-  await connector.getOptions({
+    await connector.getOptions({
       ipType: 'PUBLIC',
       authType: 'IAM',
       instanceConnectionName: 'foo:bar:baz',
     });
 
-  t.same(instancesCreated, 2, "An instance created for each different configuration")
-});
+    t.same(
+      instancesCreated,
+      2,
+      'An instance created for each different configuration'
+    );
+  }
+);
 
 t.test('Connector, supporting Tedious driver', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
@@ -507,10 +516,10 @@ t.test('Connector, custom userAgent', async t => {
 
 function setupConnectorModule(t) {
   setupCredentials(t);
-  let response = {
+  const response = {
     instancesCreated: 0,
-    resolveTxtResponse: "project:region1:instance",
-    Connector:null
+    resolveTxtResponse: 'project:region1:instance',
+    Connector: null,
   };
   // mocks sql admin fetcher and generateKeys modules
   // so that they can return a deterministic result
@@ -544,28 +553,28 @@ function setupConnectorModule(t) {
         }),
       },
       '../src/dns-lookup': {
-        async resolveTxtRecord(domainName: string): Promise<string> {
-          return response.resolveTxtResponse
-        }
+        async resolveTxtRecord(): Promise<string> {
+          return response.resolveTxtResponse;
+        },
       },
     }),
     '../src/dns-lookup': {
-      async resolveTxtRecord(domainName: string): Promise<string> {
-        return response.resolveTxtResponse
-      }
-    }
+      async resolveTxtRecord(): Promise<string> {
+        return response.resolveTxtResponse;
+      },
+    },
   });
   response.Connector = Connector;
 
-  return response
+  return response;
 }
 
 t.test('Connector by domain resolves and creates instance', async t => {
-  let th = setupConnectorModule(t);
+  const th = setupConnectorModule(t);
   const connector = new th.Connector();
-  t.after(() =>{
-    connector.close()
-  })
+  t.after(() => {
+    connector.close();
+  });
 
   // Get options twice
   await connector.getOptions({
@@ -581,19 +590,20 @@ t.test('Connector by domain resolves and creates instance', async t => {
   });
 
   // Ensure there is only one entry.
-  t.same(connector.instances.size, 1)
-  for (let [k,v] of connector.instances) {
-    t.same(v.instanceInfo.domainName, "db.example.com");
-    t.same(v.instanceInfo.instanceId, "instance")
-  }
+  t.same(connector.instances.size, 1);
+  const oldInstance = connector.instances.get(
+    'db.example.com-PASSWORD-PUBLIC'
+  ).instance;
+  t.same(oldInstance.instanceInfo.domainName, 'db.example.com');
+  t.same(oldInstance.instanceInfo.instanceId, 'instance');
 });
 
 t.test('Connector by domain resolves and creates instance', async t => {
-  let th = setupConnectorModule(t);
+  const th = setupConnectorModule(t);
   const connector = new th.Connector();
-  t.after(() =>{
-    connector.close()
-  })
+  t.after(() => {
+    connector.close();
+  });
 
   // Get options loads the instance
   await connector.getOptions({
@@ -603,24 +613,28 @@ t.test('Connector by domain resolves and creates instance', async t => {
   });
 
   // Ensure there is only one entry.
-  t.same(connector.instances.size, 1)
-  let oldInstance = connector.instances.get("db.example.com-PASSWORD-PUBLIC")
-  t.same(oldInstance.instanceInfo.domainName, "db.example.com");
-  t.same(oldInstance.instanceInfo.instanceId, "instance")
+  t.same(connector.instances.size, 1);
+  const oldInstance = connector.instances.get(
+    'db.example.com-PASSWORD-PUBLIC'
+  ).instance;
+  t.same(oldInstance.instanceInfo.domainName, 'db.example.com');
+  t.same(oldInstance.instanceInfo.instanceId, 'instance');
 
   // getOptions after DNS response changes closes the old instance
   // and loads a new one.
-  th.resolveTxtResponse = "project:region2:instance2"
+  th.resolveTxtResponse = 'project:region2:instance2';
   await connector.getOptions({
     ipType: 'PUBLIC',
     authType: 'PASSWORD',
     domainName: 'db.example.com',
   });
-  t.same(connector.instances.size, 1)
-  let newInstance = connector.instances.get("db.example.com-PASSWORD-PUBLIC")
-  t.same(newInstance.instanceInfo.domainName, "db.example.com");
-  t.same(newInstance.instanceInfo.instanceId, "instance2")
-  t.same(oldInstance.isClosed(), true, "old instance is closed")
+  t.same(connector.instances.size, 1);
+  const newInstance = connector.instances.get(
+    'db.example.com-PASSWORD-PUBLIC'
+  ).instance;
+  t.same(newInstance.instanceInfo.domainName, 'db.example.com');
+  t.same(newInstance.instanceInfo.instanceId, 'instance2');
+  t.same(oldInstance.isClosed(), true, 'old instance is closed');
 
   connector.close();
 });
