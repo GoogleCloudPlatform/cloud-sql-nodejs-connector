@@ -14,13 +14,26 @@
 
 import {IpAddressTypes, selectIpAddress} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
-import {resolveInstanceName} from './parse-instance-connection-name';
+import {
+  isSameInstance,
+  resolveInstanceName,
+} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
 import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {getRefreshInterval, isExpirationTimeValid} from './time';
 import {AuthTypes} from './auth-types';
+import {CloudSQLConnectorError} from './errors';
+
+// Private types that describe exactly the methods
+// needed from tls.Socket to be able to close
+// sockets when the DNS Name changes.
+type EventFn = () => void;
+type ClosableSocket = {
+  destroy: (error?: Error) => void;
+  once: (name: string, handler: EventFn) => void;
+};
 
 interface Fetcher {
   getInstanceMetadata({
@@ -42,6 +55,7 @@ interface CloudSQLInstanceOptions {
   ipType: IpAddressTypes;
   limitRateInterval?: number;
   sqlAdminFetcher: Fetcher;
+  checkDomainInterval?: number;
 }
 
 interface RefreshResult {
@@ -74,9 +88,13 @@ export class CloudSQLInstance {
   // The ongoing refresh promise is referenced by the `next` property
   private next?: Promise<RefreshResult>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
+  private checkDomainID?: ReturnType<typeof setInterval> | null = undefined;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private throttle?: any;
   private closed = false;
+  private checkDomainInterval: number;
+  private sockets = new Set<ClosableSocket>();
+
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
@@ -98,6 +116,7 @@ export class CloudSQLInstance {
     this.ipType = options.ipType || IpAddressTypes.PUBLIC;
     this.limitRateInterval = options.limitRateInterval || 30 * 1000; // 30 seconds
     this.sqlAdminFetcher = options.sqlAdminFetcher;
+    this.checkDomainInterval = options.checkDomainInterval || 30 * 1000;
   }
 
   // p-throttle library has to be initialized in an async scope in order to
@@ -151,6 +170,14 @@ export class CloudSQLInstance {
       this.scheduledRefreshID = undefined;
       this.next = undefined;
       return Promise.reject('closed');
+    }
+    if (this?.instanceInfo?.domainName && !this.checkDomainID) {
+      this.checkDomainID = setInterval(
+        () => {
+          this.checkDomainChanged();
+        },
+        this.checkDomainInterval || 30 * 1000
+      );
     }
 
     const currentRefreshId = this.scheduledRefreshID;
@@ -296,8 +323,8 @@ export class CloudSQLInstance {
     // If refresh has not yet started, then cancel the setTimeout
     if (this.scheduledRefreshID) {
       clearTimeout(this.scheduledRefreshID);
+      this.scheduledRefreshID = null;
     }
-    this.scheduledRefreshID = null;
   }
 
   // Mark this instance as having an active connection. This is important to
@@ -312,9 +339,48 @@ export class CloudSQLInstance {
   close(): void {
     this.closed = true;
     this.cancelRefresh();
+    if (this.checkDomainID) {
+      clearInterval(this.checkDomainID);
+      this.checkDomainID = null;
+    }
+    for (const socket of this.sockets) {
+      socket.destroy(
+        new CloudSQLConnectorError({
+          code: 'ERRCLOSED',
+          message: 'The connector was closed.',
+        })
+      );
+    }
   }
 
   isClosed(): boolean {
     return this.closed;
+  }
+  async checkDomainChanged() {
+    if (!this.instanceInfo.domainName) {
+      return;
+    }
+
+    const newInfo = await resolveInstanceName(
+      undefined,
+      this.instanceInfo.domainName
+    );
+    if (!isSameInstance(this.instanceInfo, newInfo)) {
+      // Domain name changed. Close and remove, then create a new map entry.
+      this.close();
+    }
+  }
+  addSocket(socket: ClosableSocket) {
+    if (!this.instanceInfo.domainName) {
+      // This was not connected by domain name. Ignore all sockets.
+      return;
+    }
+
+    // Add the socket to the list
+    this.sockets.add(socket);
+    // When the socket is closed, remove it.
+    socket.once('closed', () => {
+      this.sockets.delete(socket);
+    });
   }
 }

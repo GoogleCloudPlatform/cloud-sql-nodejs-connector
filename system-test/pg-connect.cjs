@@ -20,13 +20,13 @@ const {Client} = pg;
 t.test('open connection and retrieves standard pg tables', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
-    instanceConnectionName: String(process.env.POSTGRES_CONNECTION_NAME),
+    instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
   });
   const client = new Client({
     ...clientOpts,
-    user: String(process.env.POSTGRES_USER),
-    password: String(process.env.POSTGRES_PASS),
-    database: String(process.env.POSTGRES_DB),
+    user: process.env.POSTGRES_USER,
+    password: process.env.POSTGRES_PASS,
+    database: process.env.POSTGRES_DB,
   });
   t.after(async () => {
     try {
@@ -48,14 +48,14 @@ t.test('open connection and retrieves standard pg tables', async t => {
 t.test('open IAM connection and retrieves standard pg tables', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
-    instanceConnectionName: String(process.env.POSTGRES_CONNECTION_NAME),
-    ipType: "PUBLIC",
-    authType: "IAM",
+    instanceConnectionName: process.env.POSTGRES_CONNECTION_NAME,
+    ipType: 'PUBLIC',
+    authType: 'IAM',
   });
   const client = new Client({
     ...clientOpts,
-    user: String(process.env.POSTGRES_USER_IAM_NODE),
-    database: String(process.env.POSTGRES_DB),
+    user: process.env.POSTGRES_IAM_USER,
+    database: process.env.POSTGRES_DB,
   });
   t.after(async () => {
     try {
@@ -82,9 +82,9 @@ t.test(
     });
     const client = new Client({
       ...clientOpts,
-      user: String(process.env.POSTGRES_USER),
-      password: String(process.env.POSTGRES_CAS_PASS),
-      database: String(process.env.POSTGRES_DB),
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_CAS_PASS,
+      database: process.env.POSTGRES_DB,
     });
     t.after(async () => {
       try {
