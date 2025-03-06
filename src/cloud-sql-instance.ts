@@ -38,6 +38,7 @@ interface Fetcher {
 interface CloudSQLInstanceOptions {
   authType: AuthTypes;
   instanceConnectionName: string;
+  domainName?: string;
   ipType: IpAddressTypes;
   limitRateInterval?: number;
   sqlAdminFetcher: Fetcher;
@@ -56,7 +57,7 @@ export class CloudSQLInstance {
   ): Promise<CloudSQLInstance> {
     const instance = new CloudSQLInstance({
       options: options,
-      instanceInfo: await resolveInstanceName(options.instanceConnectionName),
+      instanceInfo: await resolveInstanceName(options.instanceConnectionName, options.domainName),
     });
     await instance.refresh();
     return instance;
@@ -306,5 +307,9 @@ export class CloudSQLInstance {
   close(): void {
     this.closed = true;
     this.cancelRefresh();
+  }
+
+  isClosed(): boolean {
+    return this.closed;
   }
 }

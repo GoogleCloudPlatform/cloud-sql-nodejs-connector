@@ -16,19 +16,27 @@ import {InstanceConnectionInfo} from './instance-connection-info';
 import {CloudSQLConnectorError} from './errors';
 import {resolveTxtRecord} from './dns-lookup';
 
+export function isSameInstance(a: InstanceConnectionInfo, b: InstanceConnectionInfo): boolean {
+  return a.instanceId == b.instanceId &&
+    a.regionId == b.regionId &&
+    a.projectId == b.projectId &&
+    a.domainName == b.domainName;
+}
+
 export async function resolveInstanceName(
-  name: string | undefined
+  instanceConnectionName?: string,
+  domainName?: string
 ): Promise<InstanceConnectionInfo> {
-  if (!name) {
+  if (!instanceConnectionName && !domainName) {
     throw new CloudSQLConnectorError({
       message:
-        'Missing instance connection name, expected: "PROJECT:REGION:INSTANCE"',
+        'Missing instance connection name, expected: "PROJECT:REGION:INSTANCE" or a valid domain name.',
       code: 'ENOCONNECTIONNAME',
     });
-  } else if (isInstanceConnectionName(name)) {
-    return parseInstanceConnectionName(name);
-  } else if (isValidDomainName(name)) {
-    return await resolveDomainName(name);
+  } else if (instanceConnectionName && isInstanceConnectionName(instanceConnectionName)) {
+    return parseInstanceConnectionName(instanceConnectionName);
+  } else if (domainName && isValidDomainName(domainName)) {
+    return await resolveDomainName(domainName);
   } else {
     throw new CloudSQLConnectorError({
       message:

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Server, Socket, createServer} from 'node:net';
+import {createServer, Server, Socket} from 'node:net';
 import tls from 'node:tls';
 import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
@@ -22,6 +22,7 @@ import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
+import {isSameInstance, resolveInstanceName} from './parse-instance-connection-name';
 
 // These Socket types are subsets from nodejs definitely typed repo, ref:
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
@@ -43,6 +44,7 @@ export declare interface ConnectionOptions {
   authType?: AuthTypes;
   ipType?: IpAddressTypes;
   instanceConnectionName: string;
+  domainName?: string;
 }
 
 export declare interface SocketConnectionOptions extends ConnectionOptions {
@@ -75,65 +77,64 @@ export declare interface TediousDriverOptions {
 
 // Internal mapping of the CloudSQLInstances that
 // adds extra logic to async initialize items.
-class CloudSQLInstanceMap extends Map {
-  async loadInstance({
-    ipType,
-    authType,
-    instanceConnectionName,
-    sqlAdminFetcher,
-  }: {
-    ipType: IpAddressTypes;
-    authType: AuthTypes;
-    instanceConnectionName: string;
-    sqlAdminFetcher: SQLAdminFetcher;
-  }): Promise<void> {
-    // in case an instance to that connection name has already
-    // been setup there's no need to set it up again
-    if (this.has(instanceConnectionName)) {
-      const instance = this.get(instanceConnectionName);
-      if (instance.authType && instance.authType !== authType) {
-        throw new CloudSQLConnectorError({
-          message:
-            `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
-            `but was previously called with authType ${instance.authType}. ` +
-            'If you require both for your use case, please use a new connector object.',
-          code: 'EMISMATCHAUTHTYPE',
-        });
-      }
-      return;
-    }
-    const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
-      ipType,
-      authType,
-      instanceConnectionName,
-      sqlAdminFetcher: sqlAdminFetcher,
-    });
-    this.set(instanceConnectionName, connectionInstance);
+class CloudSQLInstanceMap extends Map<string,CloudSQLInstance> {
+  private readonly sqlAdminFetcher: SQLAdminFetcher
+
+  constructor(sqlAdminFetcher: SQLAdminFetcher) {
+    super();
+    this.sqlAdminFetcher = sqlAdminFetcher;
   }
 
-  getInstance({
-    instanceConnectionName,
-    authType,
-  }: {
-    instanceConnectionName: string;
-    authType: AuthTypes;
-  }): CloudSQLInstance {
-    const connectionInstance = this.get(instanceConnectionName);
+  private cacheKey(opts: ConnectionOptions): string {
+    //TODO: for now, the cache key function must be synchronous.
+    //  When we implement the async connection info from
+    //  https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/pull/426
+    //  then the cache key should contain both the domain name
+    //  and the resolved instance name.
+    return (opts.instanceConnectionName || opts.domainName)+"-"+
+      opts.authType+"-"+opts.ipType;
+  }
+
+  async loadInstance(opts: ConnectionOptions): Promise<void> {
+    // in case an instance to that connection name has already
+    // been setup there's no need to set it up again
+    if (this.has(this.cacheKey(opts))) {
+      const instance = this.get(this.cacheKey(opts));
+      let oldInfo = instance?.instanceInfo
+      if(oldInfo && oldInfo.domainName){
+        // configured with domain name
+        let newInfo = await resolveInstanceName(undefined, oldInfo.domainName);
+        if(!isSameInstance(oldInfo, newInfo) ) {
+          // Domain name changed. Close and remove, then create a new map entry.
+          instance?.close();
+          this.delete(this.cacheKey(opts))
+        } else {
+          // Domain name resolves to the same instance, do nothing.
+          return
+        }
+      } else{
+        // Configured with instance name. Existing map entry is OK.
+        return;
+      }
+    }
+
+    const connectionInstance = await CloudSQLInstance.getCloudSQLInstance({
+      instanceConnectionName: opts.instanceConnectionName,
+      domainName: opts.domainName,
+      authType: opts.authType || AuthTypes.PASSWORD,
+      ipType: opts.ipType || IpAddressTypes.PUBLIC,
+      limitRateInterval: 30 * 1000, // 30 sec
+      sqlAdminFetcher: this.sqlAdminFetcher,
+    });
+    this.set(this.cacheKey(opts), connectionInstance);
+  }
+
+  getInstance(opts: ConnectionOptions): CloudSQLInstance {
+    const connectionInstance = this.get(this.cacheKey(opts));
     if (!connectionInstance) {
       throw new CloudSQLConnectorError({
-        message: `Cannot find info for instance: ${instanceConnectionName}`,
+        message: `Cannot find info for instance: ${opts.instanceConnectionName}`,
         code: 'ENOINSTANCEINFO',
-      });
-    } else if (
-      connectionInstance.authType &&
-      connectionInstance.authType !== authType
-    ) {
-      throw new CloudSQLConnectorError({
-        message:
-          `getOptions called for instance ${instanceConnectionName} with authType ${authType}, ` +
-          `but was previously called with authType ${connectionInstance.authType}. ` +
-          'If you require both for your use case, please use a new connector object.',
-        code: 'EMISMATCHAUTHTYPE',
       });
     }
     return connectionInstance;
@@ -161,13 +162,13 @@ export class Connector {
   private readonly sockets: Set<Socket>;
 
   constructor(opts: ConnectorOptions = {}) {
-    this.instances = new CloudSQLInstanceMap();
     this.sqlAdminFetcher = new SQLAdminFetcher({
       loginAuth: opts.auth,
       sqlAdminAPIEndpoint: opts.sqlAdminAPIEndpoint,
       universeDomain: opts.universeDomain,
       userAgent: opts.userAgent,
     });
+    this.instances = new CloudSQLInstanceMap(this.sqlAdminFetcher);
     this.localProxies = new Set();
     this.sockets = new Set();
   }
@@ -184,22 +185,25 @@ export class Connector {
   // const pool = new Pool(opts)
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions({
-    authType = AuthTypes.PASSWORD,
-    ipType = IpAddressTypes.PUBLIC,
-    instanceConnectionName,
-  }: ConnectionOptions): Promise<DriverOptions> {
+                     authType = AuthTypes.PASSWORD,
+                     ipType = IpAddressTypes.PUBLIC,
+                     instanceConnectionName,
+                     domainName,
+                   }: ConnectionOptions): Promise<DriverOptions> {
     const {instances} = this;
     await instances.loadInstance({
       ipType,
       authType,
       instanceConnectionName,
-      sqlAdminFetcher: this.sqlAdminFetcher,
+      domainName
     });
 
     return {
       stream() {
         const cloudSqlInstance = instances.getInstance({
+          ipType,
           instanceConnectionName,
+          domainName,
           authType,
         });
         const {
@@ -249,10 +253,10 @@ export class Connector {
   }
 
   async getTediousOptions({
-    authType,
-    ipType,
-    instanceConnectionName,
-  }: ConnectionOptions): Promise<TediousDriverOptions> {
+                            authType,
+                            ipType,
+                            instanceConnectionName,
+                          }: ConnectionOptions): Promise<TediousDriverOptions> {
     if (authType === AuthTypes.IAM) {
       throw new CloudSQLConnectorError({
         message: 'Tedious does not support Auto IAM DB Authentication',
@@ -289,11 +293,11 @@ export class Connector {
   //  `postgresql://${user}@localhost/${database}?host=${process.cwd()}`;
   // const prisma = new PrismaClient({ datasourceUrl });
   async startLocalProxy({
-    authType,
-    ipType,
-    instanceConnectionName,
-    listenOptions,
-  }: SocketConnectionOptions): Promise<void> {
+                          authType,
+                          ipType,
+                          instanceConnectionName,
+                          listenOptions,
+                        }: SocketConnectionOptions): Promise<void> {
     const {stream} = await this.getOptions({
       authType,
       ipType,
@@ -343,5 +347,9 @@ export class Connector {
     for (const socket of this.sockets) {
       socket.destroy();
     }
+  }
+
+  isClosed():boolean {
+    return this.closed;
   }
 }
