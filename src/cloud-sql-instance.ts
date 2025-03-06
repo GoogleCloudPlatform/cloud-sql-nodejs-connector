@@ -45,6 +45,7 @@ interface CloudSQLInstanceOptions {
   ipType: IpAddressTypes;
   limitRateInterval?: number;
   sqlAdminFetcher: Fetcher;
+  checkDomainInterval?: number
 }
 
 interface RefreshResult {
@@ -77,9 +78,12 @@ export class CloudSQLInstance {
   // The ongoing refresh promise is referenced by the `next` property
   private next?: Promise<RefreshResult>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
+  private checkDomainID?: ReturnType<typeof setTimeout> | null = undefined;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private throttle?: any;
   private closed = false;
+  private checkDomainInterval:number;
+
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
   public host?: string;
@@ -101,6 +105,7 @@ export class CloudSQLInstance {
     this.ipType = options.ipType || IpAddressTypes.PUBLIC;
     this.limitRateInterval = options.limitRateInterval || 30 * 1000; // 30 seconds
     this.sqlAdminFetcher = options.sqlAdminFetcher;
+    this.checkDomainInterval = options.checkDomainInterval || 30* 1000;
   }
 
   // p-throttle library has to be initialized in an async scope in order to
@@ -152,6 +157,11 @@ export class CloudSQLInstance {
       this.scheduledRefreshID = undefined;
       this.next = undefined;
       return Promise.reject('closed');
+    }
+    if(this?.instanceInfo?.domainName && ! this.checkDomainID){
+      this.checkDomainID = setInterval(()=>{
+        this.checkDomainChanged()
+      }, this.checkDomainInterval || 30*1000)
     }
 
     const currentRefreshId = this.scheduledRefreshID;
@@ -297,8 +307,8 @@ export class CloudSQLInstance {
     // If refresh has not yet started, then cancel the setTimeout
     if (this.scheduledRefreshID) {
       clearTimeout(this.scheduledRefreshID);
+      this.scheduledRefreshID = null
     }
-    this.scheduledRefreshID = null;
   }
 
   // Mark this instance as having an active connection. This is important to
@@ -313,6 +323,10 @@ export class CloudSQLInstance {
   close(): void {
     this.closed = true;
     this.cancelRefresh();
+    if(this.checkDomainID){
+      clearInterval(this.checkDomainID);
+      this.checkDomainID = null
+    }
   }
 
   isClosed(): boolean {

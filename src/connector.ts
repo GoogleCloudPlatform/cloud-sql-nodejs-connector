@@ -44,6 +44,8 @@ export declare interface ConnectionOptions {
   ipType?: IpAddressTypes;
   instanceConnectionName: string;
   domainName?: string;
+  checkDomainInterval?: number
+  limitRateInterval?: number
 }
 
 export declare interface SocketConnectionOptions extends ConnectionOptions {
@@ -139,8 +141,9 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
       domainName: opts.domainName,
       authType: opts.authType || AuthTypes.PASSWORD,
       ipType: opts.ipType || IpAddressTypes.PUBLIC,
-      limitRateInterval: 30 * 1000, // 30 sec
+      limitRateInterval: opts.limitRateInterval || 30 * 1000, // 30 sec
       sqlAdminFetcher: this.sqlAdminFetcher,
+      checkDomainInterval: opts.checkDomainInterval
     });
     this.set(this.cacheKey(opts), new CacheEntry(promise));
 
@@ -203,28 +206,13 @@ export class Connector {
   // });
   // const pool = new Pool(opts)
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
-  async getOptions({
-    authType = AuthTypes.PASSWORD,
-    ipType = IpAddressTypes.PUBLIC,
-    instanceConnectionName,
-    domainName,
-  }: ConnectionOptions): Promise<DriverOptions> {
+  async getOptions(opts: ConnectionOptions): Promise<DriverOptions> {
     const {instances} = this;
-    await instances.loadInstance({
-      ipType,
-      authType,
-      instanceConnectionName,
-      domainName,
-    });
+    await instances.loadInstance(opts);
 
     return {
       stream() {
-        const cloudSqlInstance = instances.getInstance({
-          ipType,
-          instanceConnectionName,
-          domainName,
-          authType,
-        });
+        const cloudSqlInstance = instances.getInstance(opts);
         const {
           instanceInfo,
           ephemeralCert,

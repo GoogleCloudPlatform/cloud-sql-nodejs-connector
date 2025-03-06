@@ -638,3 +638,81 @@ t.test('Connector by domain resolves and creates instance', async t => {
 
   connector.close();
 });
+
+
+t.test('Connector by domain resolves and creates instance', async t => {
+  const th = setupConnectorModule(t);
+  const connector = new th.Connector();
+  t.after(() => {
+    connector.close();
+  });
+
+  // Get options loads the instance
+  await connector.getOptions({
+    ipType: 'PUBLIC',
+    authType: 'PASSWORD',
+    domainName: 'db.example.com',
+  });
+
+  // Ensure there is only one entry.
+  t.same(connector.instances.size, 1);
+  const oldInstance = connector.instances.get(
+    'db.example.com-PASSWORD-PUBLIC'
+  ).instance;
+  t.same(oldInstance.instanceInfo.domainName, 'db.example.com');
+  t.same(oldInstance.instanceInfo.instanceId, 'instance');
+
+  // getOptions after DNS response changes closes the old instance
+  // and loads a new one.
+  th.resolveTxtResponse = 'project:region2:instance2';
+  await connector.getOptions({
+    ipType: 'PUBLIC',
+    authType: 'PASSWORD',
+    domainName: 'db.example.com',
+  });
+  t.same(connector.instances.size, 1);
+  const newInstance = connector.instances.get(
+    'db.example.com-PASSWORD-PUBLIC'
+  ).instance;
+  t.same(newInstance.instanceInfo.domainName, 'db.example.com');
+  t.same(newInstance.instanceInfo.instanceId, 'instance2');
+  t.same(oldInstance.isClosed(), true, 'old instance is closed');
+
+  connector.close();
+});
+
+
+t.test('Connector checks if name changes in background and closes connector', async t => {
+  const th = setupConnectorModule(t);
+  const connector = new th.Connector();
+  t.after(() => {
+    connector.close();
+  });
+
+  // Get options loads the instance
+  await connector.getOptions({
+    ipType: 'PUBLIC',
+    authType: 'PASSWORD',
+    domainName: 'db.example.com',
+    checkDomainInterval: 10, // 10ms for testing
+  });
+
+  // Ensure there is only one entry.
+  t.same(connector.instances.size, 1);
+  const oldInstance = connector.instances.get(
+    'db.example.com-PASSWORD-PUBLIC'
+  ).instance;
+  t.same(oldInstance.instanceInfo.domainName, 'db.example.com');
+  t.same(oldInstance.instanceInfo.instanceId, 'instance');
+
+  // getOptions after DNS response changes closes the old instance
+  // and loads a new one.
+  th.resolveTxtResponse = 'project:region2:instance2';
+  await new Promise((res) =>{
+    setTimeout(res, 50);
+  })
+
+  t.same(oldInstance.isClosed(), true, 'old instance is closed');
+
+  connector.close();
+});

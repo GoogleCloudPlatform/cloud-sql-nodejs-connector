@@ -67,6 +67,7 @@ t.test('CloudSQLInstance', async t => {
       instanceConnectionName: 'my-project:us-east1:my-instance',
       sqlAdminFetcher: fetcher,
     });
+    t.after(() =>instance.close())
 
     t.same(
       instance.ephemeralCert.cert,
@@ -115,6 +116,7 @@ t.test('CloudSQLInstance', async t => {
         limitRateInterval: 50,
       },
     });
+    t.after(() =>instance.close())
 
     await t.rejects(
       instance.refresh(),
@@ -135,6 +137,7 @@ t.test('CloudSQLInstance', async t => {
         limitRateInterval: 50,
       },
     });
+    t.after(() =>instance.close())
     instance.refresh = () => {
       if (refreshCount === 2) {
         const end = Date.now();
@@ -177,6 +180,7 @@ t.test('CloudSQLInstance', async t => {
           limitRateInterval: 50,
         },
       });
+      t.after(() =>instance.close())
       await (() =>
         new Promise((res): void => {
           let refreshCount = 0;
@@ -233,6 +237,7 @@ t.test('CloudSQLInstance', async t => {
           limitRateInterval: 50,
         },
       });
+      t.after(() =>instance.close())
       await (() =>
         new Promise((res): void => {
           let refreshCount = 0;
@@ -263,6 +268,7 @@ t.test('CloudSQLInstance', async t => {
         limitRateInterval: 50,
       },
     });
+    t.after(() =>instance.close())
 
     await instance.refresh();
 
@@ -302,6 +308,7 @@ t.test('CloudSQLInstance', async t => {
         limitRateInterval: 50,
       },
     });
+    t.after(() =>instance.close())
 
     let cancelRefreshCalled = false;
     let refreshCalled = false;
@@ -340,6 +347,7 @@ t.test('CloudSQLInstance', async t => {
         sqlAdminFetcher: fetcher,
       },
     });
+    t.after(() =>instance.close())
 
     const start = Date.now();
     // starts regular refresh cycle
@@ -379,6 +387,7 @@ t.test('CloudSQLInstance', async t => {
         sqlAdminFetcher: fetcher,
       },
     });
+    t.after(()=> instance.close())
     const start = Date.now();
     // starts out refresh logic
     let refreshCount = 1;
@@ -426,6 +435,7 @@ t.test('CloudSQLInstance', async t => {
         limitRateInterval: 50,
       },
     });
+    t.after(() =>instance.close())
 
     // starts a new refresh cycle but do not await on it
     instance.refresh();
@@ -453,6 +463,7 @@ t.test('CloudSQLInstance', async t => {
         limitRateInterval: 50,
       },
     });
+    t.after(() =>instance.close())
 
     // simulates an ongoing instance, already has data
     await instance.refresh();
@@ -489,6 +500,7 @@ t.test('CloudSQLInstance', async t => {
           limitRateInterval: 50,
         },
       });
+      t.after(() =>instance.close())
 
       await instance.refresh();
       instance.setEstablishedConnection();
@@ -524,6 +536,7 @@ t.test('CloudSQLInstance', async t => {
           limitRateInterval: 50,
         },
       });
+      t.after(() =>instance.close())
 
       await instance.refresh();
       instance.setEstablishedConnection();
@@ -592,6 +605,7 @@ t.test('CloudSQLInstance', async t => {
           limitRateInterval: 0,
         },
       });
+      t.after(() =>instance.close())
       await (() =>
         new Promise((res): void => {
           let refreshCount = 0;
@@ -615,6 +629,5 @@ t.test('CloudSQLInstance', async t => {
           instance.refresh();
           instance.setEstablishedConnection();
         }))();
-    }
-  );
+    });
 });
