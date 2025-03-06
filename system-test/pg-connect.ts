@@ -58,7 +58,7 @@ t.test('open IAM connection and retrieves standard pg tables', async t => {
   });
   const client = new Client({
     ...clientOpts,
-    user: String(process.env.POSTGRES_USER_IAM_NODE),
+    user: String(process.env.POSTGRES_IAM_USER),
     database: String(process.env.POSTGRES_DB),
   });
   t.after(async () => {
