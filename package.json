@@ -70,6 +70,7 @@
     "mysql2": "^3.2.0",
     "nock": "^13.3.0",
     "pg": "^8.10.0",
+    "prisma": "^6.4.1",
     "tap": "^21.0.0",
     "tedious": "^16.1.0",
     "typeorm": "^0.3.19",
@@ -84,6 +85,7 @@
   },
   "dependencies": {
     "@googleapis/sqladmin": "^24.0.0",
+    "@prisma/client": "^6.4.1",
     "gaxios": "^6.1.1",
     "google-auth-library": "^9.2.0",
     "p-throttle": "^7.0.0"
