@@ -218,6 +218,7 @@ t.test('start only a single instance info per connection name', async t => {
           return {
             ipType: IpAddressTypes.PUBLIC,
             authType: AuthTypes.PASSWORD,
+            checkDomainChanged() {},
             isClosed() {
               return false;
             },
@@ -590,9 +591,100 @@ t.test('Connector by domain resolves and creates instance', async t => {
 
   // Ensure there is only one entry.
   t.same(connector.instances.size, 1);
-  const newInstance = connector.instances.get(
+  const oldInstance = connector.instances.get(
     'db.example.com-PASSWORD-PUBLIC'
   ).instance;
-  t.same(newInstance.instanceInfo.domainName, 'db.example.com');
-  t.same(newInstance.instanceInfo.instanceId, 'instance');
+  t.same(oldInstance.instanceInfo.domainName, 'db.example.com');
+  t.same(oldInstance.instanceInfo.instanceId, 'instance');
 });
+
+t.test(
+  'Connector by domain resolves new instance after domain changes',
+  async t => {
+    const th = setupConnectorModule(t);
+    const connector = new th.Connector();
+    t.after(() => {
+      connector.close();
+    });
+
+    // Get options loads the instance
+    await connector.getOptions({
+      ipType: 'PUBLIC',
+      authType: 'PASSWORD',
+      domainName: 'db.example.com',
+    });
+
+    // Ensure there is only one entry.
+    t.same(connector.instances.size, 1);
+    const oldInstance = connector.instances.get(
+      'db.example.com-PASSWORD-PUBLIC'
+    ).instance;
+    t.same(oldInstance.instanceInfo.domainName, 'db.example.com');
+    t.same(oldInstance.instanceInfo.instanceId, 'instance');
+
+    // getOptions after DNS response changes closes the old instance
+    // and loads a new one.
+    th.resolveTxtResponse = 'project:region2:instance2';
+    await connector.getOptions({
+      ipType: 'PUBLIC',
+      authType: 'PASSWORD',
+      domainName: 'db.example.com',
+    });
+    t.same(connector.instances.size, 1);
+    const newInstance = connector.instances.get(
+      'db.example.com-PASSWORD-PUBLIC'
+    ).instance;
+    t.same(newInstance.instanceInfo.domainName, 'db.example.com');
+    t.same(newInstance.instanceInfo.instanceId, 'instance2');
+    t.same(oldInstance.isClosed(), true, 'old instance is closed');
+
+    connector.close();
+  }
+);
+
+t.test(
+  'Connector checks if name changes in background and closes connector',
+  async t => {
+    const th = setupConnectorModule(t);
+    const connector = new th.Connector();
+    t.after(() => {
+      connector.close();
+    });
+
+    // Get options loads the instance
+    await connector.getOptions({
+      ipType: 'PUBLIC',
+      authType: 'PASSWORD',
+      domainName: 'db.example.com',
+      checkDomainInterval: 10, // 10ms for testing
+    });
+
+    // Ensure there is only one entry.
+    t.same(connector.instances.size, 1);
+    const oldInstance = connector.instances.get(
+      'db.example.com-PASSWORD-PUBLIC'
+    ).instance;
+    t.same(oldInstance.instanceInfo.domainName, 'db.example.com');
+    t.same(oldInstance.instanceInfo.instanceId, 'instance');
+
+    // add a mock socket to the old instance
+    const mockSocket = {
+      destroyed: false,
+      once() {},
+      destroy() {
+        this.destroyed = true;
+      },
+    };
+    oldInstance.addSocket(mockSocket);
+
+    // getOptions after DNS response changes closes the old instance
+    // and loads a new one.
+    th.resolveTxtResponse = 'project:region2:instance2';
+    await new Promise(res => {
+      setTimeout(res, 50);
+    });
+
+    t.same(oldInstance.isClosed(), true, 'old instance is closed');
+    t.same(mockSocket.destroyed, true, 'old instance closed its sockets');
+  }
+);
