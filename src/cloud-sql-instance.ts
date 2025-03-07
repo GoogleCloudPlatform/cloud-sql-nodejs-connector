@@ -24,6 +24,16 @@ import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {getRefreshInterval, isExpirationTimeValid} from './time';
 import {AuthTypes} from './auth-types';
+import {CloudSQLConnectorError} from './errors';
+
+// Private types that describe exactly the methods
+// needed from tls.Socket to be able to close
+// sockets when the DNS Name changes.
+type EventFn = () => void;
+type ClosableSocket = {
+  destroy: (error?: Error) => void;
+  once: (name: string, handler: EventFn) => void;
+};
 
 interface Fetcher {
   getInstanceMetadata({
@@ -45,7 +55,7 @@ interface CloudSQLInstanceOptions {
   ipType: IpAddressTypes;
   limitRateInterval?: number;
   sqlAdminFetcher: Fetcher;
-  checkDomainInterval?: number
+  checkDomainInterval?: number;
 }
 
 interface RefreshResult {
@@ -78,11 +88,12 @@ export class CloudSQLInstance {
   // The ongoing refresh promise is referenced by the `next` property
   private next?: Promise<RefreshResult>;
   private scheduledRefreshID?: ReturnType<typeof setTimeout> | null = undefined;
-  private checkDomainID?: ReturnType<typeof setTimeout> | null = undefined;
+  private checkDomainID?: ReturnType<typeof setInterval> | null = undefined;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   private throttle?: any;
   private closed = false;
-  private checkDomainInterval:number;
+  private checkDomainInterval: number;
+  private sockets = new Set<ClosableSocket>();
 
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
@@ -105,7 +116,7 @@ export class CloudSQLInstance {
     this.ipType = options.ipType || IpAddressTypes.PUBLIC;
     this.limitRateInterval = options.limitRateInterval || 30 * 1000; // 30 seconds
     this.sqlAdminFetcher = options.sqlAdminFetcher;
-    this.checkDomainInterval = options.checkDomainInterval || 30* 1000;
+    this.checkDomainInterval = options.checkDomainInterval || 30 * 1000;
   }
 
   // p-throttle library has to be initialized in an async scope in order to
@@ -137,9 +148,9 @@ export class CloudSQLInstance {
   // in progress, the promise will resolve immediately.
   refreshComplete(): Promise<void> {
     return new Promise(resolve => {
-      // setTimeout() to yield execution to allow other refresh background
+      // setImmediate() to yield execution to allow other refresh background
       // tasks to start.
-      setTimeout(() => {
+      setImmediate(() => {
         if (this.next) {
           // If there is a refresh promise in progress, resolve this promise
           // when the refresh is complete.
@@ -148,7 +159,7 @@ export class CloudSQLInstance {
           // Else resolve immediately.
           resolve();
         }
-      }, 0);
+      });
     });
   }
 
@@ -158,10 +169,13 @@ export class CloudSQLInstance {
       this.next = undefined;
       return Promise.reject('closed');
     }
-    if(this?.instanceInfo?.domainName && ! this.checkDomainID){
-      this.checkDomainID = setInterval(()=>{
-        this.checkDomainChanged()
-      }, this.checkDomainInterval || 30*1000)
+    if (this?.instanceInfo?.domainName && !this.checkDomainID) {
+      this.checkDomainID = setInterval(
+        () => {
+          this.checkDomainChanged();
+        },
+        this.checkDomainInterval || 30 * 1000
+      );
     }
 
     const currentRefreshId = this.scheduledRefreshID;
@@ -307,7 +321,7 @@ export class CloudSQLInstance {
     // If refresh has not yet started, then cancel the setTimeout
     if (this.scheduledRefreshID) {
       clearTimeout(this.scheduledRefreshID);
-      this.scheduledRefreshID = null
+      this.scheduledRefreshID = null;
     }
   }
 
@@ -323,9 +337,17 @@ export class CloudSQLInstance {
   close(): void {
     this.closed = true;
     this.cancelRefresh();
-    if(this.checkDomainID){
+    if (this.checkDomainID) {
       clearInterval(this.checkDomainID);
-      this.checkDomainID = null
+      this.checkDomainID = null;
+    }
+    for (const socket of this.sockets) {
+      socket.destroy(
+        new CloudSQLConnectorError({
+          code: 'ERRCLOSED',
+          message: 'The connector was closed.',
+        })
+      );
     }
   }
 
@@ -345,5 +367,18 @@ export class CloudSQLInstance {
       // Domain name changed. Close and remove, then create a new map entry.
       this.close();
     }
+  }
+  addSocket(socket: ClosableSocket) {
+    if (!this.instanceInfo.domainName) {
+      // This was not connected by domain name. Ignore all sockets.
+      return;
+    }
+
+    // Add the socket to the list
+    this.sockets.add(socket);
+    // When the socket is closed, remove it.
+    socket.once('closed', () => {
+      this.sockets.delete(socket);
+    });
   }
 }

@@ -44,8 +44,8 @@ export declare interface ConnectionOptions {
   ipType?: IpAddressTypes;
   instanceConnectionName: string;
   domainName?: string;
-  checkDomainInterval?: number
-  limitRateInterval?: number
+  checkDomainInterval?: number;
+  limitRateInterval?: number;
 }
 
 export declare interface SocketConnectionOptions extends ConnectionOptions {
@@ -143,7 +143,7 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
       ipType: opts.ipType || IpAddressTypes.PUBLIC,
       limitRateInterval: opts.limitRateInterval || 30 * 1000, // 30 sec
       sqlAdminFetcher: this.sqlAdminFetcher,
-      checkDomainInterval: opts.checkDomainInterval
+      checkDomainInterval: opts.checkDomainInterval,
     });
     this.set(this.cacheKey(opts), new CacheEntry(promise));
 
@@ -248,6 +248,9 @@ export class Connector {
           tlsSocket.once('secureConnect', async () => {
             cloudSqlInstance.setEstablishedConnection();
           });
+
+          cloudSqlInstance.addSocket(tlsSocket);
+
           return tlsSocket;
         }
 
