@@ -230,8 +230,8 @@ export class Connector {
             serverCaMode,
             dnsName,
           });
-          tlsSocket.once('error', async () => {
-            await cloudSqlInstance.forceRefresh();
+          tlsSocket.once('error', () => {
+            cloudSqlInstance.forceRefresh();
           });
           tlsSocket.once('secureConnect', async () => {
             cloudSqlInstance.setEstablishedConnection();
@@ -333,7 +333,7 @@ export class Connector {
   // Also clear up any local proxy servers and socket connections.
   close(): void {
     for (const instance of this.instances.values()) {
-      instance.cancelRefresh();
+      instance.close();
     }
     for (const server of this.localProxies) {
       server.close();
