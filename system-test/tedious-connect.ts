@@ -35,6 +35,12 @@ t.test('open connection and run basic sqlserver commands', async t => {
       ...clientOpts,
       port: 9999,
       database: String(process.env.SQLSERVER_DB),
+      debug: {
+        data: false,
+        packet: false,
+        payload: true,
+        token: true,
+      },
     },
   });
 

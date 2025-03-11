@@ -167,6 +167,101 @@ t.test(
 );
 
 t.test(
+  'open SocketWrapper connection to Domain Name using driver host param instance retrieves standard pg tables',
+  async t => {
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({});
+    const client = new Client({
+      ...clientOpts,
+      user: String(process.env.POSTGRES_USER),
+      password: String(process.env.POSTGRES_CUSTOMER_CAS_PASS),
+      database: String(process.env.POSTGRES_DB),
+      host: process.env.POSTGRES_CUSTOMER_CAS_DOMAIN_NAME,
+    });
+    t.after(async () => {
+      try {
+        await client.end();
+      } finally {
+        connector.close();
+      }
+    });
+    await client.connect();
+    console.log('client.connect() done');
+    const {
+      rows: [result],
+    } = await client.query('SELECT NOW();');
+    const returnedDate = result['now'];
+    console.log('client.query() done');
+    t.ok(returnedDate.getTime(), 'should have valid returned date object');
+  }
+);
+
+t.test(
+  'open SocketWrapper connection to invalid domain name rejects connection',
+  async t => {
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({});
+    const client = new Client({
+      ...clientOpts,
+      user: String(process.env.POSTGRES_USER),
+      password: String(process.env.POSTGRES_CUSTOMER_CAS_PASS),
+      database: String(process.env.POSTGRES_DB),
+      host: process.env.POSTGRES_CUSTOMER_CAS_INVALID_DOMAIN_NAME,
+    });
+    t.after(async () => {
+      console.log('Ending...');
+      try {
+        await client.end();
+      } finally {
+        connector.close();
+        console.log('Ended...');
+      }
+    });
+    try {
+      await client.connect();
+      t.fail('Should throw exception');
+    } catch (e) {
+      t.same(e.code, 'ERR_TLS_CERT_ALTNAME_INVALID');
+    } finally {
+      t.end();
+    }
+  }
+);
+
+t.test(
+  'open SocketWrapper connection to bad instance name rejects connection',
+  async t => {
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({
+      instanceConnectionName: 'bad-instance-name',
+    });
+    const client = new Client({
+      ...clientOpts,
+      user: String(process.env.POSTGRES_USER),
+      password: String(process.env.POSTGRES_CUSTOMER_CAS_PASS),
+      database: String(process.env.POSTGRES_DB),
+    });
+    t.after(async () => {
+      console.log('Ending...');
+      try {
+        await client.end();
+      } finally {
+        connector.close();
+        console.log('Ended...');
+      }
+    });
+    try {
+      await client.connect();
+      t.fail('Should throw exception');
+    } catch (e) {
+      t.same(e.code, 'EBADCONNECTIONNAME');
+    } finally {
+      t.end();
+    }
+  }
+);
+
+t.test(
   'open connection to Domain Name invalid domain name rejects connection',
   async t => {
     const connector = new Connector();
