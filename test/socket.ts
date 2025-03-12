@@ -69,7 +69,7 @@ t.test('validateCertificate no cert', async t => {
         regionId: 'region-id',
         instanceId: 'my-instance',
       },
-      'GOOGLE_MANAGED_INTERNAL_CA',
+      null,
       'abcde.12345.us-central1.sql.goog'
     )('hostname', {} as tls.PeerCertificate),
     {code: 'ENOSQLADMINVERIFYCERT'},
@@ -90,7 +90,7 @@ t.test('validateCertificate mismatch', async t => {
         regionId: 'region-id',
         instanceId: 'my-instance',
       },
-      'GOOGLE_MANAGED_INTERNAL_CA',
+      null,
       'abcde.12345.us-central1.sql.goog'
     )('hostname', cert),
     {

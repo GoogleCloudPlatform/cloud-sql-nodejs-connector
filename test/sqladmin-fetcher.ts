@@ -16,6 +16,8 @@ import t from 'tap';
 import {InstanceConnectionInfo} from '../src/instance-connection-info';
 import {CLIENT_CERT} from './fixtures/certs';
 import {AuthTypes} from '../src/auth-types';
+import {sqladmin_v1beta4} from '@googleapis/sqladmin';
+import Schema$DnsNameMapping = sqladmin_v1beta4.Schema$DnsNameMapping;
 
 // Mocks the @googleapis/sqladmin interface
 interface SQLAdminOptions {
@@ -27,6 +29,7 @@ interface IpAddress {
 }
 interface SQLAdminClientGetResponse {
   dnsName?: string;
+  dnsNames?: Schema$DnsNameMapping[];
   ipAddresses?: IpAddress[];
   pscEnabled?: boolean;
   region?: string;
@@ -98,7 +101,13 @@ const mockSQLAdminGetInstanceMetadata = (
 
   sqlAdminClient.get = () => ({
     data: {
-      dnsName: 'abcde.12345.us-central1.sql.goog',
+      dnsNames: [
+        {
+          name: 'abcde.12345.us-central1.sql.goog',
+          connectionType: 'PRIVATE_SERVICE_CONNECT',
+          dnsScope: 'INSTANCE',
+        },
+      ],
       ipAddresses: [
         {
           type: 'PRIMARY',
@@ -216,6 +225,7 @@ t.test('getInstanceMetadata no ip', async t => {
   };
   mockSQLAdminGetInstanceMetadata(instanceConnectionInfo, {
     dnsName: 'abcde.12345.us-central1.sql.goog',
+    dnsNames: null,
     ipAddresses: [],
     pscEnabled: false,
   });

@@ -132,6 +132,7 @@ export class SQLAdminFetcher {
   private parseIpAddresses(
     ipResponse: sqladmin_v1beta4.Schema$IpMapping[] | undefined,
     dnsName: string | null | undefined,
+    dnsNames: sqladmin_v1beta4.Schema$DnsNameMapping[] | null | undefined,
     pscEnabled: boolean | null | undefined
   ): IpAddresses {
     const ipAddresses: IpAddresses = {};
@@ -149,7 +150,23 @@ export class SQLAdminFetcher {
     // Resolve dnsName into IP address for PSC enabled instances.
     // Note that we have to check for PSC enablement because CAS instances
     // also set the dnsName field.
-    if (dnsName && pscEnabled) {
+
+    // Search the dns_names field for the PSC DNS Name.
+    if (dnsNames) {
+      for (const dnm of dnsNames) {
+        if (
+          dnm.name &&
+          dnm.connectionType === 'PRIVATE_SERVICE_CONNECT' &&
+          dnm.dnsScope === 'INSTANCE'
+        ) {
+          ipAddresses.psc = dnm.name;
+          break;
+        }
+      }
+    }
+
+    // If the psc dns name was not found, use the legacy dns_name field
+    if (!ipAddresses.psc && dnsName && pscEnabled) {
       ipAddresses.psc = dnsName;
     }
 
@@ -188,6 +205,7 @@ export class SQLAdminFetcher {
     const ipAddresses = this.parseIpAddresses(
       res.data.ipAddresses,
       res.data.dnsName,
+      res.data.dnsNames,
       res.data.pscEnabled
     );
 
@@ -214,6 +232,16 @@ export class SQLAdminFetcher {
     }
 
     cleanGaxiosConfig();
+    // Find a DNS name to use to validate the certificate from the dns_names field. Any
+    // name in the list may be used to validate the server TLS certificate.
+    // Fall back to legacy dns_name field if necessary.
+    let serverName = null;
+    if (res.data.dnsNames && res.data.dnsNames.length > 0) {
+      serverName = res.data.dnsNames[0].name;
+    }
+    if (serverName === null) {
+      serverName = res.data.dnsName;
+    }
 
     return {
       ipAddresses,
@@ -222,7 +250,7 @@ export class SQLAdminFetcher {
         expirationTime: serverCaCert.expirationTime,
       },
       serverCaMode: res.data.serverCaMode || '',
-      dnsName: res.data.dnsName || '',
+      dnsName: serverName || '',
     };
   }
 

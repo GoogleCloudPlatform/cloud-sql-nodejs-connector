@@ -232,7 +232,6 @@ export class Connector {
           port,
           privateKey,
           serverCaCert,
-          serverCaMode,
           dnsName,
         } = cloudSqlInstance;
 
@@ -251,8 +250,8 @@ export class Connector {
             port,
             privateKey,
             serverCaCert,
-            serverCaMode,
-            dnsName: instanceInfo.domainName || dnsName, // use the configured domain name, or the instance dnsName.
+            instanceDnsName: dnsName,
+            serverName: instanceInfo.domainName || dnsName, // use the configured domain name, or the instance dnsName.
           });
           tlsSocket.once('error', () => {
             cloudSqlInstance.forceRefresh();
