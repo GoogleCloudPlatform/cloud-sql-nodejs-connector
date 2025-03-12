@@ -98,7 +98,11 @@ const mockSQLAdminGetInstanceMetadata = (
 
   sqlAdminClient.get = () => ({
     data: {
-      dnsName: 'abcde.12345.us-central1.sql.goog',
+      dnsNames: [{
+        name:'abcde.12345.us-central1.sql.goog',
+        connectionType: "PRIVATE_SERVICE_CONNECT",
+        dnsScope: "INSTANCE"
+      }],
       ipAddresses: [
         {
           type: 'PRIMARY',
