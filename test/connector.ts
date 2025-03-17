@@ -20,6 +20,20 @@ import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {AuthTypes} from '../src/auth-types';
 import {SQLAdminFetcherOptions} from '../src/sqladmin-fetcher';
+import {CloudSQLConnectorError} from '../src/errors';
+
+function testConnect(options): Promise<void> {
+  return new Promise((res, rej) => {
+    try {
+      const socket = options.stream();
+      socket.on('error', rej);
+      socket.on('end', res);
+      socket.connect(3307, 'localhost');
+    } catch (e) {
+      rej(e);
+    }
+  });
+}
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
@@ -101,7 +115,10 @@ t.test('Connector missing instance info error', async t => {
     '../src/cloud-sql-instance': {
       CloudSQLInstance: {
         async getCloudSQLInstance() {
-          return null;
+          throw new CloudSQLConnectorError({
+            code: 'ENOINSTANCEINFO',
+            message: 'Cannot find info for instance: foo:bar:baz',
+          });
         },
       },
     },
@@ -113,10 +130,8 @@ t.test('Connector missing instance info error', async t => {
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
-  t.throws(
-    () => {
-      opts.stream(); // calls factory method that returns new socket
-    },
+  t.rejects(
+    testConnect(opts),
     {
       message: 'Cannot find info for instance: foo:bar:baz',
       code: 'ENOINSTANCEINFO',
@@ -169,10 +184,8 @@ t.test('Connector bad instance info error', async t => {
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
-  t.throws(
-    () => {
-      opts.stream(); // calls factory method that returns new socket
-    },
+  await t.rejects(
+    testConnect(opts),
     {
       code: 'EBADINSTANCEINFO',
     },
@@ -229,16 +242,18 @@ t.test('start only a single instance info per connection name', async t => {
   });
 
   const connector = new Connector();
-  await connector.getOptions({
+  const inst1 = await connector.instances.loadInstance({
     ipType: 'PUBLIC',
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
-  await connector.getOptions({
+
+  const inst2 = await connector.instances.loadInstance({
     ipType: 'PUBLIC',
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
+  t.strictSame(inst1, inst2, 'only one instance created');
 });
 
 t.test(
@@ -284,13 +299,12 @@ t.test(
     });
 
     const connector = new Connector();
-    await connector.getOptions({
+    await connector.instances.loadInstance({
       ipType: 'PUBLIC',
       authType: 'PASSWORD',
       instanceConnectionName: 'foo:bar:baz',
     });
-
-    await connector.getOptions({
+    await connector.instances.loadInstance({
       ipType: 'PUBLIC',
       authType: 'IAM',
       instanceConnectionName: 'foo:bar:baz',
@@ -368,12 +382,16 @@ t.test('Connector using IAM with Tedious driver', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
 
   const connector = new Connector();
-  t.rejects(
-    connector.getTediousOptions({
-      authType: AuthTypes.IAM,
-      ipType: IpAddressTypes.PUBLIC,
-      instanceConnectionName: 'my-project:us-east1:my-instance',
-    }),
+  await t.rejects(
+    async () => {
+      const opt = await connector.getTediousOptions({
+        authType: AuthTypes.IAM,
+        ipType: IpAddressTypes.PUBLIC,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+      });
+      const socket = await opt.connector();
+      socket.connect(3307, 'localhost');
+    },
     {
       message: 'Tedious does not support Auto IAM DB Authentication',
       code: 'ENOIAM',
@@ -429,8 +447,9 @@ t.test('Connector force refresh on socket connection error', async t => {
     '../src/socket': {
       getSocket() {
         const mockSocket = new EventEmitter();
+        mockSocket.destroy = () => {};
         setTimeout(() => {
-          mockSocket.emit('error');
+          mockSocket.emit('error', 'nope');
         }, 1);
         return mockSocket;
       },
@@ -442,15 +461,22 @@ t.test('Connector force refresh on socket connection error', async t => {
     ipType: 'PUBLIC',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
+
+  // Attempt to connect
   const socket = opts.stream();
+  socket.connect(3307, '127.0.0.1');
+
+  // Wait for error and refresh
   await new Promise((res): void => {
     socket.on('error', () => {
       setTimeout(() => {
-        t.ok(forceRefresh, 'should call CloudSQLInstance.forceRefresh');
         res(null);
-      }, 1);
+      }, 15);
     });
   });
+
+  // Check that refresh ran.
+  t.ok(forceRefresh, 'should call CloudSQLInstance.forceRefresh');
   connector.close();
 });
 
@@ -577,13 +603,13 @@ t.test('Connector by domain resolves and creates instance', async t => {
   });
 
   // Get options twice
-  await connector.getOptions({
+  await connector.instances.loadInstance({
     ipType: 'PUBLIC',
     authType: 'PASSWORD',
     domainName: 'db.example.com',
   });
 
-  await connector.getOptions({
+  await connector.instances.loadInstance({
     ipType: 'PUBLIC',
     authType: 'PASSWORD',
     domainName: 'db.example.com',
@@ -608,7 +634,7 @@ t.test(
     });
 
     // Get options loads the instance
-    await connector.getOptions({
+    await connector.instances.loadInstance({
       ipType: 'PUBLIC',
       authType: 'PASSWORD',
       domainName: 'db.example.com',
@@ -625,7 +651,7 @@ t.test(
     // getOptions after DNS response changes closes the old instance
     // and loads a new one.
     th.resolveTxtResponse = 'project:region2:instance2';
-    await connector.getOptions({
+    await connector.instances.loadInstance({
       ipType: 'PUBLIC',
       authType: 'PASSWORD',
       domainName: 'db.example.com',
@@ -652,7 +678,7 @@ t.test(
     });
 
     // Get options loads the instance
-    await connector.getOptions({
+    await connector.instances.loadInstance({
       ipType: 'PUBLIC',
       authType: 'PASSWORD',
       domainName: 'db.example.com',

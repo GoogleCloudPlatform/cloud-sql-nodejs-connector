@@ -67,14 +67,12 @@ interface RefreshResult {
 
 export class CloudSQLInstance {
   static async getCloudSQLInstance(
+    instanceName: InstanceConnectionInfo,
     options: CloudSQLInstanceOptions
   ): Promise<CloudSQLInstance> {
     const instance = new CloudSQLInstance({
       options: options,
-      instanceInfo: await resolveInstanceName(
-        options.instanceConnectionName,
-        options.domainName
-      ),
+      instanceInfo: instanceName,
     });
     await instance.refresh();
     return instance;
