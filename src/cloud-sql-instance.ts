@@ -14,7 +14,7 @@
 
 import {IpAddressTypes, selectIpAddress} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
-import {parseInstanceConnectionName} from './parse-instance-connection-name';
+import {resolveInstanceName} from './parse-instance-connection-name';
 import {InstanceMetadata} from './sqladmin-fetcher';
 import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
@@ -38,6 +38,7 @@ interface Fetcher {
 interface CloudSQLInstanceOptions {
   authType: AuthTypes;
   instanceConnectionName: string;
+  domainName?: string;
   ipType: IpAddressTypes;
   limitRateInterval?: number;
   sqlAdminFetcher: Fetcher;
@@ -54,7 +55,13 @@ export class CloudSQLInstance {
   static async getCloudSQLInstance(
     options: CloudSQLInstanceOptions
   ): Promise<CloudSQLInstance> {
-    const instance = new CloudSQLInstance(options);
+    const instance = new CloudSQLInstance({
+      options: options,
+      instanceInfo: await resolveInstanceName(
+        options.instanceConnectionName,
+        options.domainName
+      ),
+    });
     await instance.refresh();
     return instance;
   }
@@ -80,17 +87,17 @@ export class CloudSQLInstance {
   public dnsName = '';
 
   constructor({
-    ipType,
-    authType,
-    instanceConnectionName,
-    sqlAdminFetcher,
-    limitRateInterval = 30 * 1000, // 30s default
-  }: CloudSQLInstanceOptions) {
-    this.authType = authType;
-    this.instanceInfo = parseInstanceConnectionName(instanceConnectionName);
-    this.ipType = ipType;
-    this.limitRateInterval = limitRateInterval;
-    this.sqlAdminFetcher = sqlAdminFetcher;
+    options,
+    instanceInfo,
+  }: {
+    options: CloudSQLInstanceOptions;
+    instanceInfo: InstanceConnectionInfo;
+  }) {
+    this.instanceInfo = instanceInfo;
+    this.authType = options.authType || AuthTypes.PASSWORD;
+    this.ipType = options.ipType || IpAddressTypes.PUBLIC;
+    this.limitRateInterval = options.limitRateInterval || 30 * 1000; // 30 seconds
+    this.sqlAdminFetcher = options.sqlAdminFetcher;
   }
 
   // p-throttle library has to be initialized in an async scope in order to
@@ -286,6 +293,7 @@ export class CloudSQLInstance {
   }
 
   cancelRefresh(): void {
+    // If refresh has not yet started, then cancel the setTimeout
     if (this.scheduledRefreshID) {
       clearTimeout(this.scheduledRefreshID);
     }
@@ -304,5 +312,9 @@ export class CloudSQLInstance {
   close(): void {
     this.closed = true;
     this.cancelRefresh();
+  }
+
+  isClosed(): boolean {
+    return this.closed;
   }
 }
