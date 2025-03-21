@@ -44,6 +44,7 @@ export declare interface ConnectionOptions {
   ipType?: IpAddressTypes;
   instanceConnectionName: string;
   domainName?: string;
+  failoverPeriod?: number;
   limitRateInterval?: number;
 }
 
@@ -129,6 +130,7 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
     const entry = this.get(key);
     if (entry) {
       if (entry.isResolved()) {
+        await entry.instance?.checkDomainChanged();
         if (!entry.instance?.isClosed()) {
           // The instance is open and the domain has not changed.
           // use the cached instance.
@@ -154,6 +156,7 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
       ipType: opts.ipType || IpAddressTypes.PUBLIC,
       limitRateInterval: opts.limitRateInterval || 30 * 1000, // 30 sec
       sqlAdminFetcher: this.sqlAdminFetcher,
+      failoverPeriod: opts.failoverPeriod,
     });
     this.set(key, new CacheEntry(promise));
 
@@ -257,6 +260,9 @@ export class Connector {
           tlsSocket.once('secureConnect', async () => {
             cloudSqlInstance.setEstablishedConnection();
           });
+
+          cloudSqlInstance.addSocket(tlsSocket);
+
           return tlsSocket;
         }
 
