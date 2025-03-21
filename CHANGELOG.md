@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.6.1...v1.7.0) (2025-03-21)
+
+
+### Features
+
+* Configure the connector using a DNS name. ([#422](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/422)) ([b94cc98](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/b94cc9851668d2ce7e24ade4143e03a5b844a549))
+* Refresh the connector if the domain name is changed to point to a new instance. ([#427](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/427)) ([cb1716e](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/cb1716ea1ea29281fe1aabb54acbd990b276c238)), closes [#421](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/421)
+* Use standard TLS hostname validation for instances with DNS names ([#428](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/428)) ([15d3bdc](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/15d3bdc1aace998e5cfb752f2865605f028a8abd))
+
 ## [1.6.1](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.6.0...v1.6.1) (2025-02-19)
 
 
