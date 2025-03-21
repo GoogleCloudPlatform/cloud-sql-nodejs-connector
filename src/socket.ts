@@ -26,17 +26,17 @@ interface SocketOptions {
   instanceInfo: InstanceConnectionInfo;
   privateKey: string;
   serverCaCert: SslCert;
-  serverCaMode: string;
-  dnsName: string;
+  instanceDnsName: string;
+  serverName: string;
 }
 
 export function validateCertificate(
   instanceInfo: InstanceConnectionInfo,
-  serverCaMode: string,
-  dnsName: string
+  instanceDnsName: string,
+  serverName: string
 ) {
   return (hostname: string, cert: tls.PeerCertificate): Error | undefined => {
-    if (!serverCaMode || serverCaMode === 'GOOGLE_MANAGED_INTERNAL_CA') {
+    if (!instanceDnsName) {
       // Legacy CA Mode
       if (!cert || !cert.subject) {
         return new CloudSQLConnectorError({
@@ -54,7 +54,7 @@ export function validateCertificate(
       return undefined;
     } else {
       // Standard TLS Verify Full hostname verification using SAN
-      return tls.checkServerIdentity(dnsName, cert);
+      return tls.checkServerIdentity(serverName, cert);
     }
   };
 }
@@ -66,8 +66,8 @@ export function getSocket({
   instanceInfo,
   privateKey,
   serverCaCert,
-  serverCaMode,
-  dnsName,
+  instanceDnsName,
+  serverName,
 }: SocketOptions): tls.TLSSocket {
   const socketOpts = {
     host,
@@ -80,8 +80,8 @@ export function getSocket({
     }),
     checkServerIdentity: validateCertificate(
       instanceInfo,
-      serverCaMode,
-      dnsName
+      instanceDnsName,
+      serverName
     ),
   };
   const tlsSocket = tls.connect(socketOpts);
