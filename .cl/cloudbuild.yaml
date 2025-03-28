@@ -26,7 +26,6 @@ steps:
         npm link @google-cloud/cloud-sql-connector
         npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test
     timeout: 300s
-    waitFor: ["-"]
   - id: run sample tests
     name: node:latest
     entrypoint: bash
@@ -40,7 +39,6 @@ steps:
         npm link @google-cloud/cloud-sql-connector
         npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/*/test/*{.cjs,.mjs,.ts}
     timeout: 300s
-    waitFor: ["-"]
 availableSecrets:
   secretManager:
   - versionName: 'projects/$PROJECT_ID/secrets/MYSQL_CONNECTION_NAME/versions/latest'
