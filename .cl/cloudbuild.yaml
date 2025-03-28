@@ -22,6 +22,8 @@ steps:
     args:
       - "-c"
       - |
+        npm link
+        npm link @google-cloud/cloud-sql-connector
         npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
         cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
     timeout: 300s
