@@ -24,7 +24,7 @@ steps:
       - |
         npm link
         npm link @google-cloud/cloud-sql-connector
-        npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test
+        npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
     timeout: 300s
   - id: run sample tests
     name: node:latest
@@ -37,7 +37,7 @@ steps:
       - |
         npm link
         npm link @google-cloud/cloud-sql-connector
-        npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/*/test/*{.cjs,.mjs,.ts}
+        npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/*/test/*{.cjs,.mjs,.ts} -o test_results.tap
     timeout: 300s
 availableSecrets:
   secretManager:
