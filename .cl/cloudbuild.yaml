@@ -24,9 +24,9 @@ steps:
       - |
         npm link
         npm link @google-cloud/cloud-sql-connector
-        npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test -o test_results.tap
-        cat test_results.tap | npx tap - --reporter=junit > sponge_log.xml
+        npx tap -c -t0 --disable-coverage --allow-empty-coverage system-test
     timeout: 300s
+    waitFor: ["-"]
   - id: run sample tests
     name: node:latest
     entrypoint: bash
@@ -38,20 +38,9 @@ steps:
       - |
         npm link
         npm link @google-cloud/cloud-sql-connector
-        npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/*/test/*{.cjs,.mjs,.ts} -o test_results.tap
+        npx tap -c -t0 --disable-coverage --allow-empty-coverage examples/*/*/test/*{.cjs,.mjs,.ts}
     timeout: 300s
-  - id: run unit tests
-    name: node:latest
-    entrypoint: bash
-    env: 
-      - "TAP_DISABLE_COVERAGE=1"
-      - "TAP_ALLOW_MISSING_COVERAGE=1"
-      - "TAP_ALLOW_INCOMPLETE_COVERAGE=1"
-      - "TAP_ALLOW_EMPTY_COVERAGE=1"
-    args:
-      - "-c"
-      - |
-        npx tap -c -t0 -o test_results.tap test
+    waitFor: ["-"]
 availableSecrets:
   secretManager:
   - versionName: 'projects/$PROJECT_ID/secrets/MYSQL_CONNECTION_NAME/versions/latest'
