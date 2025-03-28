@@ -22,3 +22,4 @@
 !/.trampolinerc
 !/.kokoro
 !/tsconfig*.json
+!/.cl
