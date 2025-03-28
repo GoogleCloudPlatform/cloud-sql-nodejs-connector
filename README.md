@@ -94,7 +94,7 @@ const {Pool} = pg;
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC',
+  ipType: process.env.IP_TYPE || 'PUBLIC',
 });
 const pool = new Pool({
   ...clientOpts,
@@ -122,7 +122,7 @@ import {Connector} from '@google-cloud/cloud-sql-connector';
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC',
+  ipType: process.env.IP_TYPE || 'PUBLIC',
 });
 const pool = await mysql.createPool({
   ...clientOpts,
@@ -150,7 +150,7 @@ const {Connector} = require('@google-cloud/cloud-sql-connector');
 const connector = new Connector();
 const clientOpts = await connector.getTediousOptions({
   instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
-  ipType: 'PUBLIC',
+  ipType: process.env.IP_TYPE || 'PUBLIC',
 });
 const connection = new Connection({
   // Please note that the `server` property here is not used and is only defined
@@ -481,7 +481,7 @@ import {Connector} from '@google-cloud/cloud-sql-connector';
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   domainName: 'prod-db.mycompany.example.com',
-  ipType: 'PUBLIC',
+  ipType: process.env.IP_TYPE || 'PUBLIC',
 });
 
 const pool = await mysql.createPool({

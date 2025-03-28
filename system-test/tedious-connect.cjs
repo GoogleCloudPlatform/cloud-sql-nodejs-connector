@@ -20,7 +20,7 @@ t.test('open connection and run basic sqlserver commands', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
     instanceConnectionName: process.env.SQLSERVER_CONNECTION_NAME,
-    ipType: 'PUBLIC',
+    ipType: process.env.IP_TYPE || 'PUBLIC',
   });
   const connection = new Connection({
     server: '0.0.0.0',

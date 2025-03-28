@@ -20,7 +20,7 @@ t.test('open connection and run basic mysql commands', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
     instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
-    ipType: 'PUBLIC',
+    ipType: process.env.IP_TYPE || 'PUBLIC',
     authType: 'PASSWORD',
   });
   const conn = await mysql.createConnection({
@@ -42,7 +42,7 @@ t.test('open IAM connection and run basic mysql commands', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
     instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
-    ipType: 'PUBLIC',
+    ipType: process.env.IP_TYPE || 'PUBLIC',
     authType: 'IAM',
   });
   const conn = await mysql.createConnection({

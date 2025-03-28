@@ -19,7 +19,7 @@ async function connect({ instanceConnectionName, username, password, databaseNam
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
     instanceConnectionName,
-    ipType: 'PUBLIC',
+    ipType: process.env.IP_TYPE || 'PUBLIC',
     authType: 'PASSWORD',
   });
 
