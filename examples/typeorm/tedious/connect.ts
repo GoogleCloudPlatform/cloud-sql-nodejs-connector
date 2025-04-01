@@ -24,7 +24,7 @@ export async function connect({
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
     instanceConnectionName,
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
   });
   const dataSource = new DataSource({
     type: 'mssql',

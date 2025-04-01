@@ -21,7 +21,7 @@ export async function connect({instanceConnectionName, user, database}) {
   const connector = new Connector();
   await connector.startLocalProxy({
     instanceConnectionName,
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     authType: 'IAM',
     listenOptions: {path},
   });

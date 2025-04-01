@@ -19,7 +19,7 @@ async function connect({ instanceConnectionName, username, password, database })
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
     instanceConnectionName,
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
   });
   const dataSource = new typeorm.DataSource({
     type: 'mssql',

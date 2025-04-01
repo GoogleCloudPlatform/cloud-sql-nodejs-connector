@@ -35,7 +35,7 @@ export declare interface UnixSocketOptions {
 // to the Connector.getOptions method when calling it, e.g:
 // const connector = new Connector()
 // const connectionOptions:ConnectionOptions = {
-//   ipType: process.env.IP_TYPE || 'PUBLIC',
+//   ipType: 'PUBLIC',
 //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
 // };
 // await connector.getOptions(connectionOptions);
@@ -64,7 +64,7 @@ interface PromisedStreamFunction {
 // the Connector.getOptions method, e.g:
 // const connector = new Connector()
 // const driverOptions:DriverOptions = await connector.getOptions({
-//   ipType: process.env.IP_TYPE || 'PUBLIC',
+//   ipType: 'PUBLIC',
 //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
 // });
 export declare interface DriverOptions {
@@ -213,7 +213,7 @@ export class Connector {
   //
   // const connector = new Connector()
   // const opts = await connector.getOptions({
-  //   ipType: process.env.IP_TYPE || 'PUBLIC',
+  //   ipType: 'PUBLIC',
   //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
   // });
   // const pool = new Pool(opts)
@@ -307,7 +307,7 @@ export class Connector {
   // const connector = new Connector();
   // await connector.startLocalProxy({
   //   instanceConnectionName,
-  //   ipType: process.env.IP_TYPE || 'PUBLIC',
+  //   ipType: 'PUBLIC',
   //   listenOptions: {path},
   // });
   // const datasourceUrl =

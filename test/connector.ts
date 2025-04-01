@@ -60,7 +60,7 @@ t.test('Connector', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
   t.same(
@@ -109,7 +109,7 @@ t.test('Connector missing instance info error', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
@@ -156,7 +156,7 @@ t.test('Connector bad instance info error', async t => {
       CloudSQLInstance: {
         async getCloudSQLInstance() {
           return {
-            ipType: process.env.IP_TYPE || 'PUBLIC',
+            ipType: 'PUBLIC',
           };
         },
       },
@@ -165,7 +165,7 @@ t.test('Connector bad instance info error', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
@@ -230,12 +230,12 @@ t.test('start only a single instance info per connection name', async t => {
 
   const connector = new Connector();
   await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
   await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     authType: 'PASSWORD',
     instanceConnectionName: 'foo:bar:baz',
   });
@@ -285,13 +285,13 @@ t.test(
 
     const connector = new Connector();
     await connector.getOptions({
-      ipType: process.env.IP_TYPE || 'PUBLIC',
+      ipType: 'PUBLIC',
       authType: 'PASSWORD',
       instanceConnectionName: 'foo:bar:baz',
     });
 
     await connector.getOptions({
-      ipType: process.env.IP_TYPE || 'PUBLIC',
+      ipType: 'PUBLIC',
       authType: 'IAM',
       instanceConnectionName: 'foo:bar:baz',
     });
@@ -352,7 +352,7 @@ t.test('Connector, supporting Tedious driver', async t => {
 
   const connector = new Connector();
   const opts = await connector.getTediousOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
   t.same(
@@ -439,7 +439,7 @@ t.test('Connector force refresh on socket connection error', async t => {
 
   const connector = new Connector();
   const opts = await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     instanceConnectionName: 'my-project:us-east1:my-instance',
   });
   const socket = opts.stream();
@@ -578,13 +578,13 @@ t.test('Connector by domain resolves and creates instance', async t => {
 
   // Get options twice
   await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     authType: 'PASSWORD',
     domainName: 'db.example.com',
   });
 
   await connector.getOptions({
-    ipType: process.env.IP_TYPE || 'PUBLIC',
+    ipType: 'PUBLIC',
     authType: 'PASSWORD',
     domainName: 'db.example.com',
   });
@@ -609,7 +609,7 @@ t.test(
 
     // Get options loads the instance
     await connector.getOptions({
-      ipType: process.env.IP_TYPE || 'PUBLIC',
+      ipType: 'PUBLIC',
       authType: 'PASSWORD',
       domainName: 'db.example.com',
     });
@@ -626,7 +626,7 @@ t.test(
     // and loads a new one.
     th.resolveTxtResponse = 'project:region2:instance2';
     await connector.getOptions({
-      ipType: process.env.IP_TYPE || 'PUBLIC',
+      ipType: 'PUBLIC',
       authType: 'PASSWORD',
       domainName: 'db.example.com',
     });
@@ -653,7 +653,7 @@ t.test(
 
     // Get options loads the instance
     await connector.getOptions({
-      ipType: process.env.IP_TYPE || 'PUBLIC',
+      ipType: 'PUBLIC',
       authType: 'PASSWORD',
       domainName: 'db.example.com',
       failoverPeriod: 10, // 10ms for testing
