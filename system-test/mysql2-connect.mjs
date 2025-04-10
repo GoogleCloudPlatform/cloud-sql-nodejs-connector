@@ -62,13 +62,13 @@ t.test('open IAM connection and run basic mysql commands', async t => {
 t.test('open connection and run basic mysql commands', async t => {
   const connector = new Connector();
   const clientOpts = await connector.getOptions({
-    instanceConnectionName: process.env.MYSQL_CONNECTION_NAME,
+    instanceConnectionName: process.env.MYSQL_MCP_CONNECTION_NAME,
     ipType: process.env.IP_TYPE || 'PUBLIC',
     authType: 'PASSWORD',
   });
   const conn = await mysql.createConnection({
     ...clientOpts,
-    user: process.env.MYSQL_MCP_USER,
+    user: process.env.MYSQL_USER,
     password: process.env.MYSQL_MCP_PASS,
     database: process.env.MYSQL_DB,
   });
