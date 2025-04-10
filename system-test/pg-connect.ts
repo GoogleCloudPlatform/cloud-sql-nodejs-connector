@@ -207,3 +207,32 @@ t.test(
     }
   }
 );
+
+t.test('open connection to MCP instance retrieves standard pg tables', async t => {
+  const connector = new Connector();
+  const clientOpts = await connector.getOptions({
+    instanceConnectionName: String(process.env.POSTGRES_MCP_CONNECTION_NAME),
+    ipType: process.env.IP_TYPE || IpAddressTypes.PUBLIC,
+  });
+  const client = new Client({
+    ...clientOpts,
+    user: String(process.env.POSTGRES_USER),
+    password: String(process.env.POSTGRES_MCP_PASS),
+    database: String(process.env.POSTGRES_DB),
+  });
+  t.after(async () => {
+    try {
+      await client.end();
+    } finally {
+      connector.close();
+    }
+  });
+
+  await client.connect();
+
+  const {
+    rows: [result],
+  } = await client.query('SELECT NOW();');
+  const returnedDate = result['now'];
+  t.ok(returnedDate.getTime(), 'should have valid returned date object');
+});
