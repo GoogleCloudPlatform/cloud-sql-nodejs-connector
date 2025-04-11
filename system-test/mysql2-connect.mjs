@@ -58,3 +58,46 @@ t.test('open IAM connection and run basic mysql commands', async t => {
   await conn.end();
   connector.close();
 });
+
+t.test('open connection and run basic mysql commands', async t => {
+  const connector = new Connector();
+  const clientOpts = await connector.getOptions({
+    instanceConnectionName: process.env.MYSQL_MCP_CONNECTION_NAME,
+    ipType: process.env.IP_TYPE || 'PUBLIC',
+    authType: 'PASSWORD',
+  });
+  const conn = await mysql.createConnection({
+    ...clientOpts,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_MCP_PASS,
+    database: process.env.MYSQL_DB,
+  });
+
+  const [[result]] = await conn.query('SELECT NOW();');
+  const returnedDate = result['NOW()'];
+  t.ok(returnedDate.getTime(), 'should have valid returned date object');
+
+  await conn.end();
+  connector.close();
+});
+
+t.test('open IAM connection and run basic mysql commands', async t => {
+  const connector = new Connector();
+  const clientOpts = await connector.getOptions({
+    instanceConnectionName: process.env.MYSQL_MCP_CONNECTION_NAME,
+    ipType: process.env.IP_TYPE || 'PUBLIC',
+    authType: 'IAM',
+  });
+  const conn = await mysql.createConnection({
+    ...clientOpts,
+    user: process.env.MYSQL_IAM_USER,
+    database: process.env.MYSQL_DB,
+  });
+
+  const [[result]] = await conn.query('SELECT NOW();');
+  const returnedDate = result['NOW()'];
+  t.ok(returnedDate.getTime(), 'should have valid returned date object');
+
+  await conn.end();
+  connector.close();
+});
