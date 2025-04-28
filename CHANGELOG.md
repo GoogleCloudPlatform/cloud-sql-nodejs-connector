@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.7.1...v1.8.0) (2025-04-28)
+
+
+### Features
+
+* Update TLS validation to use both SAN and CN fields. ([#446](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/446)) ([d492f7c](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/d492f7c4d77aa3ba9add993ae7843258d5a0758e))
+
 ## [1.7.1](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.7.0...v1.7.1) (2025-04-16)
 
 
