@@ -17,6 +17,7 @@ import t from 'tap';
 import {getSocket, validateCertificate} from '../src/socket';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {setupTLSServer} from './fixtures/setup-tls-server';
+import {parseInstanceConnectionName} from '../src/parse-instance-connection-name';
 
 t.test('getSocket', async t => {
   // the mock tls server for this test will use a custom port in order
@@ -72,7 +73,9 @@ t.test('validateCertificate no cert', async t => {
       null,
       'abcde.12345.us-central1.sql.goog'
     )('hostname', {} as tls.PeerCertificate),
-    {code: 'ENOSQLADMINVERIFYCERT'},
+    {
+      code: 'ENOSQLADMINVERIFYCERT',
+    },
     'should return a missing cert to verify error'
   );
 });
@@ -94,8 +97,6 @@ t.test('validateCertificate mismatch', async t => {
       'abcde.12345.us-central1.sql.goog'
     )('hostname', cert),
     {
-      message:
-        'Certificate had CN other-project:other-instance, expected my-project:my-instance',
       code: 'EBADSQLADMINVERIFYCERT',
     },
     'should return a missing cert to verify error'
@@ -143,3 +144,110 @@ t.test('validateCertificate valid CAS CA', async t => {
     'DNS name matches SAN in cert'
   );
 });
+
+t.test('validateCertificate cases', async t => {
+  const tcs = [
+    {
+      desc: 'cn match',
+      icn: 'myProject:myRegion:myInstance',
+      cn: 'myProject:myInstance',
+      valid: true,
+    },
+    {
+      desc: 'cn no match',
+      icn: 'myProject:myRegion:badInstance',
+      cn: 'myProject:myInstance',
+      valid: false,
+    },
+    {
+      desc: 'cn empty',
+      icn: 'myProject:myRegion:myInstance',
+      san: 'db.example.com',
+      valid: false,
+    },
+    {
+      desc: 'san match',
+      serverName: 'db.example.com',
+      icn: 'myProject:myRegion:myInstance',
+      san: 'db.example.com',
+      valid: true,
+    },
+    {
+      desc: 'san no match',
+      serverName: 'bad.example.com',
+      icn: 'myProject:myRegion:myInstance',
+      san: 'db.example.com',
+      valid: false,
+    },
+    {
+      desc: 'san empty match',
+      serverName: 'empty.example.com',
+      icn: 'myProject:myRegion:myInstance',
+      cn: '',
+      valid: false,
+    },
+    {
+      desc: 'san match with cn present',
+      serverName: 'db.example.com',
+      icn: 'myProject:myRegion:myInstance',
+      san: 'db.example.com',
+      cn: 'myProject:myInstance',
+      valid: true,
+    },
+    {
+      desc: 'san no match fallback to cn',
+      serverName: 'db.example.com',
+      icn: 'myProject:myRegion:myInstance',
+      san: 'other.example.com',
+      cn: 'myProject:myInstance',
+      valid: true,
+    },
+    {
+      desc: 'san empty match fallback to cn',
+      serverName: 'db.example.com',
+      icn: 'myProject:myRegion:myInstance',
+      cn: 'myProject:myInstance',
+      valid: true,
+    },
+    {
+      desc: 'san no match fallback to cn and fail',
+      serverName: 'db.example.com',
+      icn: 'myProject:myRegion:badInstance',
+      san: 'other.example.com',
+      cn: 'myProject:myInstance',
+      valid: false,
+    },
+  ];
+
+  await Promise.all(
+    tcs.map(tc =>
+      t.test(tc.desc + ' cas', async t => {
+        runCertificateNameTest(t, tc);
+      })
+    )
+  );
+});
+
+function runCertificateNameTest(t, tc) {
+  const cert = {
+    subject: {CN: tc.cn},
+    subjectaltname: tc.san ? 'DNS:' + tc.san : undefined,
+  } as tls.PeerCertificate;
+
+  const instanceInfo = parseInstanceConnectionName(tc.icn);
+  instanceInfo.domainName = tc.san;
+
+  const err = validateCertificate(
+    instanceInfo,
+    tc.san,
+    tc.serverName
+  )(tc.serverName, cert);
+
+  if (tc.valid) {
+    t.match(err, undefined, 'want no error');
+  } else {
+    if (!err) {
+      t.fail('want error, got no error');
+    }
+  }
+}
