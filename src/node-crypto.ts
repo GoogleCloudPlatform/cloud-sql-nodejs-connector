@@ -22,10 +22,17 @@ export async function cryptoModule(): Promise<Crypto> {
   try {
     crypto = await import('node:crypto');
     /* c8 ignore next 6 */
-  } catch (err) {
+  } catch (err: unknown) {
+    let error: Error;
+    if (err instanceof Error) {
+      error = err;
+    } else {
+      error = new Error(String(err));
+    }
     throw new CloudSQLConnectorError({
       message: 'Support to node crypto module is required',
       code: 'ENOCRYPTOMODULE',
+      errors: [error],
     });
   }
   return crypto;
