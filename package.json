@@ -83,9 +83,9 @@
     "url": "git+https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector"
   },
   "dependencies": {
-    "@googleapis/sqladmin": "^29.0.0",
-    "gaxios": "^6.1.1",
-    "google-auth-library": "^9.2.0",
+    "@googleapis/sqladmin": "^31.0.0",
+    "gaxios": "^7.0.0",
+    "google-auth-library": "^10.0.0",
     "p-throttle": "^7.0.0"
   }
 }
