@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.8.1...v1.8.2) (2025-07-14)
+
+
+### Bug Fixes
+
+* Update Google Auth and API deps to latest. ([#460](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/460)) ([1633502](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/1633502d96c1d7752ca8457c697aab99796c70bc))
+
 ## [1.8.1](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.8.0...v1.8.1) (2025-05-22)
 
 
