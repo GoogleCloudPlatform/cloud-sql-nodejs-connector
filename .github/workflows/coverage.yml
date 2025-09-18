@@ -59,6 +59,7 @@ jobs:
         run: |
           echo "BASE BRANCH CODE COVERAGE is ${{ env.CUR_COVER }}%"
           echo "PULL REQUEST CODE COVERAGE is ${{ env.PR_COVER }}%"
-          if [ "${{ env.PR_COVER }}" -lt "$(( env.CUR_COVER - 2 ))"  ]; then
+          if (( PR_COVER - 2 > CUR_COVER )); then
+            echo "Coverage check failed: PR reduces code coverage by more than 2%."
             exit 1;
           fi

@@ -22,7 +22,7 @@ function generatePrismaClient() {
     const __dirname = dirname(p)
     const schemaPath = resolve(__dirname, '../schema.prisma');
 
-    execSync(`npx prisma generate --schema=${schemaPath}`);
+    execSync(`npm exec prisma -- generate --schema=${schemaPath}`);
 }
 
 t.test('mysql prisma mjs', async t => {

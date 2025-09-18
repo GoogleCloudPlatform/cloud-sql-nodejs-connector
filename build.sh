@@ -74,40 +74,44 @@ function deps() {
 # write_e2e_env - Loads secrets from the gcloud project and writes
 #     them to target/e2e.env to run e2e tests.
 function write_e2e_env(){
-  # All secrets used by the e2e tests in the form <env_name>=<secret_name>
+  # Set the default to .envrc file if no argument is passed
+  # Format: <env-var-name>=<secret-name>
+  outfile="${1:-.envrc}"
   secret_vars=(
     MYSQL_CONNECTION_NAME=MYSQL_CONNECTION_NAME
     MYSQL_USER=MYSQL_USER
-    MYSQL_USER_IAM=MYSQL_USER_IAM_GO
     MYSQL_PASS=MYSQL_PASS
     MYSQL_DB=MYSQL_DB
     MYSQL_MCP_CONNECTION_NAME=MYSQL_MCP_CONNECTION_NAME
     MYSQL_MCP_PASS=MYSQL_MCP_PASS
     POSTGRES_CONNECTION_NAME=POSTGRES_CONNECTION_NAME
     POSTGRES_USER=POSTGRES_USER
-    POSTGRES_USER_IAM=POSTGRES_USER_IAM_GO
     POSTGRES_PASS=POSTGRES_PASS
     POSTGRES_DB=POSTGRES_DB
     POSTGRES_CAS_CONNECTION_NAME=POSTGRES_CAS_CONNECTION_NAME
     POSTGRES_CAS_PASS=POSTGRES_CAS_PASS
     POSTGRES_CUSTOMER_CAS_CONNECTION_NAME=POSTGRES_CUSTOMER_CAS_CONNECTION_NAME
     POSTGRES_CUSTOMER_CAS_PASS=POSTGRES_CUSTOMER_CAS_PASS
-    POSTGRES_CUSTOMER_CAS_DOMAIN_NAME=POSTGRES_CUSTOMER_CAS_DOMAIN_NAME
-    POSTGRES_CUSTOMER_CAS_INVALID_DOMAIN_NAME=POSTGRES_CUSTOMER_CAS_INVALID_DOMAIN_NAME
+    POSTGRES_CUSTOMER_CAS_DOMAIN_NAME=POSTGRES_CUSTOMER_CAS_PASS_VALID_DOMAIN_NAME
+    POSTGRES_CUSTOMER_CAS_INVALID_DOMAIN_NAME=POSTGRES_CUSTOMER_CAS_PASS_INVALID_DOMAIN_NAME
     POSTGRES_MCP_CONNECTION_NAME=POSTGRES_MCP_CONNECTION_NAME
     POSTGRES_MCP_PASS=POSTGRES_MCP_PASS
     SQLSERVER_CONNECTION_NAME=SQLSERVER_CONNECTION_NAME
     SQLSERVER_USER=SQLSERVER_USER
     SQLSERVER_PASS=SQLSERVER_PASS
     SQLSERVER_DB=SQLSERVER_DB
+    IMPERSONATED_USER=IMPERSONATED_USER
     QUOTA_PROJECT=QUOTA_PROJECT
   )
 
-  if [[ -z "$TEST_PROJECT" ]] ; then
+  if [[ -z "${TEST_PROJECT:-}" ]] ; then
     echo "Set TEST_PROJECT environment variable to the project containing"
     echo "the e2e test suite secrets."
     exit 1
   fi
+
+  echo "Getting test secrets from $TEST_PROJECT into $outfile"
+  local_user=$(gcloud auth list --format 'value(account)' | tr -d '\n')
 
   echo "Getting test secrets from $TEST_PROJECT into $1"
   {
@@ -118,7 +122,10 @@ function write_e2e_env(){
     val=$(gcloud secrets versions access latest --project "$TEST_PROJECT" --secret="$secret_name")
     echo "export $env_var_name='$val'"
   done
-  } > "$1"
+  # Set IAM User env vars to the local gcloud user
+  echo "export MYSQL_IAM_USER='${local_user%%@*}'"
+  echo "export POSTGRES_IAM_USER='$local_user'"
+  } > "$outfile"
 
 }
 

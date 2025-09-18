@@ -19,7 +19,7 @@ const t = require('tap');
 function generatePrismaClient() {
   const schemaPath = resolve(__dirname, '../schema.prisma');
 
-  execSync(`npx prisma generate --schema=${schemaPath}`);
+  execSync(`npm exec prisma -- generate --schema=${schemaPath}`);
 }
 
 t.test('mysql prisma cjs', async t => {
