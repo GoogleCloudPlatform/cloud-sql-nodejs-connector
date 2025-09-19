@@ -33,11 +33,10 @@ export async function connect({
 
   const database = new Sequelize({
     dialect: 'mysql',
-    username,
+    user: username,
+    port: 3307,
     database: databaseName,
-    dialectOptions: {
-      ...clientOpts,
-    },
+    ...clientOpts,
   });
 
   await database.authenticate();

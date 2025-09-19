@@ -25,14 +25,16 @@ export async function connect({ instanceConnectionName, username, password, data
 
   const database = new Sequelize({
     dialect: 'mssql',
-    username,
-    password,
+    server: 'localhost',
     database: databaseName,
-    dialectOptions: {
+    authentication: {
+      type: "default",
       options: {
-        ...clientOpts,
-      },
+        userName: username,
+        password: password,
+      }
     },
+    ...clientOpts,
   });
 
   await database.authenticate();

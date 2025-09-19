@@ -25,11 +25,9 @@ export async function connect({ instanceConnectionName, username, databaseName }
 
   const database = new Sequelize({
     dialect: 'postgres',
-    username,
+    user: username,
     database: databaseName,
-    dialectOptions: {
-      ...clientOpts,
-    },
+    ...clientOpts,
   });
 
   await database.authenticate();
