@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {execSync} = require('node:child_process');
+const {spawnSync} = require('node:child_process');
 const {resolve} = require('node:path');
 const t = require('tap');
 
 function generatePrismaClient() {
   const schemaPath = resolve(__dirname, '../schema.prisma');
+  const prismaPath = resolve(
+      __dirname,
+      '../../../../node_modules/.bin/prisma'
+  );
 
-  execSync(`npx prisma generate --schema=${schemaPath}`);
+  spawnSync(prismaPath, ['generate', `--schema=${schemaPath}`], {
+    stdio: 'inherit',
+  });
 }
+
 
 t.test('pg prisma cjs', async t => {
   // prisma client generation should normally be part of a regular Prisma

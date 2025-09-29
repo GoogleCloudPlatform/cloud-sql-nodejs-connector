@@ -12,21 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {execSync} from 'node:child_process';
+import {spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import t from 'tap';
 
 function generatePrismaClient() {
   const schemaPath = resolve(__dirname, '../schema.prisma');
+  const prismaPath = resolve(__dirname, '../../../../node_modules/.bin/prisma');
 
-  execSync(`npx prisma generate --schema=${schemaPath}`);
+  spawnSync(prismaPath, ['generate', `--schema=${schemaPath}`], {
+    stdio: 'inherit',
+  });
 }
 
 t.test('mysql prisma ts', async t => {
   // prisma client generation should normally be part of a regular Prisma
   // setup on user end but in order to tests in many different databases
   // we run the generation step at runtime for each variation
-  generatePrismaClient();
+  await generatePrismaClient();
 
   const {
     default: {connect},

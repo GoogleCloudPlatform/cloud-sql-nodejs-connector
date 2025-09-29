@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {Connector} = require('@google-cloud/cloud-sql-connector');
 const {Sequelize} = require('@sequelize/core');
+const {Connector} = require('@google-cloud/cloud-sql-connector');
 
-async function connect({ instanceConnectionName, username, password, databaseName }) {
+async function connect({instanceConnectionName, username, password, databaseName}) {
   const connector = new Connector();
   const clientOpts = await connector.getTediousOptions({
     instanceConnectionName,
@@ -25,14 +25,16 @@ async function connect({ instanceConnectionName, username, password, databaseNam
 
   const database = new Sequelize({
     dialect: 'mssql',
-    username,
-    password,
+    server: 'localhost',
     database: databaseName,
-    dialectOptions: {
+    authentication: {
+      type: "default",
       options: {
-        ...clientOpts,
-      },
+        userName: username,
+        password: password,
+      }
     },
+    ...clientOpts,
   });
 
   await database.authenticate();
@@ -42,9 +44,9 @@ async function connect({ instanceConnectionName, username, password, databaseNam
     async close() {
       await database.close();
       connector.close();
-    }
+    },
   };
-};
+}
 
 module.exports = {
   connect,
