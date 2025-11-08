@@ -91,7 +91,7 @@
     "@googleapis/sqladmin": "^31.1.0",
     "gaxios": "^7.1.2",
     "google-auth-library": "^10.4.0",
-    "p-throttle": "^7.0.0"
+    "p-throttle": "^8.0.0"
   },
   "overrides": {
     "make-fetch-happen": "12.0.0"
