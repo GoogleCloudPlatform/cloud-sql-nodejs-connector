@@ -11,7 +11,8 @@
     "@google-cloud/cloud-sql-connector": "^1.8.4",
     "express": "^5.1.0",
     "knex": "^3.1.0",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "express-rate-limit": "8.2.1"
   },
   "devDependencies": {
   }

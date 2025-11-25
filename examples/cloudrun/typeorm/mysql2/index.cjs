@@ -18,6 +18,18 @@ const typeorm = require('typeorm');
 
 const app = express();
 
+// set up rate limiter: maximum of five requests per minute
+var RateLimit = require('express-rate-limit');
+var limiter = RateLimit({
+  // 15 minutes
+  windowMs: 15 * 60 * 1000,
+  // max 100 requests per windowMs
+  max: 100,
+});
+
+// apply rate limiter to all requests
+app.use(limiter);
+
 // Connector and connection pools are initialized as null to allow for lazy instantiation.
 // Lazy instantiation is a best practice for Cloud Run applications because it allows
 // the application to start faster and only initialize connections when they are needed.

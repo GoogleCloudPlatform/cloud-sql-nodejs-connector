@@ -12,6 +12,7 @@
     "express": "^5.1.0",
     "@sequelize/core": "^7.0.0-alpha.41",
     "@sequelize/postgres": "^7.0.0-alpha.41",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "express-rate-limit": "8.2.1"
   }
 }

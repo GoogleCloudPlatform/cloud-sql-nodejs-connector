@@ -12,7 +12,8 @@
     "express": "^5.1.0",
     "@sequelize/core": "^7.0.0-alpha.37",
     "@sequelize/mssql": "^7.0.0-alpha.37",
-    "tedious": "^18.6.1"
+    "tedious": "^18.6.1",
+    "express-rate-limit": "8.2.1"
   },
   "devDependencies": {
   }
