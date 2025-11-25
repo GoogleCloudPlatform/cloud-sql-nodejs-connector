@@ -75,10 +75,10 @@ async function getPasswordConnection() {
         // tedious driver-specific connector options
         encrypt: true,
         trustServerCertificate: true,
-      }
+      },
     },
     // Set min/max pool size, and other pool options
-    pool: { min: 1, max: 5 }
+    pool: {min: 1, max: 5},
   });
 }
 
@@ -94,10 +94,18 @@ app.get('/', async (req, res) => {
   try {
     const db = await getConnectionSettings();
     const result = await db.raw('SELECT 1');
-    res.send(`Database connection successful (password authentication), result: ${JSON.stringify(result)}`);
-  } catch (err: any) {
+    res.send(
+      'Database connection successful (password authentication), result: ' +
+        `${JSON.stringify(result)}`
+    );
+  } catch (err: unknown) {
     console.error(err);
-    res.status(500).send(`Error connecting to the database (password authentication): ${err.message}`);
+    res
+      .status(500)
+      .send(
+        'Error connecting to the database (password authentication): ' +
+          `${(err as Error).message}`
+      );
   }
 });
 

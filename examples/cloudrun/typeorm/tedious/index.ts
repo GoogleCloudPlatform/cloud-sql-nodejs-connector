@@ -13,12 +13,8 @@
 // limitations under the License.
 
 import express from 'express';
-import {
-  AuthTypes,
-  Connector,
-  IpAddressTypes,
-} from '@google-cloud/cloud-sql-connector';
-import { DataSource } from 'typeorm';
+import {Connector, IpAddressTypes} from '@google-cloud/cloud-sql-connector';
+import {DataSource} from 'typeorm';
 
 const app = express();
 
@@ -91,14 +87,31 @@ app.get('/', async (req, res) => {
   try {
     const db = await getConnectionSettings();
     const result = await db.query('SELECT 1');
-    res.send(`Database connection successful (password authentication), result: ${JSON.stringify(result)}`);
-  } catch (err: any) {
+    res.send(
+      'Database connection successful (password authentication), result: ' +
+        `${JSON.stringify(result)}`
+    );
+  } catch (err: unknown) {
     console.error(err);
-    res.status(500).send(`Error connecting to the database (password authentication): ${err.message}`);
+    res
+      .status(500)
+      .send(
+        'Error connecting to the database (password authentication): ' +
+          `${(err as Error).message}`
+      );
   }
 });
 
 const port = parseInt(process.env.PORT || '8080');
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+});
+
+process.on('SIGTERM', async () => {
+  if (passwordPool) {
+    await passwordPool.destroy();
+  }
+  if (connector) {
+    connector.close();
+  }
 });

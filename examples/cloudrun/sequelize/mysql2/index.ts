@@ -129,11 +129,19 @@ app.get('/', async (req, res) => {
   try {
     const db = await getConnectionSettings();
     await db.authenticate();
-    const [results, metadata] = await db.query('SELECT 1');
-    res.send(`Database connection successful (password authentication), result: ${JSON.stringify(results)}`);
-  } catch (err: any) {
+    const [results] = await db.query('SELECT 1');
+    res.send(
+      'Database connection successful (password authentication), result: ' +
+        `${JSON.stringify(results)}`
+    );
+  } catch (err: unknown) {
     console.error(err);
-    res.status(500).send(`Error connecting to the database (password authentication): ${err.message}`);
+    res
+      .status(500)
+      .send(
+        'Error connecting to the database (password authentication): ' +
+          `${(err as Error).message}`
+      );
   }
 });
 
@@ -141,15 +149,35 @@ app.get('/iam', async (req, res) => {
   try {
     const db = await getIamConnectionSettings();
     await db.authenticate();
-    const [results, metadata] = await db.query('SELECT 1');
-    res.send(`Database connection successful (IAM authentication), result: ${JSON.stringify(results)}`);
-  } catch (err: any) {
+    const [results] = await db.query('SELECT 1');
+    res.send(
+      'Database connection successful (IAM authentication), result: ' +
+        `${JSON.stringify(results)}`
+    );
+  } catch (err: unknown) {
     console.error(err);
-    res.status(500).send(`Error connecting to the database (IAM authentication): ${err.message}`);
+    res
+      .status(500)
+      .send(
+        'Error connecting to the database (IAM authentication): ' +
+          `${(err as Error).message}`
+      );
   }
 });
 
 const port = parseInt(process.env.PORT || '8080');
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+});
+
+process.on('SIGTERM', async () => {
+  if (passwordPool) {
+    await passwordPool.close();
+  }
+  if (iamPool) {
+    await iamPool.close();
+  }
+  if (connector) {
+    connector.close();
+  }
 });

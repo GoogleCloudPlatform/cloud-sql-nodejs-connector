@@ -15,7 +15,11 @@
 import express from 'express';
 import {resolve} from 'node:path';
 import fs from 'node:fs';
-import {Connector, IpAddressTypes, AuthTypes} from '@google-cloud/cloud-sql-connector';
+import {
+  Connector,
+  IpAddressTypes,
+  AuthTypes,
+} from '@google-cloud/cloud-sql-connector';
 import {PrismaClient} from '@prisma/client';
 
 const app = express();
@@ -58,13 +62,13 @@ async function getIamConnection() {
 
   // Creates a randomly named unix socket path for the local proxy.
   const dir = resolve('/tmp', `pg-iam-${Date.now()}`);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, {recursive: true});
   const path = resolve(dir, '.s.PGSQL.5432');
 
   // The startLocalProxy method starts a local proxy that listens on the
   // specified unix socket path. This allows the application to connect to
   // the database using a standard database driver.
-  await connector.startLocalProxy({
+  const cleanup = await connector.startLocalProxy({
     instanceConnectionName,
     ipType: ipType,
     authType: AuthTypes.IAM,
@@ -72,7 +76,9 @@ async function getIamConnection() {
   });
 
   // URL encode the user for IAM service accounts
-  const datasourceUrl = `postgresql://${encodeURIComponent(dbUser)}@localhost/${dbName}?host=${dir}`;
+  const datasourceUrl = `postgresql://${encodeURIComponent(
+    dbUser
+  )}@localhost/${dbName}?host=${dir}`;
   const prisma = new PrismaClient({datasourceUrl});
 
   // Returns the prisma client and a cleanup function to close the connection.
@@ -80,6 +86,7 @@ async function getIamConnection() {
     prisma,
     async close() {
       await prisma.$disconnect();
+      cleanup();
     },
   };
 }
@@ -100,13 +107,13 @@ async function getPasswordConnection() {
 
   // Creates a randomly named unix socket path for the local proxy.
   const dir = resolve('/tmp', `pg-pw-${Date.now()}`);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, {recursive: true});
   const path = resolve(dir, '.s.PGSQL.5432');
 
   // The startLocalProxy method starts a local proxy that listens on the
   // specified unix socket path. This allows the application to connect to
   // the database using a standard database driver.
-  await connector.startLocalProxy({
+  const cleanup = await connector.startLocalProxy({
     instanceConnectionName,
     ipType: ipType,
     listenOptions: {path},
@@ -122,6 +129,7 @@ async function getPasswordConnection() {
     prisma,
     async close() {
       await prisma.$disconnect();
+      cleanup();
     },
   };
 }
@@ -129,7 +137,7 @@ async function getPasswordConnection() {
 // Helper to get or create the password pool
 async function getConnectionSettings() {
   if (!passwordClient) {
-    const { prisma, close } = await getPasswordConnection();
+    const {prisma, close} = await getPasswordConnection();
     passwordClient = prisma;
     passwordCleanup = close;
   }
@@ -139,7 +147,7 @@ async function getConnectionSettings() {
 // Helper to get or create the IAM pool
 async function getIamConnectionSettings() {
   if (!iamClient) {
-    const { prisma, close } = await getIamConnection();
+    const {prisma, close} = await getIamConnection();
     iamClient = prisma;
     iamCleanup = close;
   }
@@ -151,12 +159,20 @@ app.get('/', async (req, res) => {
     const prisma = await getConnectionSettings();
     const result = await prisma.$queryRaw`SELECT 1`;
     const serialized = JSON.stringify(result, (key, value) =>
-        typeof value === 'bigint' ? value.toString() : value
+      typeof value === 'bigint' ? value.toString() : value
     );
-    res.send(`Database connection successful (password authentication), result: ${serialized}`);
-  } catch (err: any) {
+    res.send(
+      'Database connection successful (password authentication), result: ' +
+        `${serialized}`
+    );
+  } catch (err: unknown) {
     console.error(err);
-    res.status(500).send(`Error connecting to the database (password authentication): ${err.message}`);
+    res
+      .status(500)
+      .send(
+        'Error connecting to the database (password authentication): ' +
+          `${(err as Error).message}`
+      );
   }
 });
 
@@ -165,12 +181,20 @@ app.get('/iam', async (req, res) => {
     const prisma = await getIamConnectionSettings();
     const result = await prisma.$queryRaw`SELECT 1`;
     const serialized = JSON.stringify(result, (key, value) =>
-        typeof value === 'bigint' ? value.toString() : value
+      typeof value === 'bigint' ? value.toString() : value
     );
-    res.send(`Database connection successful (IAM authentication), result: ${serialized}`);
-  } catch (err: any) {
+    res.send(
+      'Database connection successful (IAM authentication), result: ' +
+        `${serialized}`
+    );
+  } catch (err: unknown) {
     console.error(err);
-    res.status(500).send(`Error connecting to the database (IAM authentication): ${err.message}`);
+    res
+      .status(500)
+      .send(
+        'Error connecting to the database (IAM authentication): ' +
+          `${(err as Error).message}`
+      );
   }
 });
 
@@ -178,4 +202,16 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
+});
+
+process.on('SIGTERM', async () => {
+  if (passwordCleanup) {
+    await passwordCleanup();
+  }
+  if (iamCleanup) {
+    await iamCleanup();
+  }
+  if (connector) {
+    connector.close();
+  }
 });
