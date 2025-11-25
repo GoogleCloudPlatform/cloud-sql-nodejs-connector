@@ -52,7 +52,7 @@ function getIpType(ipTypeStr) {
 }
 
 // Function to create a database connection pool using IAM authentication
-async function getIamConnection() {
+async function createIamConnectionPool() {
   const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME;
   // IAM service account email
   const dbUser = process.env.DB_IAM_USER;
@@ -83,7 +83,7 @@ async function getIamConnection() {
 }
 
 // Function to create a database connection pool using password authentication
-async function getPasswordConnection() {
+async function createPasswordConnectionPool() {
   const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME;
   // Database username
   const dbUser = process.env.DB_USER;
@@ -115,24 +115,24 @@ async function getPasswordConnection() {
 }
 
 // Helper to get or create the password pool
-async function getConnectionSettings() {
+async function getPasswordConnectionPool() {
   if (!passwordPool) {
-    passwordPool = await getPasswordConnection();
+    passwordPool = await createPasswordConnectionPool();
   }
   return passwordPool;
 }
 
 // Helper to get or create the IAM pool
-async function getIamConnectionSettings() {
+async function getIamConnectionPool() {
   if (!iamPool) {
-    iamPool = await getIamConnection();
+    iamPool = await createIamConnectionPool();
   }
   return iamPool;
 }
 
 app.get('/', async (req, res) => {
   try {
-    const db = await getConnectionSettings();
+    const db = await getPasswordConnectionPool();
     // Use knex to run a simple query
     const result = await db.raw('SELECT 1');
     // Knex raw result for mysql2 is [rows, fields]
@@ -145,7 +145,7 @@ app.get('/', async (req, res) => {
 
 app.get('/iam', async (req, res) => {
   try {
-    const db = await getIamConnectionSettings();
+    const db = await getIamConnectionPool();
     const result = await db.raw('SELECT 1');
     res.send(`Database connection successful (IAM authentication), result: ${JSON.stringify(result[0])}`);
   } catch (err) {

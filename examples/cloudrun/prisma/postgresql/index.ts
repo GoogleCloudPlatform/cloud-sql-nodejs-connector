@@ -60,7 +60,7 @@ function getIpType(ipTypeStr: string | undefined) {
 }
 
 // Function to create a database connection pool using IAM authentication
-async function getIamConnection() {
+async function createIamConnectionPool() {
   const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || '';
   // IAM service account email
   const dbUser = process.env.DB_IAM_USER || '';
@@ -104,7 +104,7 @@ async function getIamConnection() {
 }
 
 // Function to create a database connection pool using password authentication
-async function getPasswordConnection() {
+async function createPasswordConnectionPool() {
   const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || '';
   // Database username
   const dbUser = process.env.DB_USER || '';
@@ -147,9 +147,9 @@ async function getPasswordConnection() {
 }
 
 // Helper to get or create the password pool
-async function getConnectionSettings() {
+async function getPasswordConnectionPool() {
   if (!passwordClient) {
-    const {prisma, close} = await getPasswordConnection();
+    const {prisma, close} = await createPasswordConnectionPool();
     passwordClient = prisma;
     passwordCleanup = close;
   }
@@ -157,9 +157,9 @@ async function getConnectionSettings() {
 }
 
 // Helper to get or create the IAM pool
-async function getIamConnectionSettings() {
+async function getIamConnectionPool() {
   if (!iamClient) {
-    const {prisma, close} = await getIamConnection();
+    const {prisma, close} = await createIamConnectionPool();
     iamClient = prisma;
     iamCleanup = close;
   }
@@ -168,7 +168,7 @@ async function getIamConnectionSettings() {
 
 app.get('/', async (req, res) => {
   try {
-    const prisma = await getConnectionSettings();
+    const prisma = await getPasswordConnectionPool();
     const result = await prisma.$queryRaw`SELECT 1`;
     const serialized = JSON.stringify(result, (key, value) =>
       typeof value === 'bigint' ? value.toString() : value
@@ -190,7 +190,7 @@ app.get('/', async (req, res) => {
 
 app.get('/iam', async (req, res) => {
   try {
-    const prisma = await getIamConnectionSettings();
+    const prisma = await getIamConnectionPool();
     const result = await prisma.$queryRaw`SELECT 1`;
     const serialized = JSON.stringify(result, (key, value) =>
       typeof value === 'bigint' ? value.toString() : value

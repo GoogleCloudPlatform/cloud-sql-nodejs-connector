@@ -51,7 +51,7 @@ function getIpType(ipTypeStr) {
 }
 
 // Function to create a database connection pool using password authentication
-async function getPasswordConnection() {
+async function createPasswordConnectionPool() {
   const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME;
   // Database username
   const dbUser = process.env.DB_USER;
@@ -87,16 +87,16 @@ async function getPasswordConnection() {
 }
 
 // Helper to get or create the password pool
-async function getConnectionSettings() {
+async function getPasswordConnectionPool() {
   if (!passwordPool) {
-    passwordPool = await getPasswordConnection();
+    passwordPool = await createPasswordConnectionPool();
   }
   return passwordPool;
 }
 
 app.get('/', async (req, res) => {
   try {
-    const db = await getConnectionSettings();
+    const db = await getPasswordConnectionPool();
     await db.authenticate();
     const [results, metadata] = await db.query('SELECT 1');
     res.send(`Database connection successful (password authentication), result: ${JSON.stringify(results)}`);
