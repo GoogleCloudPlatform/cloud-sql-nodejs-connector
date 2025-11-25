@@ -23,8 +23,8 @@ import {Sequelize} from '@sequelize/core';
 const app = express();
 
 // set up rate limiter: maximum of five requests per minute
-var RateLimit = require('express-rate-limit');
-var limiter = RateLimit({
+const RateLimit = require('express-rate-limit');
+const limiter = RateLimit({
   // 15 minutes
   windowMs: 15 * 60 * 1000,
   // max 100 requests per windowMs
