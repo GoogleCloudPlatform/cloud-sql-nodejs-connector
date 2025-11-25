@@ -1,0 +1,18 @@
+{
+  "name": "knex-pg-cloudrun",
+  "version": "1.0.0",
+  "description": "Knex PostgreSQL example for Cloud Run (ESM)",
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@google-cloud/cloud-sql-connector": "^1.8.4",
+    "express": "^5.1.0",
+    "knex": "^3.1.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "sequelize-pg-cloudrun",
+  "version": "1.0.0",
+  "description": "Sequelize PostgreSQL example for Cloud Run (CommonJS)",
+  "main": "index.cjs",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.cjs"
+  },
+  "dependencies": {
+    "@google-cloud/cloud-sql-connector": "^1.8.4",
+    "express": "^5.1.0",
+    "@sequelize/core": "^7.0.0-alpha.41",
+    "@sequelize/postgres": "^7.0.0-alpha.41",
+    "pg": "^8.16.3"
+  }
+}
