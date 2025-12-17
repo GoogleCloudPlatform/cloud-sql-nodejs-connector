@@ -15,32 +15,44 @@
 import t from 'tap';
 
 t.test('lookup dns with mock responses', async t => {
-  const {resolveTxtRecord} = t.mockRequire('../src/dns-lookup.ts', {
-    'node:dns': {
-      resolveTxt: (name, callback) => {
-        switch (name) {
-          case 'db.example.com':
-            callback(null, [['my-project:region-1:instance']]);
-            return;
-          case 'multiple.example.com':
-            callback(null, [
-              ['my-project:region-1:instance'],
-              ['another-project:region-1:instance'],
-            ]);
-            return;
-          case 'split.example.com':
-            callback(null, [['my-project:', 'region-1:instance']]);
-            return;
-          case 'empty.example.com':
+  const {resolveTxtRecord, resolveARecord} = t.mockRequire(
+    '../src/dns-lookup.ts',
+    {
+      'node:dns': {
+        resolveTxt: (name, callback) => {
+          switch (name) {
+            case 'db.example.com':
+              callback(null, [['my-project:region-1:instance']]);
+              return;
+            case 'multiple.example.com':
+              callback(null, [
+                ['my-project:region-1:instance'],
+                ['another-project:region-1:instance'],
+              ]);
+              return;
+            case 'split.example.com':
+              callback(null, [['my-project:', 'region-1:instance']]);
+              return;
+            case 'empty.example.com':
+              callback(null, []);
+              return;
+            default:
+              callback(new Error('not found'), null);
+              return;
+          }
+        },
+        resolve4: (name, callback) => {
+          if (name === 'example.com') {
+            callback(null, ['10.0.0.1']);
+          } else if (name === 'empty.example.com') {
             callback(null, []);
-            return;
-          default:
-            callback(new Error('not found'), null);
-            return;
-        }
+          } else {
+            callback(new Error('not found'));
+          }
+        },
       },
-    },
-  });
+    }
+  );
 
   t.same(
     await resolveTxtRecord('db.example.com'),
@@ -66,6 +78,23 @@ t.test('lookup dns with mock responses', async t => {
     async () => await resolveTxtRecord('empty.example.com'),
     {code: 'EDOMAINNAMELOOKUPFAILED'},
     'should throw type error if an extra item is provided'
+  );
+
+  // resolveARecord tests
+  t.same(
+    await resolveARecord('example.com'),
+    ['10.0.0.1'],
+    'should resolve A record'
+  );
+  t.same(
+    await resolveARecord('empty.example.com'),
+    [],
+    'should return empty array'
+  );
+  t.rejects(
+    async () => await resolveARecord('not-found'),
+    /not found/,
+    'should reject on error'
   );
 });
 

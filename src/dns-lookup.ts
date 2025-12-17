@@ -48,3 +48,15 @@ export async function resolveTxtRecord(name: string): Promise<string> {
     });
   });
 }
+
+export async function resolveARecord(name: string): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    dns.resolve4(name, (err, addresses) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(addresses);
+    });
+  });
+}

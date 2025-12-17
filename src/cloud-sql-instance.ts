@@ -18,6 +18,7 @@ import {
   isSameInstance,
   resolveInstanceName,
 } from './parse-instance-connection-name';
+import {resolveARecord} from './dns-lookup';
 import {InstanceMetadata} from './sqladmin-fetcher';
 import {generateKeys} from './crypto';
 import {RSAKeys} from './rsa-keys';
@@ -69,12 +70,13 @@ export class CloudSQLInstance {
   static async getCloudSQLInstance(
     options: CloudSQLInstanceOptions
   ): Promise<CloudSQLInstance> {
+    const instanceInfo = await resolveInstanceName(
+      options.instanceConnectionName,
+      options.domainName
+    );
     const instance = new CloudSQLInstance({
       options: options,
-      instanceInfo: await resolveInstanceName(
-        options.instanceConnectionName,
-        options.domainName
-      ),
+      instanceInfo,
     });
     await instance.refresh();
     return instance;
@@ -266,7 +268,20 @@ export class CloudSQLInstance {
       rsaKeys.publicKey,
       this.authType
     );
-    const host = selectIpAddress(metadata.ipAddresses, this.ipType);
+    let host;
+    if (this.instanceInfo && this.instanceInfo.domainName) {
+      try {
+        const ips = await resolveARecord(this.instanceInfo.domainName);
+        if (ips && ips.length > 0) {
+          host = ips[0];
+        }
+      } catch (e) {
+        // ignore error, fallback to metadata IP
+      }
+    }
+    if (!host) {
+      host = selectIpAddress(metadata.ipAddresses, this.ipType);
+    }
     const privateKey = rsaKeys.privateKey;
     const serverCaCert = metadata.serverCaCert;
     this.serverCaMode = metadata.serverCaMode;
