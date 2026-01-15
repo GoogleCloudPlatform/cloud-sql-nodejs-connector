@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.9.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.8.5...v1.9.0) (2026-01-15)
+
+
+### Features
+
+* Use configured DNS name to lookup instance IP address ([#514](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/514)) ([7655fd8](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/7655fd81d8b1fce1e1ac668b707cc4aba7776b37)), closes [#513](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/513)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#524](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/524)) ([11825cf](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/11825cf2151f4bd6878c1b185dc11b2547cd38ca))
+
 ## [1.8.5](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.8.4...v1.8.5) (2025-12-09)
 
 
