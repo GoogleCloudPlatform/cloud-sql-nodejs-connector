@@ -62,7 +62,7 @@
     "@sequelize/mssql": "^7.0.0-alpha.29",
     "@sequelize/mysql": "^7.0.0-alpha.29",
     "@sequelize/postgres": "^7.0.0-alpha.29",
-    "@types/node": "^22.19.2",
+    "@types/node": "^24.0.0",
     "@types/pg": "^8.15.6",
     "@types/tap": "^18.0.0",
     "@types/tedious": "^18.0.0",
