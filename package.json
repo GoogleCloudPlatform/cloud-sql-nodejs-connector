@@ -61,7 +61,7 @@
     "statements": 96
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^7.0.0",
     "@sequelize/core": "^7.0.0-alpha.29",
     "@sequelize/mssql": "^7.0.0-alpha.29",
     "@sequelize/mysql": "^7.0.0-alpha.29",
@@ -78,7 +78,7 @@
     "mysql2": "^3.16.0",
     "nock": "^14.0.10",
     "pg": "^8.16.3",
-    "prisma": "^5.22.0",
+    "prisma": "^7.0.0",
     "tap": "^21.5.0",
     "tedious": "^19.0.0",
     "typeorm": "^0.3.28",
