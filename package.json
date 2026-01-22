@@ -54,7 +54,11 @@
       "examples/prisma/postgresql",
       "test/serial"
     ],
-    "show-full-coverage": true
+    "show-full-coverage": true,
+    "branches": 94,
+    "functions": 96,
+    "lines": 96,
+    "statements": 96
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
