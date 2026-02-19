@@ -68,7 +68,10 @@ function lint() {
 
 ## deps - updates project dependencies to latest
 function deps() {
+  npm config set registry https://registry.npmjs.org/ --project
+  npm cache clean --force
   npm update --save
+  npm config delete registry --project
 }
 
 # write_e2e_env - Loads secrets from the gcloud project and writes
@@ -111,8 +114,7 @@ function write_e2e_env(){
   fi
 
   echo "Getting test secrets from $TEST_PROJECT into $outfile"
-  local_user=$(gcloud auth list --format 'value(account)' | tr -d '\n')
-
+  local_user=$(gcloud auth list --format 'value(account)' | grep '@google.com' | tr -d '\n')
   echo "Getting test secrets from $TEST_PROJECT into $1"
   {
   for env_name in "${secret_vars[@]}" ; do
