@@ -69,6 +69,14 @@ function lint() {
 ## deps - updates project dependencies to latest
 function deps() {
   npm update --save
+  # When we run this on a cloudtop, the urls in package-lock.json are replaced 
+  # with an internal server. We need to manually update package-lock.json 
+  # to set them back to https://registry.npmjs.org/
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" package-lock.json
+  else
+    sed -i "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" package-lock.json
+  fi
 }
 
 # write_e2e_env - Loads secrets from the gcloud project and writes
