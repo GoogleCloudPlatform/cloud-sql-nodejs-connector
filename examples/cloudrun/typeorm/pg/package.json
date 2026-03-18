@@ -12,7 +12,7 @@
     "express": "^5.1.0",
     "typeorm": "^0.3.27",
     "pg": "^8.16.3",
-    "express-rate-limit": "8.2.1"
+    "express-rate-limit": "8.2.2"
   },
   "devDependencies": {
   }
