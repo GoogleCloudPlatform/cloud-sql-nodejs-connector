@@ -14,6 +14,7 @@
 
 import {
   Connector,
+  ConnectorOptions,
   ConnectionOptions,
   DriverOptions,
   UnixSocketOptions,
@@ -23,6 +24,7 @@ import {AuthTypes} from './auth-types';
 
 export {
   Connector,
+  type ConnectorOptions,
   type ConnectionOptions,
   type DriverOptions,
   type UnixSocketOptions,

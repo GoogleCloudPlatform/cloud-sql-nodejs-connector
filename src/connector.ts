@@ -176,7 +176,7 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
   }
 }
 
-interface ConnectorOptions {
+export interface ConnectorOptions {
   auth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
   /**
