@@ -1,4 +1,4 @@
-// Copyright 2023 Google LLC
+// Copyright 2026 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  Connector,
-  ConnectorOptions,
-  ConnectionOptions,
-  DriverOptions,
-  UnixSocketOptions,
-} from './connector';
-import {IpAddressTypes} from './ip-addresses';
-import {AuthTypes} from './auth-types';
+import t from 'tap';
+import {GoogleAuth, AuthClient} from '../src/index';
 
-export {
-  Connector,
-  type ConnectorOptions,
-  type ConnectionOptions,
-  type DriverOptions,
-  type UnixSocketOptions,
-};
-export {IpAddressTypes};
-export {AuthTypes};
-export {GoogleAuth, AuthClient} from 'google-auth-library';
+t.test('should export GoogleAuth and AuthClient', t => {
+  t.ok(GoogleAuth, 'GoogleAuth should be exported');
+  t.ok(AuthClient, 'AuthClient should be exported');
+  t.equal(
+    typeof GoogleAuth,
+    'function',
+    'GoogleAuth should be a constructor function'
+  );
+  t.end();
+});
