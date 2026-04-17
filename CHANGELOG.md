@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.9.2...v1.10.0) (2026-04-17)
+
+
+### Features
+
+* re-export auth types and ConnectorOptions (fixes [#555](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/555)) ([#556](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/556)) ([90b50d4](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/90b50d4ab3357d28d2580a99f5ae4fa0c42875d8))
+
 ## [1.9.2](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.9.1...v1.9.2) (2026-03-18)
 
 
