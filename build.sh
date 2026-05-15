@@ -68,6 +68,15 @@ function lint() {
 
 ## deps - updates project dependencies to latest
 function deps() {
+  # Use NVM
+  if [[ ! -d "$NVM_DIR" ]] ; then
+    echo "Please activate nvm"
+    exit 1
+  fi
+
+  # Use the minimum node version to run the updates.
+  nvm use 18
+
   npm update --save
   # When we run this on a cloudtop, the urls in package-lock.json are replaced 
   # with an internal server. We need to manually update package-lock.json 
