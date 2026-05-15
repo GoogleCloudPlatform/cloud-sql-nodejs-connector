@@ -68,7 +68,7 @@ function lint() {
 
 ## deps - updates project dependencies to latest
 function deps() {
-  version=${1:-18}
+  version=${1:-24}
 
   # Use NVM
   if [[ ! -d "$NVM_DIR" ]] ; then
@@ -95,7 +95,7 @@ function deps() {
 function test_deps() {
   source "$HOME/.nvm/nvm.sh"
 
-  for v in 22 20 18 ; do
+  for v in 24 26 ; do
     echo
     echo "*"
     echo "* Running tests with node v$v"
