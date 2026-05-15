@@ -68,15 +68,43 @@ function lint() {
 
 ## deps - updates project dependencies to latest
 function deps() {
+  version=${1:-18}
+
+  # Use NVM
+  if [[ ! -d "$NVM_DIR" ]] ; then
+    echo "Please activate nvm"
+    exit 1
+  fi
+
+  # Use the minimum node version to run the updates.
+  source "$NVM_DIR/nvm.sh"
+  nvm use $version
+
   npm update --save
-  # When we run this on a cloudtop, the urls in package-lock.json are replaced 
-  # with an internal server. We need to manually update package-lock.json 
+  # When we run this on a cloudtop, the urls in package-lock.json are replaced
+  # with an internal server. We need to manually update package-lock.json
   # to set them back to https://registry.npmjs.org/
   if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" package-lock.json
   else
     sed -i "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" package-lock.json
   fi
+}
+
+## test_node_versions deps uses nvm to run the test against all
+function test_deps() {
+  source "$HOME/.nvm/nvm.sh"
+
+  for v in 22 20 18 ; do
+    echo
+    echo "*"
+    echo "* Running tests with node v$v"
+    echo "*"
+    nvm use $v
+    rm -rf "$SCRIPT_DIR/node_modules"
+    npm ci
+    npm run test
+  done
 }
 
 # write_e2e_env - Loads secrets from the gcloud project and writes
