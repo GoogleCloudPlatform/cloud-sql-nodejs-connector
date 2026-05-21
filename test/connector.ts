@@ -14,6 +14,8 @@
 
 import {EventEmitter} from 'node:events';
 import t from 'tap';
+import fs from 'node:fs';
+import path from 'node:path';
 import {Connector} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
 import {IpAddressTypes} from '../src/ip-addresses';
@@ -688,3 +690,64 @@ t.test(
     t.same(mockSocket.destroyed, true, 'old instance closed its sockets');
   }
 );
+
+t.test('Connector startLocalProxy and close', async t => {
+  setupCredentials(t);
+  const {Connector} = t.mockRequire('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': t.mockRequire('../src/cloud-sql-instance', {
+      '../src/crypto': {
+        generateKeys: async () => ({
+          publicKey: '-----BEGIN PUBLIC KEY-----',
+          privateKey: CLIENT_KEY,
+        }),
+      },
+    }),
+  });
+
+  const connector = new Connector();
+  const socketPath = path.join(process.cwd(), `test-socket-${Date.now()}.sock`);
+
+  t.after(() => {
+    try {
+      if (fs.existsSync(socketPath)) {
+        fs.unlinkSync(socketPath);
+      }
+    } catch (err) {
+      // ignore
+    }
+  });
+
+  await connector.startLocalProxy({
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+    ipType: 'PUBLIC',
+    listenOptions: {
+      path: socketPath,
+    },
+  });
+
+  t.pass('should start local proxy');
+
+  connector.close();
+  t.pass('should close connector and local proxy');
+});

@@ -119,7 +119,7 @@ function write_e2e_env(){
   fi
 
   echo "Getting test secrets from $TEST_PROJECT into $outfile"
-  local_user=$(gcloud auth list --format 'value(account)' | tr -d '\n')
+  local_user=$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | tr -d '\n')
 
   echo "Getting test secrets from $TEST_PROJECT into $1"
   {
