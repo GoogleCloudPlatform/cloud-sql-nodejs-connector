@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.11.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.10.0...v1.11.0) (2026-05-21)
+
+
+### Features
+
+* Change minimum version to nodejs 24, which is the oldest active version ([#565](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/565)) ([bcb0947](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/bcb0947201c2bef702cb28f3c7f0a79f85ea0c1f))
+
+
+### Bug Fixes
+
+* connector close leaks for in-flight queries ([#566](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/566)) ([55e3f5d](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/55e3f5d15b1b982b4dce174e0a5da3150b0e4cbe))
+* Update dependencies to latest as of 2026-05-21 ([#574](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/574)) ([37fe201](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/37fe201f7b0590af15a2257a4a48901193040212))
+
 ## [1.10.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.9.2...v1.10.0) (2026-04-17)
 
 
