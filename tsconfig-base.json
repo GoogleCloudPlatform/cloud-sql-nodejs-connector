@@ -6,6 +6,7 @@
     "declarationMap": true,
     "esModuleInterop": true,
     "isolatedModules": true,
+    "rootDir": "./src",
     "skipLibCheck": true
   }
 }
