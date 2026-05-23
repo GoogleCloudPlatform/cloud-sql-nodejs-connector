@@ -25,7 +25,6 @@ import {RSAKeys} from './rsa-keys';
 import {SslCert} from './ssl-cert';
 import {getRefreshInterval, isExpirationTimeValid} from './time';
 import {AuthTypes} from './auth-types';
-import {CloudSQLConnectorError} from './errors';
 
 // Private types that describe exactly the methods
 // needed from tls.Socket to be able to close
@@ -364,12 +363,9 @@ export class CloudSQLInstance {
       this.checkDomainID = null;
     }
     for (const socket of this.sockets) {
-      socket.destroy(
-        new CloudSQLConnectorError({
-          code: 'ERRCLOSED',
-          message: 'The connector was closed.',
-        })
-      );
+      if (typeof socket.destroy === 'function') {
+        socket.destroy();
+      }
     }
   }
 
