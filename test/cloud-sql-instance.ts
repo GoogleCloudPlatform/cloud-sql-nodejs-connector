@@ -552,6 +552,34 @@ t.test('CloudSQLInstance', async t => {
     }
   );
 
+  t.test('close destroys tracked sockets without an error', async t => {
+    const instance = new CloudSQLInstance({
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: fetcher,
+      },
+    });
+
+    const destroyArgs: Array<Error | undefined> = [];
+    const socket = {
+      destroy(error?: Error) {
+        destroyArgs.push(error);
+      },
+      once() {},
+    };
+
+    instance.addSocket(socket);
+    instance.close();
+
+    t.same(
+      destroyArgs,
+      [undefined],
+      'close should not emit a synthetic socket error'
+    );
+  });
+
   t.test(
     'get invalid certificate data while having a current valid',
     async t => {
