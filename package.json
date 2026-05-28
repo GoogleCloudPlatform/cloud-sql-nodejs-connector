@@ -58,7 +58,7 @@
     "allow-incomplete-coverage": true
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^7.0.0",
     "@sequelize/core": "^7.0.0-alpha.29",
     "@sequelize/mssql": "^7.0.0-alpha.29",
     "@sequelize/mysql": "^7.0.0-alpha.29",
@@ -73,7 +73,7 @@
     "mysql2": "^3.22.3",
     "nock": "^14.0.15",
     "pg": "^8.21.0",
-    "prisma": "^5.22.0",
+    "prisma": "^7.0.0",
     "tap": "^20.0.3",
     "tedious": "^19.2.1",
     "typeorm": "^0.3.30",
