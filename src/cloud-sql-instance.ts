@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {IpAddressTypes, selectIpAddress} from './ip-addresses';
+import net from 'node:net';
+import {IpAddressTypes, selectIpAddress, IpAddresses} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {
   isSameInstance,
@@ -47,6 +48,7 @@ interface Fetcher {
     publicKey: string,
     authType: AuthTypes
   ): Promise<SslCert>;
+  resolveConnectSettings(dnsName: string, location: string): Promise<string>;
 }
 
 interface CloudSQLInstanceOptions {
@@ -61,7 +63,7 @@ interface CloudSQLInstanceOptions {
 
 interface RefreshResult {
   ephemeralCert: SslCert;
-  host: string;
+  host: string | string[];
   privateKey: string;
   serverCaCert: SslCert;
 }
@@ -72,7 +74,8 @@ export class CloudSQLInstance {
   ): Promise<CloudSQLInstance> {
     const instanceInfo = await resolveInstanceName(
       options.instanceConnectionName,
-      options.domainName
+      options.domainName,
+      options.sqlAdminFetcher
     );
     const instance = new CloudSQLInstance({
       options: options,
@@ -99,7 +102,7 @@ export class CloudSQLInstance {
 
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
-  public host?: string;
+  public host?: string | string[];
   public port = 3307;
   public privateKey?: string;
   public serverCaCert?: SslCert;
@@ -268,19 +271,20 @@ export class CloudSQLInstance {
       rsaKeys.publicKey,
       this.authType
     );
-    let host;
+    let host: string[] | undefined;
     if (this.instanceInfo && this.instanceInfo.domainName) {
       try {
         const ips = await resolveARecord(this.instanceInfo.domainName);
         if (ips && ips.length > 0) {
-          host = ips[0];
+          host = ips;
         }
       } catch (e) {
         // ignore error, fallback to metadata IP
       }
     }
     if (!host) {
-      host = selectIpAddress(metadata.ipAddresses, this.ipType);
+      const selectedIps = selectIpAddress(metadata.ipAddresses, this.ipType);
+      host = getFallbackIps(selectedIps, metadata.ipAddresses);
     }
     const privateKey = rsaKeys.privateKey;
     const serverCaCert = metadata.serverCaCert;
@@ -385,7 +389,8 @@ export class CloudSQLInstance {
 
     const newInfo = await resolveInstanceName(
       undefined,
-      this.instanceInfo.domainName
+      this.instanceInfo.domainName,
+      this.sqlAdminFetcher
     );
     if (!isSameInstance(this.instanceInfo, newInfo)) {
       // Domain name changed. Close and remove, then create a new map entry.
@@ -405,4 +410,20 @@ export class CloudSQLInstance {
       this.sockets.delete(socket);
     });
   }
+}
+
+function getFallbackIps(
+  currentIps: string[],
+  ipAddresses: IpAddresses
+): string[] {
+  if (currentIps.length > 0 && net.isIP(currentIps[0]) !== 0) {
+    return currentIps;
+  }
+  if (ipAddresses.private && ipAddresses.private.length > 0) {
+    return ipAddresses.private;
+  }
+  if (ipAddresses.public && ipAddresses.public.length > 0) {
+    return ipAddresses.public;
+  }
+  return currentIps;
 }

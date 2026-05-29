@@ -15,7 +15,7 @@
 import t from 'tap';
 
 t.test('lookup dns with mock responses', async t => {
-  const {resolveTxtRecord, resolveARecord} = t.mockRequire(
+  const {resolveTxtRecord, resolveARecord, resolveCnameRecord} = t.mockRequire(
     '../src/dns-lookup.ts',
     {
       'node:dns': {
@@ -44,6 +44,15 @@ t.test('lookup dns with mock responses', async t => {
         resolve4: (name, callback) => {
           if (name === 'example.com') {
             callback(null, ['10.0.0.1']);
+          } else if (name === 'empty.example.com') {
+            callback(null, []);
+          } else {
+            callback(new Error('not found'));
+          }
+        },
+        resolveCname: (name, callback) => {
+          if (name === 'cname.example.com') {
+            callback(null, ['target.example.com']);
           } else if (name === 'empty.example.com') {
             callback(null, []);
           } else {
@@ -95,6 +104,23 @@ t.test('lookup dns with mock responses', async t => {
     async () => await resolveARecord('not-found'),
     /not found/,
     'should reject on error'
+  );
+
+  // resolveCnameRecord tests
+  t.same(
+    await resolveCnameRecord('cname.example.com'),
+    'target.example.com',
+    'should resolve CNAME record'
+  );
+  t.rejects(
+    async () => await resolveCnameRecord('empty.example.com'),
+    {code: 'EDOMAINNAMELOOKUPFAILED'},
+    'should throw type error if empty cname results returned'
+  );
+  t.rejects(
+    async () => await resolveCnameRecord('not-found'),
+    {code: 'EDOMAINNAMELOOKUPERROR'},
+    'should reject on CNAME lookup error'
   );
 });
 

@@ -32,7 +32,7 @@ t.test('Connector', async t => {
         getInstanceMetadata() {
           return Promise.resolve({
             ipAddresses: {
-              public: '127.0.0.1',
+              public: ['127.0.0.1'],
             },
             serverCaCert: {
               cert: CA_CERT,
@@ -82,7 +82,7 @@ t.test('Connector missing instance info error', async t => {
         getInstanceMetadata() {
           return Promise.resolve({
             ipAddresses: {
-              public: '127.0.0.1',
+              public: ['127.0.0.1'],
             },
             serverCaCert: {
               cert: CA_CERT,
@@ -136,7 +136,7 @@ t.test('Connector bad instance info error', async t => {
         getInstanceMetadata() {
           return Promise.resolve({
             ipAddresses: {
-              public: '127.0.0.1',
+              public: ['127.0.0.1'],
             },
             serverCaCert: {
               cert: CA_CERT,
@@ -192,7 +192,7 @@ t.test('start only a single instance info per connection name', async t => {
         getInstanceMetadata() {
           return Promise.resolve({
             ipAddresses: {
-              public: '127.0.0.1',
+              public: ['127.0.0.1'],
             },
             serverCaCert: {
               cert: CA_CERT,
@@ -254,7 +254,7 @@ t.test(
           getInstanceMetadata() {
             return Promise.resolve({
               ipAddresses: {
-                public: '127.0.0.1',
+                public: ['127.0.0.1'],
               },
               serverCaCert: {
                 cert: CA_CERT,
@@ -315,7 +315,7 @@ t.test('Connector, supporting Tedious driver', async t => {
         getInstanceMetadata() {
           return Promise.resolve({
             ipAddresses: {
-              public: '127.0.0.1',
+              public: ['127.0.0.1'],
             },
             serverCaCert: {
               cert: CA_CERT,
@@ -407,7 +407,7 @@ t.test('Connector force refresh on socket connection error', async t => {
         getInstanceMetadata() {
           return Promise.resolve({
             ipAddresses: {
-              public: '127.0.0.1',
+              public: ['127.0.0.1'],
             },
             serverCaCert: {
               cert: CA_CERT,
@@ -529,7 +529,7 @@ function setupConnectorModule(t) {
         getInstanceMetadata() {
           return Promise.resolve({
             ipAddresses: {
-              public: '127.0.0.1',
+              public: ['127.0.0.1'],
             },
             serverCaCert: {
               cert: CA_CERT,
