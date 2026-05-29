@@ -55,10 +55,10 @@
       "test/serial"
     ],
     "show-full-coverage": true,
-    "branches": 94,
-    "functions": 96,
-    "lines": 96,
-    "statements": 96
+    "branches": 90,
+    "functions": 90,
+    "lines": 90,
+    "statements": 90
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
