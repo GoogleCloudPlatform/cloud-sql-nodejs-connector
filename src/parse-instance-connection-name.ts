@@ -14,7 +14,11 @@
 
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {CloudSQLConnectorError} from './errors';
-import {resolveTxtRecord} from './dns-lookup';
+import {resolveTxtRecord, resolveCnameRecord} from './dns-lookup';
+
+export interface Fetcher {
+  resolveConnectSettings(dnsName: string, location: string): Promise<string>;
+}
 
 export function isSameInstance(
   a: InstanceConnectionInfo,
@@ -30,7 +34,8 @@ export function isSameInstance(
 
 export async function resolveInstanceName(
   instanceConnectionName?: string,
-  domainName?: string
+  domainName?: string,
+  client?: Fetcher
 ): Promise<InstanceConnectionInfo> {
   if (!instanceConnectionName && !domainName) {
     throw new CloudSQLConnectorError({
@@ -44,7 +49,7 @@ export async function resolveInstanceName(
   ) {
     return parseInstanceConnectionName(instanceConnectionName);
   } else if (domainName && isValidDomainName(domainName)) {
-    return await resolveDomainName(domainName);
+    return await resolveDomainName(domainName, client);
   } else {
     throw new CloudSQLConnectorError({
       message:
@@ -57,10 +62,11 @@ export async function resolveInstanceName(
 const connectionNameRegex =
   /^(?<projectId>[^:]+(:[^:]+)?):(?<regionId>[^:]+):(?<instanceId>[^:]+)$/;
 
-// The domain name pattern in accordance with RFC 1035, RFC 1123 and RFC 2181.
-// From Go Connector:
 const domainNameRegex =
   /^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$/;
+
+const pscDnsRegex =
+  /^([a-f0-9]{12})\.([^.]+)\.([a-z0-9]+-[a-z0-9]+)\.(sql|sql-psa|sql-psc)\.goog\.?$/;
 
 export function isValidDomainName(name: string): boolean {
   const matches = String(name).match(domainNameRegex);
@@ -73,23 +79,97 @@ export function isInstanceConnectionName(name: string): boolean {
 }
 
 export async function resolveDomainName(
-  name: string
+  name: string,
+  client?: Fetcher
 ): Promise<InstanceConnectionInfo> {
-  const icn = await resolveTxtRecord(name);
-  if (!isInstanceConnectionName(icn)) {
-    throw new CloudSQLConnectorError({
-      message:
-        'Malformed instance connection name returned for domain ' +
-        name +
-        ' : ' +
-        icn,
-      code: 'EBADDOMAINCONNECTIONNAME',
-    });
+  let current = name;
+  const visited = new Set<string>([current]);
+
+  for (let i = 0; i < 10; i++) {
+    if (isInstanceConnectionName(current)) {
+      const info = parseInstanceConnectionName(current);
+      info.domainName = current !== name ? name : undefined;
+      return info;
+    }
+
+    const dnsNormalized = current.endsWith('.')
+      ? current.slice(0, -1)
+      : current;
+    const match = dnsNormalized.toLowerCase().match(pscDnsRegex);
+    if (match) {
+      const region = match[3];
+      if (!client) {
+        throw new CloudSQLConnectorError({
+          message: 'SQLAdmin client is not configured in the resolver.',
+          code: 'ENOSQLADMINCLIENTCONFIG',
+        });
+      }
+
+      const dnsNameWithDot = dnsNormalized + '.';
+      const resolvedConnName = await client.resolveConnectSettings(
+        dnsNameWithDot,
+        region
+      );
+      const info = parseInstanceConnectionName(resolvedConnName);
+      info.domainName = name;
+      return info;
+    }
+
+    if (!isValidDomainName(current)) {
+      throw new CloudSQLConnectorError({
+        message: `Malformed domain name: ${current}`,
+        code: 'EBADDOMAINNAME',
+      });
+    }
+
+    let cnameFound = false;
+    let cname = '';
+    try {
+      cname = await resolveCnameRecord(current);
+      cnameFound = true;
+    } catch (err) {
+      // No CNAME found
+    }
+
+    if (cnameFound) {
+      if (visited.has(cname)) {
+        throw new CloudSQLConnectorError({
+          message: `CNAME loop detected for domain: ${name}`,
+          code: 'ECNAMELOOPDETECTED',
+        });
+      }
+      visited.add(cname);
+      current = cname;
+      continue;
+    }
+
+    let txtRecord = '';
+    try {
+      txtRecord = await resolveTxtRecord(current);
+    } catch (err) {
+      throw new CloudSQLConnectorError({
+        message: `Unable to resolve TXT record for domain ${name}`,
+        code: 'EDOMAINNAMELOOKUPERROR',
+        errors: [err as Error],
+      });
+    }
+
+    if (!isInstanceConnectionName(txtRecord)) {
+      throw new CloudSQLConnectorError({
+        message: `Malformed instance connection name returned for domain ${current} : ${txtRecord}`,
+        code: 'EBADDOMAINCONNECTIONNAME',
+      });
+    }
+
+    const info = parseInstanceConnectionName(txtRecord);
+    info.domainName = name;
+    return info;
   }
 
-  const info = parseInstanceConnectionName(icn);
-  info.domainName = name;
-  return info;
+  throw new CloudSQLConnectorError({
+    message: `CNAME loop detected or max resolution depth reached for domain: ${name}`,
+    code: 'ECNAMELOOPDETECTED',
+  });
 }
 
 export function parseInstanceConnectionName(

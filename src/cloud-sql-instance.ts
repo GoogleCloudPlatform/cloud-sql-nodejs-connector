@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {IpAddressTypes, selectIpAddress} from './ip-addresses';
+import net from 'node:net';
+import {IpAddressTypes, selectIpAddress, IpAddresses} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {
   isSameInstance,
@@ -47,6 +48,7 @@ interface Fetcher {
     publicKey: string,
     authType: AuthTypes
   ): Promise<SslCert>;
+  resolveConnectSettings(dnsName: string, location: string): Promise<string>;
 }
 
 interface CloudSQLInstanceOptions {
@@ -72,7 +74,8 @@ export class CloudSQLInstance {
   ): Promise<CloudSQLInstance> {
     const instanceInfo = await resolveInstanceName(
       options.instanceConnectionName,
-      options.domainName
+      options.domainName,
+      options.sqlAdminFetcher
     );
     const instance = new CloudSQLInstance({
       options: options,
@@ -281,6 +284,7 @@ export class CloudSQLInstance {
     }
     if (!host) {
       host = selectIpAddress(metadata.ipAddresses, this.ipType);
+      host = getFallbackIp(host, metadata.ipAddresses);
     }
     const privateKey = rsaKeys.privateKey;
     const serverCaCert = metadata.serverCaCert;
@@ -385,7 +389,8 @@ export class CloudSQLInstance {
 
     const newInfo = await resolveInstanceName(
       undefined,
-      this.instanceInfo.domainName
+      this.instanceInfo.domainName,
+      this.sqlAdminFetcher
     );
     if (!isSameInstance(this.instanceInfo, newInfo)) {
       // Domain name changed. Close and remove, then create a new map entry.
@@ -405,4 +410,17 @@ export class CloudSQLInstance {
       this.sockets.delete(socket);
     });
   }
+}
+
+function getFallbackIp(currentIp: string, ipAddresses: IpAddresses): string {
+  if (net.isIP(currentIp) !== 0) {
+    return currentIp;
+  }
+  if (ipAddresses.private) {
+    return ipAddresses.private;
+  }
+  if (ipAddresses.public) {
+    return ipAddresses.public;
+  }
+  return currentIp;
 }

@@ -369,3 +369,162 @@ t.test('isSameInstance', async t => {
     );
   }
 });
+
+t.test('resolveDomainName PSC DNS Mock', async t => {
+  const mockClient = {
+    resolveConnectSettings: async (dnsName: string, location: string) => {
+      t.same(dnsName, '0123456789ab.fedcba9876543.europe-north2.sql-psc.goog.');
+      t.same(location, 'europe-north2');
+      return 'my-project:europe-north2:my-instance';
+    },
+  };
+
+  const {resolveDomainName} = t.mockRequire(
+    '../src/parse-instance-connection-name',
+    {
+      '../src/dns-lookup': {
+        resolveCnameRecord: async () => {
+          throw new Error('No CNAME');
+        },
+        resolveTxtRecord: async () => {
+          throw new Error('No TXT');
+        },
+      },
+    }
+  );
+
+  t.same(
+    await resolveDomainName(
+      '0123456789ab.fedcba9876543.europe-north2.sql-psc.goog',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockClient as any
+    ),
+    {
+      projectId: 'my-project',
+      regionId: 'europe-north2',
+      instanceId: 'my-instance',
+      domainName: '0123456789ab.fedcba9876543.europe-north2.sql-psc.goog',
+    },
+    'should resolve direct PSC DNS'
+  );
+});
+
+t.test('resolveDomainName CNAME to PSC DNS Mock', async t => {
+  const cnameTarget = '0123456789ab.fedcba9876543.europe-north2.sql-psc.goog';
+  const mockClient = {
+    resolveConnectSettings: async (dnsName: string, location: string) => {
+      t.same(dnsName, cnameTarget + '.');
+      t.same(location, 'europe-north2');
+      return 'my-project:europe-north2:my-instance';
+    },
+  };
+
+  const {resolveDomainName} = t.mockRequire(
+    '../src/parse-instance-connection-name',
+    {
+      '../src/dns-lookup': {
+        resolveCnameRecord: async (name: string) => {
+          if (name === 'db.example.com') {
+            return cnameTarget;
+          }
+          throw new Error('No CNAME');
+        },
+        resolveTxtRecord: async () => {
+          throw new Error('No TXT');
+        },
+      },
+    }
+  );
+
+  t.same(
+    await resolveDomainName(
+      'db.example.com',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockClient as any
+    ),
+    {
+      projectId: 'my-project',
+      regionId: 'europe-north2',
+      instanceId: 'my-instance',
+      domainName: 'db.example.com',
+    },
+    'should resolve CNAME to PSC DNS'
+  );
+});
+
+t.test('resolveDomainName Recursive CNAME to PSC DNS Mock', async t => {
+  const cname2 = 'name2.example.com';
+  const cnameTarget = '0123456789ab.fedcba9876543.europe-north2.sql-psc.goog';
+  const mockClient = {
+    resolveConnectSettings: async (dnsName: string, location: string) => {
+      t.same(dnsName, cnameTarget + '.');
+      t.same(location, 'europe-north2');
+      return 'my-project:europe-north2:my-instance';
+    },
+  };
+
+  const {resolveDomainName} = t.mockRequire(
+    '../src/parse-instance-connection-name',
+    {
+      '../src/dns-lookup': {
+        resolveCnameRecord: async (name: string) => {
+          if (name === 'name1.example.com') {
+            return cname2;
+          }
+          if (name === cname2) {
+            return cnameTarget;
+          }
+          throw new Error('No CNAME');
+        },
+        resolveTxtRecord: async () => {
+          throw new Error('No TXT');
+        },
+      },
+    }
+  );
+
+  t.same(
+    await resolveDomainName(
+      'name1.example.com',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockClient as any
+    ),
+    {
+      projectId: 'my-project',
+      regionId: 'europe-north2',
+      instanceId: 'my-instance',
+      domainName: 'name1.example.com',
+    },
+    'should resolve recursive CNAME to PSC DNS'
+  );
+});
+
+t.test('resolveDomainName CNAME loop detection', async t => {
+  const cname2 = 'name2.example.com';
+
+  const {resolveDomainName} = t.mockRequire(
+    '../src/parse-instance-connection-name',
+    {
+      '../src/dns-lookup': {
+        resolveCnameRecord: async (name: string) => {
+          if (name === 'name1.example.com') {
+            return cname2;
+          }
+          if (name === cname2) {
+            return 'name1.example.com';
+          }
+          throw new Error('No CNAME');
+        },
+        resolveTxtRecord: async () => {
+          throw new Error('No TXT');
+        },
+      },
+    }
+  );
+
+  await t.rejects(
+    async () => await resolveDomainName('name1.example.com'),
+    {code: 'ECNAMELOOPDETECTED'},
+    'should throw error if CNAME loop is detected'
+  );
+});
