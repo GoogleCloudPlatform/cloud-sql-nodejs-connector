@@ -21,13 +21,13 @@ export enum IpAddressTypes {
 }
 
 export declare interface IpAddresses {
-  public?: string;
-  private?: string;
-  psc?: string;
+  public?: string[];
+  private?: string[];
+  psc?: string[];
 }
 
-const getPublicIpAddress = (ipAddresses: IpAddresses) => {
-  if (!ipAddresses.public) {
+const getPublicIpAddresses = (ipAddresses: IpAddresses): string[] => {
+  if (!ipAddresses.public || ipAddresses.public.length === 0) {
     throw new CloudSQLConnectorError({
       message: 'Cannot connect to instance, public Ip address not found',
       code: 'ENOPUBLICSQLADMINIPADDRESS',
@@ -36,8 +36,8 @@ const getPublicIpAddress = (ipAddresses: IpAddresses) => {
   return ipAddresses.public;
 };
 
-const getPrivateIpAddress = (ipAddresses: IpAddresses) => {
-  if (!ipAddresses.private) {
+const getPrivateIpAddresses = (ipAddresses: IpAddresses): string[] => {
+  if (!ipAddresses.private || ipAddresses.private.length === 0) {
     throw new CloudSQLConnectorError({
       message: 'Cannot connect to instance, private Ip address not found',
       code: 'ENOPRIVATESQLADMINIPADDRESS',
@@ -46,8 +46,8 @@ const getPrivateIpAddress = (ipAddresses: IpAddresses) => {
   return ipAddresses.private;
 };
 
-const getPSCIpAddress = (ipAddresses: IpAddresses) => {
-  if (!ipAddresses.psc) {
+const getPSCIpAddresses = (ipAddresses: IpAddresses): string[] => {
+  if (!ipAddresses.psc || ipAddresses.psc.length === 0) {
     throw new CloudSQLConnectorError({
       message: 'Cannot connect to instance, PSC address not found',
       code: 'ENOPSCSQLADMINIPADDRESS',
@@ -59,14 +59,14 @@ const getPSCIpAddress = (ipAddresses: IpAddresses) => {
 export function selectIpAddress(
   ipAddresses: IpAddresses,
   type: IpAddressTypes | unknown
-): string {
+): string[] {
   switch (type) {
     case IpAddressTypes.PUBLIC:
-      return getPublicIpAddress(ipAddresses);
+      return getPublicIpAddresses(ipAddresses);
     case IpAddressTypes.PRIVATE:
-      return getPrivateIpAddress(ipAddresses);
+      return getPrivateIpAddresses(ipAddresses);
     case IpAddressTypes.PSC:
-      return getPSCIpAddress(ipAddresses);
+      return getPSCIpAddresses(ipAddresses);
     default:
       throw new CloudSQLConnectorError({
         message: 'Cannot connect to instance, it has no supported IP addresses',

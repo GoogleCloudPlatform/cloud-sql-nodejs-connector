@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import tls from 'node:tls';
+import net from 'node:net';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {SslCert} from './ssl-cert';
 import {CloudSQLConnectorError} from './errors';
@@ -28,6 +29,7 @@ interface SocketOptions {
   serverCaCert: SslCert;
   instanceDnsName: string;
   serverName: string;
+  socket?: net.Socket;
 }
 
 /**
@@ -125,10 +127,12 @@ export function getSocket({
   serverCaCert,
   instanceDnsName,
   serverName,
+  socket,
 }: SocketOptions): tls.TLSSocket {
   const socketOpts = {
-    host,
-    port,
+    socket: socket || undefined,
+    host: socket ? undefined : host,
+    port: socket ? undefined : port,
     secureContext: tls.createSecureContext({
       ca: serverCaCert.cert,
       cert: ephemeralCert.cert,

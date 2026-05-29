@@ -18,6 +18,7 @@ import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
+import {FailoverSocket} from './failover-socket';
 import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
@@ -243,15 +244,24 @@ export class Connector {
           privateKey &&
           serverCaCert
         ) {
+          let socket;
+          const hosts = Array.isArray(host) ? host : [host];
+          if (hosts.length > 1) {
+            const failoverSocket = new FailoverSocket(hosts, port);
+            failoverSocket.startConnect();
+            socket = failoverSocket;
+          }
+
           const tlsSocket = getSocket({
             instanceInfo,
             ephemeralCert,
-            host,
+            host: hosts[0],
             port,
             privateKey,
             serverCaCert,
             instanceDnsName: dnsName,
             serverName: instanceInfo.domainName || dnsName, // use the configured domain name, or the instance dnsName.
+            socket: socket,
           });
           tlsSocket.once('error', () => {
             cloudSqlInstance.forceRefresh();
