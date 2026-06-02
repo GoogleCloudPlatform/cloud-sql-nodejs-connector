@@ -76,7 +76,7 @@
     "prisma": "^5.22.0",
     "tap": "^20.0.3",
     "tedious": "^19.2.1",
-    "typeorm": "^0.3.30",
+    "typeorm": "^1.0.0",
     "typescript": "^5.9.3"
   },
   "engines": {
