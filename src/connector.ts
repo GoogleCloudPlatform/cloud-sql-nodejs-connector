@@ -358,17 +358,8 @@ export class Connector {
   //
   // Also clear up any local proxy servers and socket connections.
   close(): void {
-    for (const entry of this.instances.values()) {
-      if (entry.isResolved() && entry.instance) {
-        // If the instance is already resolved, close it synchronously.
-        // This prevents a race condition with immediate connection pool close
-        // (e.g., pool.end()) where asynchronous microtasks would execute too late.
-        entry.instance.close();
-      } else {
-        // Otherwise, close the instance asynchronously once its initial
-        // refresh has finished.
-        entry.promise.then(inst => inst.close()).catch(() => {});
-      }
+    for (const instance of this.instances.values()) {
+      instance.promise.then(inst => inst.close());
     }
     for (const server of this.localProxies) {
       server.close();
