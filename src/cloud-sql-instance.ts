@@ -364,14 +364,12 @@ export class CloudSQLInstance {
       this.checkDomainID = null;
     }
     for (const socket of this.sockets) {
-      if (typeof socket.destroy === 'function') {
-        socket.destroy(
-          new CloudSQLConnectorError({
-            code: 'ERRCLOSED',
-            message: 'The connector was closed.',
-          })
-        );
-      }
+      socket.destroy(
+        new CloudSQLConnectorError({
+          code: 'ERRCLOSED',
+          message: 'The connector was closed.',
+        })
+      );
     }
   }
 
@@ -393,15 +391,15 @@ export class CloudSQLInstance {
     }
   }
   addSocket(socket: DestroyableSocket) {
-    // Track all active sockets created by this instance so they can
-    // be forcefully cleaned up during a domain change or when
-    // the connector is explicitly closed.
-    this.sockets.add(socket);
+    if (!this.instanceInfo.domainName) {
+      // This was not connected by domain name. Ignore all sockets.
+      return;
+    }
 
-    // When the socket is closed by the driver or peer, remove it
-    // from our tracking set to prevent reference memory leaks.
-    // Note: Node.js TLSSocket/Socket emits 'close', not 'closed'.
-    socket.once('close', () => {
+    // Add the socket to the list
+    this.sockets.add(socket);
+    // When the socket is closed, remove it.
+    socket.once('closed', () => {
       this.sockets.delete(socket);
     });
   }
