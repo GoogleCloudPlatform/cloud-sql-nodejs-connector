@@ -52,6 +52,7 @@ const mockAuth = {
   getRequestHeaders: async () => ({
     authorization: 'Bearer fake-token',
   }),
+  getUniverseDomain: async () => 'googleapis.com',
 } as unknown as AuthClient;
 
 // Helper to start fake gRPC server

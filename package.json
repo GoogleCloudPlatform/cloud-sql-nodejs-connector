@@ -87,7 +87,7 @@
     "url": "git+https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector"
   },
   "dependencies": {
-    "@google-cloud/sql": "file:../.build/nodejs-gapic-library",
+    "@google-cloud/sql": "^0.25.0",
     "@googleapis/sqladmin": "^35.2.0",
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.8.1",

@@ -13,58 +13,10 @@
 // limitations under the License.
 
 import * as net from 'node:net';
-import {resolve} from 'node:path';
 import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
+import {v1beta4, protos} from '@google-cloud/sql';
 import {CloudSQLConnectorError} from './errors';
-
-function normalizeHeaders(
-  headers:
-    | Record<string, string | string[]>
-    | {entries(): IterableIterator<[string, string]>}
-    | undefined
-    | null
-): Record<string, string> {
-  if (
-    headers &&
-    'entries' in headers &&
-    typeof headers.entries === 'function'
-  ) {
-    return Object.fromEntries(headers.entries());
-  }
-  return (headers as unknown as Record<string, string>) || {};
-}
-
-// Load proto
-const protoPath = resolve(__dirname, './proto/sql_data_service.proto');
-const packageDefinition = protoLoader.loadSync(protoPath, {
-  keepCase: true,
-  longs: String,
-  enums: String,
-  defaults: true,
-  oneofs: true,
-});
-const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
-const googleProto = protoDescriptor.google as grpc.GrpcObject;
-const cloudProto = googleProto.cloud as grpc.GrpcObject;
-const sqlProto = cloudProto.sql as grpc.GrpcObject;
-const v1beta4 = sqlProto.v1beta4 as grpc.GrpcObject;
-
-interface SqlDataServiceClient extends grpc.Client {
-  StreamSqlData(
-    metadata?: grpc.Metadata,
-    options?: grpc.CallOptions
-  ): grpc.ClientDuplexStream<unknown, unknown>;
-}
-
-type SqlDataServiceClientConstructor = new (
-  address: string,
-  credentials: grpc.ChannelCredentials
-) => SqlDataServiceClient;
-
-const SqlDataServiceClientClass =
-  v1beta4.SqlDataService as unknown as SqlDataServiceClientConstructor;
 
 export interface SqlDataClientOptions {
   instanceConnectionName: string;
@@ -84,7 +36,7 @@ export class SqlDataClient {
   private readonly instanceId: string;
   private readonly channelCredentials?: grpc.ChannelCredentials;
   private server?: net.Server;
-  private client?: SqlDataServiceClient;
+  private client?: v1beta4.SqlDataServiceClient;
   private port?: number;
 
   constructor(opts: SqlDataClientOptions) {
@@ -107,11 +59,11 @@ export class SqlDataClient {
   }
 
   static async verifySupport(opts: SqlDataClientOptions): Promise<boolean> {
-    const authHeaders = await opts.auth.getRequestHeaders();
-    console.log('DEBUG verifySupport authHeaders:', authHeaders);
     return new Promise((resolvePromise, rejectPromise) => {
-      let client: grpc.Client | undefined;
-      let stream: grpc.ClientDuplexStream<unknown, unknown> | undefined;
+      let client: v1beta4.SqlDataServiceClient | undefined;
+      let stream:
+        | ReturnType<v1beta4.SqlDataServiceClient['streamSqlData']>
+        | undefined;
 
       const timeoutId = setTimeout(() => {
         cleanup();
@@ -129,7 +81,7 @@ export class SqlDataClient {
         }
         if (client) {
           try {
-            client.close();
+            client.close().catch(() => {});
           } catch (e) {
             // ignore error
           }
@@ -137,15 +89,22 @@ export class SqlDataClient {
       };
 
       try {
-        let target = opts.endpoint || 'sqladmin.googleapis.com';
-        if (!target.includes(':')) {
-          target += ':443';
+        const target = opts.endpoint || 'sqladmin.googleapis.com';
+        let servicePath = target;
+        let port: number | undefined = undefined;
+        if (target.includes(':')) {
+          const parts = target.split(':');
+          servicePath = parts[0];
+          port = parseInt(parts[1], 10);
         }
 
-        const clientInstance = new SqlDataServiceClientClass(
-          target,
-          opts.channelCredentials || grpc.credentials.createSsl()
-        );
+        const clientInstance = new v1beta4.SqlDataServiceClient({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          auth: opts.auth as any,
+          servicePath,
+          port,
+          sslCreds: opts.channelCredentials,
+        });
         client = clientInstance;
 
         const parts = opts.instanceConnectionName.split(':');
@@ -155,17 +114,13 @@ export class SqlDataClient {
         const instanceResource = `projects/${projectId}/instances/${instanceId}`;
         const locationResource = `locations/${regionId}`;
 
-        const metadata = new grpc.Metadata();
-        const headers = normalizeHeaders(authHeaders);
-        for (const [key, value] of Object.entries(headers)) {
-          metadata.add(key, value);
-        }
-        metadata.add(
-          'x-goog-request-params',
-          `instance_id=${instanceResource}&location_id=${locationResource}`
-        );
-
-        const s = clientInstance.StreamSqlData(metadata);
+        const s = clientInstance.streamSqlData({
+          otherArgs: {
+            headers: {
+              'x-goog-request-params': `instance_id=${instanceResource}&location_id=${locationResource}`,
+            },
+          },
+        });
         stream = s;
 
         s.on('data', () => {
@@ -184,9 +139,9 @@ export class SqlDataClient {
         });
 
         const startSessionMsg = {
-          start_session: {
-            location_id: locationResource,
-            instance_id: instanceResource,
+          startSession: {
+            locationId: locationResource,
+            instanceId: instanceResource,
           },
         };
         s.write(startSessionMsg);
@@ -233,56 +188,52 @@ export class SqlDataClient {
   }
 
   private async handleConnection(socket: net.Socket): Promise<void> {
-    const authHeaders = await this.auth.getRequestHeaders();
-    console.log('DEBUG handleConnection authHeaders:', authHeaders);
-    const metadata = new grpc.Metadata();
-    const headers = normalizeHeaders(authHeaders);
-    for (const [key, value] of Object.entries(headers)) {
-      metadata.add(key, value);
+    let servicePath = this.endpoint;
+    let port: number | undefined = undefined;
+    if (this.endpoint.includes(':')) {
+      const parts = this.endpoint.split(':');
+      servicePath = parts[0];
+      port = parseInt(parts[1], 10);
     }
 
-    let target = this.endpoint;
-    if (!target.includes(':')) {
-      target += ':443';
-    }
-
-    const client = new SqlDataServiceClientClass(
-      target,
-      this.channelCredentials || grpc.credentials.createSsl()
-    );
+    const client = new v1beta4.SqlDataServiceClient({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      auth: this.auth as any,
+      servicePath,
+      port,
+      sslCreds: this.channelCredentials,
+    });
     this.client = client;
 
-    const stream = client.StreamSqlData(
-      metadata
-    ) as unknown as grpc.ClientDuplexStream<unknown, unknown>;
+    const instanceResource = `projects/${this.projectId}/instances/${this.instanceId}`;
+    const locationResource = `locations/${this.regionId}`;
 
-    interface StreamSqlDataResponse {
-      data?: {
-        data?: Buffer;
-      };
-      terminate_session?: {
-        status?: {
-          code: number;
-          message: string;
-        };
-      };
-    }
-
-    stream.on('data', (response: StreamSqlDataResponse) => {
-      if (response.data && response.data.data) {
-        socket.write(response.data.data);
-      }
-      if (response.terminate_session) {
-        const status = response.terminate_session.status;
-        const code = status ? status.code : 'UNKNOWN';
-        const msg = status ? status.message : 'Session terminated by server';
-        socket.destroy(
-          new Error(
-            `gRPC Stream terminated by server: Code ${code}, Message: ${msg}`
-          )
-        );
-      }
+    const stream = client.streamSqlData({
+      otherArgs: {
+        headers: {
+          'x-goog-request-params': `instance_id=${instanceResource}&location_id=${locationResource}`,
+        },
+      },
     });
+
+    stream.on(
+      'data',
+      (response: protos.google.cloud.sql.v1beta4.IStreamSqlDataResponse) => {
+        if (response.data && response.data.data) {
+          socket.write(response.data.data);
+        }
+        if (response.terminateSession) {
+          const status = response.terminateSession.status;
+          const code = status ? status.code : 'UNKNOWN';
+          const msg = status ? status.message : 'Session terminated by server';
+          socket.destroy(
+            new Error(
+              `gRPC Stream terminated by server: Code ${code}, Message: ${msg}`
+            )
+          );
+        }
+      }
+    );
 
     stream.on('error', (err: grpc.ServiceError) => {
       socket.destroy(err);
@@ -292,13 +243,10 @@ export class SqlDataClient {
       socket.end();
     });
 
-    const location = `locations/${this.regionId}`;
-    const instance = `projects/${this.projectId}/instances/${this.instanceId}`;
-
     const startSessionMsg = {
-      start_session: {
-        location_id: location,
-        instance_id: instance,
+      startSession: {
+        locationId: locationResource,
+        instanceId: instanceResource,
       },
     };
 
@@ -307,7 +255,7 @@ export class SqlDataClient {
     socket.on('data', chunk => {
       const dataPacketMsg = {
         data: {
-          first_byte_offset: 0,
+          firstByteOffset: 0,
           data: chunk,
         },
       };
@@ -316,7 +264,7 @@ export class SqlDataClient {
 
     socket.on('end', () => {
       const terminateSessionMsg = {
-        terminate_session: {
+        terminateSession: {
           status: {
             code: 0,
             message: 'Client closed connection',
