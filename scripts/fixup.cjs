@@ -39,12 +39,12 @@ async function fixupImportFileExtensions() {
   const replaceExtension = source =>
     source.replace(/(^import.*from '\.\/.*)(';)$/gm, '$1.js$2');
 
-  const recursiveReadDir = async path => {
-    const dirResults = await readdir(mjsDistFolder, {withFileTypes: true});
+  const recursiveReadDir = async dirPath => {
+    const dirResults = await readdir(dirPath, {withFileTypes: true});
     for (const entry of dirResults) {
-      const path = resolve(mjsDistFolder, entry.name);
+      const path = resolve(dirPath, entry.name);
       if (entry.isDirectory()) {
-        recursiveReadDir(path);
+        await recursiveReadDir(path);
       } else if (path.endsWith('.js') || path.endsWith('.d.ts')) {
         mjsFilePaths.push(path);
       }

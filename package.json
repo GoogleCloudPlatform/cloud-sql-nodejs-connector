@@ -37,7 +37,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "compile": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json",
-    "prepare": "rm -rf dist && npm run compile && node ./scripts/fixup.cjs",
+    "prepare": "rm -rf dist && npm run compile && mkdir -p dist/cjs/proto dist/mjs/proto && cp -r src/proto/* dist/cjs/proto/ && cp -r src/proto/* dist/mjs/proto/ && node ./scripts/fixup.cjs",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",
     "test": "tap -t0 -c test",
@@ -87,7 +87,10 @@
     "url": "git+https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector"
   },
   "dependencies": {
+    "@google-cloud/sql": "file:../.build/nodejs-gapic-library",
     "@googleapis/sqladmin": "^35.2.0",
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1",
     "gaxios": "^7.1.4",
     "google-auth-library": "^10.6.2",
     "p-throttle": "^7.0.0"

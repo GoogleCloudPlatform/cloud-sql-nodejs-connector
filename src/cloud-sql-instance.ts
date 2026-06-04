@@ -60,10 +60,10 @@ interface CloudSQLInstanceOptions {
 }
 
 interface RefreshResult {
-  ephemeralCert: SslCert;
+  ephemeralCert?: SslCert;
   host: string;
-  privateKey: string;
-  serverCaCert: SslCert;
+  privateKey?: string;
+  serverCaCert?: SslCert;
 }
 
 export class CloudSQLInstance {
@@ -213,10 +213,12 @@ export class CloudSQLInstance {
         // then we go ahead and update values
         this.updateValues(nextValues);
 
-        const refreshInterval = getRefreshInterval(
-          /* c8 ignore next */
-          String(this.ephemeralCert?.expirationTime)
-        );
+        let refreshInterval = 3600000; // 1 hour default
+        if (this.ephemeralCert) {
+          refreshInterval = getRefreshInterval(
+            this.ephemeralCert.expirationTime
+          );
+        }
         this.scheduleRefresh(refreshInterval);
 
         // This is the end of the successful refresh chain, so now
@@ -259,30 +261,37 @@ export class CloudSQLInstance {
       return Promise.reject('closed');
     }
 
-    const rsaKeys: RSAKeys = await generateKeys();
     const metadata: InstanceMetadata =
       await this.sqlAdminFetcher.getInstanceMetadata(this.instanceInfo);
 
-    const ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
-      this.instanceInfo,
-      rsaKeys.publicKey,
-      this.authType
-    );
-    let host;
-    if (this.instanceInfo && this.instanceInfo.domainName) {
-      try {
-        const ips = await resolveARecord(this.instanceInfo.domainName);
-        if (ips && ips.length > 0) {
-          host = ips[0];
+    let host = '';
+    let ephemeralCert;
+    let privateKey;
+
+    if (this.ipType !== IpAddressTypes.SQL_DATA) {
+      const rsaKeys: RSAKeys = await generateKeys();
+      ephemeralCert = await this.sqlAdminFetcher.getEphemeralCertificate(
+        this.instanceInfo,
+        rsaKeys.publicKey,
+        this.authType
+      );
+      privateKey = rsaKeys.privateKey;
+
+      if (this.instanceInfo && this.instanceInfo.domainName) {
+        try {
+          const ips = await resolveARecord(this.instanceInfo.domainName);
+          if (ips && ips.length > 0) {
+            host = ips[0];
+          }
+        } catch (e) {
+          // ignore error, fallback to metadata IP
         }
-      } catch (e) {
-        // ignore error, fallback to metadata IP
+      }
+      if (!host) {
+        host = selectIpAddress(metadata.ipAddresses, this.ipType);
       }
     }
-    if (!host) {
-      host = selectIpAddress(metadata.ipAddresses, this.ipType);
-    }
-    const privateKey = rsaKeys.privateKey;
+
     const serverCaCert = metadata.serverCaCert;
     this.serverCaMode = metadata.serverCaMode;
     this.dnsName = metadata.dnsName;
@@ -317,6 +326,9 @@ export class CloudSQLInstance {
     privateKey,
     serverCaCert,
   }: Partial<RefreshResult>): boolean {
+    if (this.ipType === IpAddressTypes.SQL_DATA) {
+      return true;
+    }
     if (!ephemeralCert || !host || !privateKey || !serverCaCert) {
       return false;
     }

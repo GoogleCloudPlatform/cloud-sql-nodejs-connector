@@ -26,7 +26,7 @@ import {AuthTypes} from './auth-types';
 
 export interface InstanceMetadata {
   ipAddresses: IpAddresses;
-  serverCaCert: SslCert;
+  serverCaCert?: SslCert;
   serverCaMode: string;
   dnsName: string;
 }
@@ -87,7 +87,7 @@ export interface SQLAdminFetcherOptions {
 
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
-  private readonly auth: GoogleAuth<AuthClient>;
+  public readonly auth: GoogleAuth<AuthClient>;
 
   constructor({
     loginAuth,
@@ -170,12 +170,8 @@ export class SQLAdminFetcher {
       ipAddresses.psc = dnsName;
     }
 
-    if (!ipAddresses.public && !ipAddresses.private && !ipAddresses.psc) {
-      throw new CloudSQLConnectorError({
-        message: 'Cannot connect to instance, it has no supported IP addresses',
-        code: 'ENOSQLADMINIPADDRESS',
-      });
-    }
+    // Do not throw here if there are no IP addresses.
+    // IP address validation will be performed inside selectIpAddress.
 
     return ipAddresses;
   }
@@ -209,13 +205,7 @@ export class SQLAdminFetcher {
       res.data.pscEnabled
     );
 
-    const {serverCaCert} = res.data;
-    if (!serverCaCert || !serverCaCert.cert || !serverCaCert.expirationTime) {
-      throw new CloudSQLConnectorError({
-        message: 'Cannot connect to instance, no valid CA certificate found',
-        code: 'ENOSQLADMINCERT',
-      });
-    }
+    const serverCaCert = res.data.serverCaCert;
 
     const {region} = res.data;
     if (!region) {
@@ -245,10 +235,13 @@ export class SQLAdminFetcher {
 
     return {
       ipAddresses,
-      serverCaCert: {
-        cert: serverCaCert.cert,
-        expirationTime: serverCaCert.expirationTime,
-      },
+      serverCaCert:
+        serverCaCert && serverCaCert.cert && serverCaCert.expirationTime
+          ? {
+              cert: serverCaCert.cert,
+              expirationTime: serverCaCert.expirationTime,
+            }
+          : undefined,
       serverCaMode: res.data.serverCaMode || '',
       dnsName: serverName || '',
     };

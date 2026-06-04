@@ -18,6 +18,7 @@ export enum IpAddressTypes {
   PUBLIC = 'PUBLIC',
   PRIVATE = 'PRIVATE',
   PSC = 'PSC',
+  SQL_DATA = 'SQL_DATA',
 }
 
 export declare interface IpAddresses {
@@ -67,6 +68,14 @@ export function selectIpAddress(
       return getPrivateIpAddress(ipAddresses);
     case IpAddressTypes.PSC:
       return getPSCIpAddress(ipAddresses);
+    case IpAddressTypes.SQL_DATA:
+      if (ipAddresses.public) {
+        return getPublicIpAddress(ipAddresses);
+      }
+      if (ipAddresses.private) {
+        return getPrivateIpAddress(ipAddresses);
+      }
+      return '';
     default:
       throw new CloudSQLConnectorError({
         message: 'Cannot connect to instance, it has no supported IP addresses',

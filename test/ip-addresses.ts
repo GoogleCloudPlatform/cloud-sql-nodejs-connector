@@ -74,3 +74,32 @@ t.same(
   'abcde.12345.us-central1.sql.goog',
   'should select psc ip'
 );
+
+t.same(
+  selectIpAddress(
+    {
+      public: '0.0.0.0',
+      private: '0.0.0.2',
+    },
+    IpAddressTypes.SQL_DATA
+  ),
+  '0.0.0.0',
+  'should select public ip as fallback for SQL_DATA'
+);
+
+t.same(
+  selectIpAddress(
+    {
+      private: '0.0.0.2',
+    },
+    IpAddressTypes.SQL_DATA
+  ),
+  '0.0.0.2',
+  'should select private ip as fallback for SQL_DATA if public is missing'
+);
+
+t.same(
+  selectIpAddress({}, IpAddressTypes.SQL_DATA),
+  '',
+  'should return empty string if no public or private ip fallback found for SQL_DATA'
+);

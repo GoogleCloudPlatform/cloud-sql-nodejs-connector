@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import {createServer, Server, Socket} from 'node:net';
-import tls from 'node:tls';
+
 import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {CloudSQLInstance} from './cloud-sql-instance';
@@ -22,6 +22,7 @@ import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
+import {SqlDataClient} from './sql-data-client';
 
 // These Socket types are subsets from nodejs definitely typed repo, ref:
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ae0fe42ff0e6e820e8ae324acf4f8e944aa1b2b7/types/node/v18/net.d.ts#L437
@@ -46,6 +47,8 @@ export declare interface ConnectionOptions {
   domainName?: string;
   failoverPeriod?: number;
   limitRateInterval?: number;
+  sqlDataEndpoint?: string;
+  sqlDataStreamTimeout?: number;
 }
 
 export declare interface SocketConnectionOptions extends ConnectionOptions {
@@ -53,11 +56,11 @@ export declare interface SocketConnectionOptions extends ConnectionOptions {
 }
 
 interface StreamFunction {
-  (): tls.TLSSocket;
+  (): Socket;
 }
 
 interface PromisedStreamFunction {
-  (): Promise<tls.TLSSocket>;
+  (): Promise<Socket>;
 }
 
 // DriverOptions is the interface describing the object returned by
@@ -185,6 +188,8 @@ export interface ConnectorOptions {
    */
   universeDomain?: string;
   userAgent?: string;
+  sqlDataEndpoint?: string;
+  sqlDataStreamTimeout?: number;
 }
 
 // The Connector class is the main public API to interact
@@ -194,6 +199,10 @@ export class Connector {
   private readonly sqlAdminFetcher: SQLAdminFetcher;
   private readonly localProxies: Set<Server>;
   private readonly sockets: Set<Socket>;
+  private readonly sqlDataEndpoint?: string;
+  private readonly sqlDataStreamTimeout?: number;
+  private readonly sqlDataTunnels = new Map<string, SqlDataClient>();
+  private readonly sqlDataUnsupportedInstances = new Set<string>();
 
   constructor(opts: ConnectorOptions = {}) {
     this.sqlAdminFetcher = new SQLAdminFetcher({
@@ -205,6 +214,8 @@ export class Connector {
     this.instances = new CloudSQLInstanceMap(this.sqlAdminFetcher);
     this.localProxies = new Set();
     this.sockets = new Set();
+    this.sqlDataEndpoint = opts.sqlDataEndpoint;
+    this.sqlDataStreamTimeout = opts.sqlDataStreamTimeout;
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance
@@ -220,7 +231,74 @@ export class Connector {
   // const res = await pool.query('SELECT * FROM pg_catalog.pg_tables;')
   async getOptions(opts: ConnectionOptions): Promise<DriverOptions> {
     const {instances} = this;
+
+    let ipType = opts.ipType || IpAddressTypes.PUBLIC;
+
+    if (
+      ipType === IpAddressTypes.SQL_DATA &&
+      this.sqlDataUnsupportedInstances.has(opts.instanceConnectionName)
+    ) {
+      ipType = IpAddressTypes.PUBLIC;
+      opts.ipType = ipType;
+    }
+
     await instances.loadInstance(opts);
+
+    if (ipType === IpAddressTypes.SQL_DATA) {
+      const endpoint = opts.sqlDataEndpoint || this.sqlDataEndpoint;
+      const streamTimeout =
+        opts.sqlDataStreamTimeout || this.sqlDataStreamTimeout;
+
+      const supported = await SqlDataClient.verifySupport({
+        instanceConnectionName: opts.instanceConnectionName,
+        auth: this.sqlAdminFetcher.auth,
+        endpoint,
+        streamTimeout,
+      });
+
+      if (!supported) {
+        this.sqlDataUnsupportedInstances.add(opts.instanceConnectionName);
+        opts.ipType = IpAddressTypes.PUBLIC;
+        await instances.loadInstance(opts);
+        ipType = IpAddressTypes.PUBLIC;
+      }
+    }
+
+    if (ipType === IpAddressTypes.SQL_DATA) {
+      let tunnel = this.sqlDataTunnels.get(opts.instanceConnectionName);
+      if (!tunnel) {
+        tunnel = new SqlDataClient({
+          instanceConnectionName: opts.instanceConnectionName,
+          auth: this.sqlAdminFetcher.auth,
+          endpoint: opts.sqlDataEndpoint || this.sqlDataEndpoint,
+          streamTimeout: opts.sqlDataStreamTimeout || this.sqlDataStreamTimeout,
+        });
+        this.sqlDataTunnels.set(opts.instanceConnectionName, tunnel);
+      }
+
+      const tunnelPort = await tunnel.start();
+
+      return {
+        stream() {
+          const socket = new Socket();
+          socket.connect(tunnelPort, '127.0.0.1');
+
+          const cloudSqlInstance = instances.getInstance(opts);
+          socket.once('connect', () => {
+            cloudSqlInstance.setEstablishedConnection();
+          });
+          socket.once('error', () => {
+            cloudSqlInstance.forceRefresh();
+          });
+
+          cloudSqlInstance.addSocket(socket);
+
+          socket.connect = () => socket;
+
+          return socket;
+        },
+      };
+    }
 
     return {
       stream() {
