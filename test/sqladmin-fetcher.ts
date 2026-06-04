@@ -483,3 +483,59 @@ t.test('getEphemeralCertificate sets access token on IAM', async t => {
 
   t.same(ephemeralCert.cert, CLIENT_CERT, 'should return expected ssl cert');
 });
+
+t.test('resolveConnectSettings', async t => {
+  let requestCalls = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let requestOpts: any = null;
+
+  const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
+    'google-auth-library': {
+      GoogleAuth: class {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        public async request(opts: any) {
+          requestCalls++;
+          requestOpts = opts;
+          if (opts.url.includes('missing')) {
+            return {data: {}};
+          }
+          return {
+            data: {
+              connectionName: 'my-project:my-region:my-instance',
+            },
+          };
+        }
+      },
+    },
+    '@googleapis/sqladmin': {
+      sqladmin_v1beta4: {Sqladmin},
+    },
+  });
+
+  await t.test('should successfully resolve CNAME DNS name', async t => {
+    const fetcher = new SQLAdminFetcher();
+    const connectionName = await fetcher.resolveConnectSettings(
+      'my-dns',
+      'my-region'
+    );
+    t.same(connectionName, 'my-project:my-region:my-instance');
+    t.same(requestCalls, 1);
+    t.same(
+      requestOpts.url,
+      'https://sqladmin.googleapis.com/sql/v1beta4/dns/my-dns/locations/my-region:resolveConnectSettings'
+    );
+    t.same(requestOpts.method, 'GET');
+  });
+
+  await t.test(
+    'should throw error if connectionName missing in response',
+    async t => {
+      const fetcher = new SQLAdminFetcher();
+      t.rejects(
+        fetcher.resolveConnectSettings('missing-dns', 'my-region'),
+        {code: 'ENOSQLADMINRESOLVE'},
+        'should reject on missing connectionName'
+      );
+    }
+  );
+});

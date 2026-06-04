@@ -88,6 +88,7 @@ export interface SQLAdminFetcherOptions {
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth<AuthClient>;
+  private readonly sqlAdminAPIEndpoint: string;
 
   constructor({
     loginAuth,
@@ -95,6 +96,8 @@ export class SQLAdminFetcher {
     universeDomain,
     userAgent,
   }: SQLAdminFetcherOptions = {}) {
+    this.sqlAdminAPIEndpoint =
+      sqlAdminAPIEndpoint || 'https://sqladmin.googleapis.com';
     let auth: GoogleAuth<AuthClient>;
 
     if (loginAuth instanceof GoogleAuth) {
@@ -320,5 +323,33 @@ export class SQLAdminFetcher {
       cert,
       expirationTime: nearestExpiration,
     };
+  }
+
+  async resolveConnectSettings(
+    dnsName: string,
+    location: string
+  ): Promise<string> {
+    setupGaxiosConfig();
+
+    const url = `${this.sqlAdminAPIEndpoint}/sql/v1beta4/dns/${dnsName}/locations/${location}:resolveConnectSettings`;
+
+    const res =
+      await this.auth.request<sqladmin_v1beta4.Schema$ConnectSettings>({
+        url,
+        method: 'GET',
+      });
+
+    cleanGaxiosConfig();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = res.data as any;
+    if (!data || !data.connectionName) {
+      throw new CloudSQLConnectorError({
+        message: `Failed to resolve DNS name: ${dnsName} on location: ${location}.`,
+        code: 'ENOSQLADMINRESOLVE',
+      });
+    }
+
+    return data.connectionName;
   }
 }
