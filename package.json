@@ -90,6 +90,6 @@
     "@googleapis/sqladmin": "^37.0.0",
     "gaxios": "^7.1.4",
     "google-auth-library": "^10.6.2",
-    "p-throttle": "^7.0.0"
+    "p-throttle": "^8.0.0"
   }
 }
