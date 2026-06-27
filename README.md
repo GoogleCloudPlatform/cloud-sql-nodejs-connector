@@ -204,6 +204,18 @@ connection.close();
 connector.close();
 ```
 
+If your Cloud SQL for SQL Server instance requires SSL connections, configure
+the `tedious` driver to use encryption in addition to the connector-managed
+secure connection:
+
+```js
+options: {
+  ...clientOpts,
+  encrypt: true,
+  trustServerCertificate: true,
+}
+```
+
 ### Using a Local Proxy Tunnel (Unix domain socket)
 
 Another possible way to use the Cloud SQL Node.js Connector is by creating a
