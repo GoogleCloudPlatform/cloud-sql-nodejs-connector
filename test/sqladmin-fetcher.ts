@@ -191,9 +191,9 @@ t.test('getInstanceMetadata', async t => {
     instanceMetadata,
     {
       ipAddresses: {
-        public: '0.0.0.0',
-        private: '10.0.0.1',
-        psc: 'abcde.12345.us-central1.sql.goog',
+        public: ['0.0.0.0'],
+        private: ['10.0.0.1'],
+        psc: ['abcde.12345.us-central1.sql.goog'],
       },
       serverCaCert: {
         cert: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----',
@@ -203,6 +203,47 @@ t.test('getInstanceMetadata', async t => {
       dnsName: 'abcde.12345.us-central1.sql.goog',
     },
     'should return expected instance metadata object'
+  );
+});
+
+t.test('getInstanceMetadata multiple PSC DNS names sorted', async t => {
+  const instanceConnectionInfo: InstanceConnectionInfo = {
+    projectId: 'my-project',
+    regionId: 'us-east1',
+    instanceId: 'my-instance',
+  };
+  mockSQLAdminGetInstanceMetadata(instanceConnectionInfo, {
+    dnsNames: [
+      {
+        name: 'dns1.sql.goog',
+        connectionType: 'PRIVATE_SERVICE_CONNECT',
+        dnsScope: 'INSTANCE',
+      },
+      {
+        name: 'dns2.sql-psc.goog',
+        connectionType: 'PRIVATE_SERVICE_CONNECT',
+        dnsScope: 'INSTANCE',
+      },
+      {
+        name: 'dns3.sql.goog',
+        connectionType: 'PRIVATE_SERVICE_CONNECT',
+        dnsScope: 'INSTANCE',
+      },
+    ],
+    ipAddresses: [],
+    pscEnabled: true,
+  });
+
+  const fetcher = new SQLAdminFetcher();
+  const instanceMetadata = await fetcher.getInstanceMetadata(
+    instanceConnectionInfo
+  );
+  t.same(
+    instanceMetadata.ipAddresses,
+    {
+      psc: ['dns2.sql-psc.goog', 'dns1.sql.goog', 'dns3.sql.goog'],
+    },
+    'should sort PSC DNS names prioritizing .sql-psc.goog'
   );
 });
 
@@ -482,4 +523,60 @@ t.test('getEphemeralCertificate sets access token on IAM', async t => {
   );
 
   t.same(ephemeralCert.cert, CLIENT_CERT, 'should return expected ssl cert');
+});
+
+t.test('resolveConnectSettings', async t => {
+  let requestCalls = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let requestOpts: any = null;
+
+  const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
+    'google-auth-library': {
+      GoogleAuth: class {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        public async request(opts: any) {
+          requestCalls++;
+          requestOpts = opts;
+          if (opts.url.includes('missing')) {
+            return {data: {}};
+          }
+          return {
+            data: {
+              connectionName: 'my-project:my-region:my-instance',
+            },
+          };
+        }
+      },
+    },
+    '@googleapis/sqladmin': {
+      sqladmin_v1beta4: {Sqladmin},
+    },
+  });
+
+  await t.test('should successfully resolve CNAME DNS name', async t => {
+    const fetcher = new SQLAdminFetcher();
+    const connectionName = await fetcher.resolveConnectSettings(
+      'my-dns',
+      'my-region'
+    );
+    t.same(connectionName, 'my-project:my-region:my-instance');
+    t.same(requestCalls, 1);
+    t.same(
+      requestOpts.url,
+      'https://sqladmin.googleapis.com/sql/v1beta4/dns/my-dns/locations/my-region:resolveConnectSettings'
+    );
+    t.same(requestOpts.method, 'GET');
+  });
+
+  await t.test(
+    'should throw error if connectionName missing in response',
+    async t => {
+      const fetcher = new SQLAdminFetcher();
+      t.rejects(
+        fetcher.resolveConnectSettings('missing-dns', 'my-region'),
+        {code: 'ENOSQLADMINRESOLVE'},
+        'should reject on missing connectionName'
+      );
+    }
+  );
 });

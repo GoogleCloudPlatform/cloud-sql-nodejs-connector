@@ -42,35 +42,35 @@ t.throws(
 t.same(
   selectIpAddress(
     {
-      public: '0.0.0.0',
-      private: '0.0.0.2',
+      public: ['0.0.0.0'],
+      private: ['0.0.0.2'],
     },
     IpAddressTypes.PUBLIC
   ),
-  '0.0.0.0',
+  ['0.0.0.0'],
   'should select public ip'
 );
 
 t.same(
   selectIpAddress(
     {
-      private: '0.0.0.2',
+      private: ['0.0.0.2'],
     },
     IpAddressTypes.PRIVATE
   ),
-  '0.0.0.2',
+  ['0.0.0.2'],
   'should select private ip'
 );
 
 t.same(
   selectIpAddress(
     {
-      public: '0.0.0.0',
-      private: '0.0.0.2',
-      psc: 'abcde.12345.us-central1.sql.goog',
+      public: ['0.0.0.0'],
+      private: ['0.0.0.2'],
+      psc: ['abcde.12345.us-central1.sql.goog'],
     },
     IpAddressTypes.PSC
   ),
-  'abcde.12345.us-central1.sql.goog',
+  ['abcde.12345.us-central1.sql.goog'],
   'should select psc ip'
 );

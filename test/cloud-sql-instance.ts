@@ -25,7 +25,7 @@ t.test('CloudSQLInstance', async t => {
     async getInstanceMetadata() {
       return {
         ipAddresses: {
-          public: '127.0.0.1',
+          public: ['127.0.0.1'],
         },
         serverCaCert: {
           cert: CA_CERT,
@@ -88,7 +88,7 @@ t.test('CloudSQLInstance', async t => {
 
     t.same(instance.privateKey, CLIENT_KEY, 'should have expected privateKey');
 
-    t.same(instance.host, '127.0.0.1', 'should have expected host');
+    t.same(instance.host, ['127.0.0.1'], 'should have expected host');
     t.same(instance.port, 3307, 'should have expected port');
 
     t.same(
@@ -583,7 +583,7 @@ t.test('CloudSQLInstance', async t => {
           const instanceMetadata = await fetcher.getInstanceMetadata();
           const ips = ['127.0.0.1', '127.0.0.2'];
           const ipAddresses = {
-            public: ips[metadataCount],
+            public: [ips[metadataCount]],
           };
           metadataCount++;
           return {
@@ -613,7 +613,7 @@ t.test('CloudSQLInstance', async t => {
               // isExpirationTimeValid does not work as expected
               t.strictSame(
                 instance.host,
-                '127.0.0.1',
+                ['127.0.0.1'],
                 'should not have updated values'
               );
               instance.cancelRefresh();
