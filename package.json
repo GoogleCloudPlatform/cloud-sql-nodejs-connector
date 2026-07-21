@@ -75,7 +75,7 @@
     "pg": "^8.21.0",
     "prisma": "^5.22.0",
     "tap": "^21.7.4",
-    "tedious": "^19.2.1",
+    "tedious": "^20.0.0",
     "typeorm": "^1.0.0",
     "typescript": "^5.9.3"
   },
@@ -90,6 +90,6 @@
     "@googleapis/sqladmin": "^37.0.0",
     "gaxios": "^7.1.4",
     "google-auth-library": "^10.6.2",
-    "p-throttle": "^7.0.0"
+    "p-throttle": "^8.1.0"
   }
 }

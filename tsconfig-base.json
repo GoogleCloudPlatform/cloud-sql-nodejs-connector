@@ -7,6 +7,10 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "rootDir": "./src",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "google-auth-library": ["./node_modules/google-auth-library"]
+    }
   }
 }
