@@ -49,11 +49,15 @@ function e2e() {
   fi
   source .envrc
   npm run prepare
-  node_modules/.bin/tap -t25 --disable-coverage --allow-empty-coverage -o pgconnect.tap \
-    system-test/pg-connect.{ts,cjs,mjs} system-test/mysql2-connect.{ts,cjs,mjs} system-test/tedious-connect.{ts,cjs,mjs}
+  if [[ "$#" -gt 0 ]] ; then
+    node_modules/.bin/tap --disable-coverage --allow-empty-coverage "$@"
+  else
+    node_modules/.bin/tap -t25 --disable-coverage --allow-empty-coverage -o pgconnect.tap \
+      system-test/pg-connect.{ts,cjs,mjs} system-test/mysql2-connect.{ts,cjs,mjs} system-test/tedious-connect.{ts,cjs,mjs}
 
-  node_modules/.bin/tap -c -t60 --disable-coverage --allow-empty-coverage -o test_results.tap \
-    examples/*/*/test/*.ts
+    node_modules/.bin/tap -c -t60 --disable-coverage --allow-empty-coverage -o test_results.tap \
+      examples/*/*/test/*.ts
+  fi
 }
 
 ## fix - Fixes code format.
@@ -149,7 +153,7 @@ function write_e2e_env(){
   echo "Getting test secrets from $TEST_PROJECT into $outfile"
   local_user=$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | tr -d '\n')
 
-  echo "Getting test secrets from $TEST_PROJECT into $1"
+  echo "Getting test secrets from $TEST_PROJECT into $outfile"
   {
   for env_name in "${secret_vars[@]}" ; do
     env_var_name="${env_name%%=*}"
