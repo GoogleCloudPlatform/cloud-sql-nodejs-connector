@@ -15,7 +15,7 @@
 import t from 'tap';
 
 t.test('lookup dns with mock responses', async t => {
-  const {resolveTxtRecord, resolveARecord} = t.mockRequire(
+  const {resolveTxtRecord, resolveARecord, resolveCnameRecord} = t.mockRequire(
     '../src/dns-lookup.ts',
     {
       'node:dns': {
@@ -50,23 +50,30 @@ t.test('lookup dns with mock responses', async t => {
             callback(new Error('not found'));
           }
         },
+        resolveCname: (name, callback) => {
+          if (name === 'cname.example.com') {
+            callback(null, ['target.example.com']);
+          } else {
+            callback(new Error('not found'), null);
+          }
+        },
       },
     }
   );
 
   t.same(
     await resolveTxtRecord('db.example.com'),
-    'my-project:region-1:instance',
+    ['my-project:region-1:instance'],
     'valid domain name'
   );
   t.same(
     await resolveTxtRecord('split.example.com'),
-    'my-project:region-1:instance',
+    ['my-project:region-1:instance'],
     'valid domain name'
   );
   t.same(
     await resolveTxtRecord('multiple.example.com'),
-    'another-project:region-1:instance',
+    ['another-project:region-1:instance', 'my-project:region-1:instance'],
     'valid domain name'
   );
   t.rejects(
@@ -96,13 +103,25 @@ t.test('lookup dns with mock responses', async t => {
     /not found/,
     'should reject on error'
   );
+
+  // resolveCnameRecord tests
+  t.same(
+    await resolveCnameRecord('cname.example.com'),
+    'target.example.com',
+    'should resolve CNAME record'
+  );
+  t.rejects(
+    async () => await resolveCnameRecord('not-found'),
+    /not found/,
+    'should reject on error'
+  );
 });
 
 t.test('lookup dns with real responses', async t => {
   const {resolveTxtRecord} = t.mockRequire('../src/dns-lookup.ts', {});
   t.same(
     await resolveTxtRecord('valid-san-test.csqlconnectortest.com'),
-    'cloud-sql-connector-testing:us-central1:postgres-customer-cas-test',
+    ['cloud-sql-connector-testing:us-central1:postgres-customer-cas-test'],
     'valid domain name'
   );
 });

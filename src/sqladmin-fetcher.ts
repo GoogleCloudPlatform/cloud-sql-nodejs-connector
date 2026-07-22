@@ -88,6 +88,7 @@ export interface SQLAdminFetcherOptions {
 export class SQLAdminFetcher {
   private readonly client: sqladmin_v1beta4.Sqladmin;
   private readonly auth: GoogleAuth<AuthClient>;
+  private readonly adminAuth: GoogleAuth<AuthClient>;
 
   constructor({
     loginAuth,
@@ -105,6 +106,7 @@ export class SQLAdminFetcher {
         scopes: ['https://www.googleapis.com/auth/sqlservice.admin'],
       });
     }
+    this.adminAuth = auth;
 
     this.client = new Sqladmin({
       rootUrl: sqlAdminAPIEndpoint,
@@ -320,5 +322,50 @@ export class SQLAdminFetcher {
       cert,
       expirationTime: nearestExpiration,
     };
+  }
+
+  async resolveConnectSettings(
+    region: string,
+    dnsName: string
+  ): Promise<string> {
+    const client = await this.adminAuth.getClient();
+    let rootUrl =
+      this.client.context._options.rootUrl ||
+      'https://sqladmin.googleapis.com/';
+    if (!rootUrl.endsWith('/')) {
+      rootUrl += '/';
+    }
+
+    let dnsNameWithDot = dnsName;
+    if (!dnsNameWithDot.endsWith('.')) {
+      dnsNameWithDot += '.';
+    }
+
+    const url = `${rootUrl}sql/v1beta4/locations/${region}/dns/${dnsNameWithDot}:resolveConnectSettings`;
+
+    setupGaxiosConfig();
+    try {
+      const res = await client.request<{connectionName?: string}>({
+        url,
+        method: 'GET',
+      });
+      if (!res.data || !res.data.connectionName) {
+        throw new CloudSQLConnectorError({
+          message: `Failed to resolve connect settings for DNS name: ${dnsName}`,
+          code: 'ENOSQLADMINRESOLVE',
+        });
+      }
+      return res.data.connectionName;
+    } catch (e) {
+      throw new CloudSQLConnectorError({
+        message:
+          `Failed to resolve connect settings for DNS name: ${dnsName}. ` +
+          'Ensure network connectivity and validate the provided DNS name.',
+        code: 'ENOSQLADMINRESOLVE',
+        errors: [e as Error],
+      });
+    } finally {
+      cleanGaxiosConfig();
+    }
   }
 }

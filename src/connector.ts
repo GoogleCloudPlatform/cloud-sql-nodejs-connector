@@ -42,7 +42,7 @@ export declare interface UnixSocketOptions {
 export declare interface ConnectionOptions {
   authType?: AuthTypes;
   ipType?: IpAddressTypes;
-  instanceConnectionName: string;
+  instanceConnectionName?: string;
   domainName?: string;
   failoverPeriod?: number;
   limitRateInterval?: number;
@@ -168,7 +168,9 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
     const connectionInstance = this.get(this.cacheKey(opts));
     if (!connectionInstance || !connectionInstance.instance) {
       throw new CloudSQLConnectorError({
-        message: `Cannot find info for instance: ${opts.instanceConnectionName}`,
+        message: `Cannot find info for instance: ${
+          opts.instanceConnectionName || opts.domainName
+        }`,
         code: 'ENOINSTANCEINFO',
       });
     }

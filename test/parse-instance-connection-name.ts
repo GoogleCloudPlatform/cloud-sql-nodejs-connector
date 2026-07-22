@@ -18,6 +18,7 @@ import {
   isValidDomainName,
   isInstanceConnectionName,
   isSameInstance,
+  parseInstanceDNSName,
 } from '../src/parse-instance-connection-name';
 
 import {CloudSQLConnectorError} from '../src/errors';
@@ -144,8 +145,6 @@ t.test('isInstanceConnectionName', async t => {
 });
 
 t.test('resolveDomainName Mock DNS', async t => {
-  // mocks crypto module so that it can return a deterministic result
-  // and set a standard, fast static value for cert refresh interval
   const {resolveDomainName} = t.mockRequire(
     '../src/parse-instance-connection-name',
     {
@@ -153,15 +152,18 @@ t.test('resolveDomainName Mock DNS', async t => {
         resolveTxtRecord: async name => {
           switch (name) {
             case 'db.example.com':
-              return 'my-project:region-1:my-instance';
+              return ['my-project:region-1:my-instance'];
             case 'bad.example.com':
-              return 'bad-instance-name';
+              return ['bad-instance-name'];
             default:
               throw new CloudSQLConnectorError({
                 code: 'EDOMAINNAMELOOKUPERROR',
                 message: 'Error looking up TXT record for domain ' + name,
               });
           }
+        },
+        resolveCnameRecord: async name => {
+          throw new Error('CNAME not found for ' + name);
         },
       },
     }
@@ -180,20 +182,18 @@ t.test('resolveDomainName Mock DNS', async t => {
 
   await t.rejects(
     async () => await resolveDomainName('bad.example.com'),
-    {code: 'EBADDOMAINCONNECTIONNAME'},
-    'should throw type error if an extra item is provided'
+    {code: 'EDOMAINNAMELOOKUPFAILED'},
+    'should throw error if TXT is invalid and CNAME fails'
   );
 
   await t.rejects(
     async () => await resolveDomainName('no-record.example.com'),
-    {code: 'EDOMAINNAMELOOKUPERROR'},
-    'should throw type error if an extra item is provided'
+    {code: 'EDOMAINNAMELOOKUPFAILED'},
+    'should throw error if TXT fails and CNAME fails'
   );
 });
 
 t.test('resolveInstanceName Mock DNS', async t => {
-  // mocks crypto module so that it can return a deterministic result
-  // and set a standard, fast static value for cert refresh interval
   const {resolveInstanceName} = t.mockRequire(
     '../src/parse-instance-connection-name',
     {
@@ -201,15 +201,18 @@ t.test('resolveInstanceName Mock DNS', async t => {
         resolveTxtRecord: async name => {
           switch (name) {
             case 'db.example.com':
-              return 'my-project:region-1:my-instance';
+              return ['my-project:region-1:my-instance'];
             case 'bad.example.com':
-              return 'bad-instance-name';
+              return ['bad-instance-name'];
             default:
               throw new CloudSQLConnectorError({
                 code: 'EDOMAINNAMELOOKUPERROR',
                 message: 'Error looking up TXT record for domain ' + name,
               });
           }
+        },
+        resolveCnameRecord: async name => {
+          throw new Error('CNAME not found for ' + name);
         },
       },
     }
@@ -227,6 +230,17 @@ t.test('resolveInstanceName Mock DNS', async t => {
   );
 
   t.same(
+    await resolveInstanceName('db.example.com'),
+    {
+      projectId: 'my-project',
+      regionId: 'region-1',
+      instanceId: 'my-instance',
+      domainName: 'db.example.com',
+    },
+    'should use domain name passed as instanceConnectionName'
+  );
+
+  t.same(
     await resolveInstanceName('my-project:region-1:my-instance'),
     {
       projectId: 'my-project',
@@ -239,14 +253,14 @@ t.test('resolveInstanceName Mock DNS', async t => {
 
   await t.rejects(
     resolveInstanceName(undefined, 'bad.example.com'),
-    {code: 'EBADDOMAINCONNECTIONNAME'},
-    'should throw type error if an extra item is provided'
+    {code: 'EDOMAINNAMELOOKUPFAILED'},
+    'should throw error if TXT is invalid and CNAME fails'
   );
 
   await t.rejects(
     resolveInstanceName(undefined, 'no-record.example.com'),
-    {code: 'EDOMAINNAMELOOKUPERROR'},
-    'should throw type error if an extra item is provided'
+    {code: 'EDOMAINNAMELOOKUPFAILED'},
+    'should throw error if TXT fails and CNAME fails'
   );
 
   await t.rejects(
@@ -368,4 +382,164 @@ t.test('isSameInstance', async t => {
       'is same instance ' + JSON.stringify(tc.a) + ' == ' + JSON.stringify(tc.b)
     );
   }
+});
+
+t.test('parseInstanceDNSName', async t => {
+  const tcs = [
+    {
+      dns: '0123456789ab.fedcba9876543.us-central1.sql-psc.goog',
+      want: {
+        instanceLabel: '0123456789ab',
+        projectLabel: 'fedcba9876543',
+        region: 'us-central1',
+        suffix: 'sql-psc.goog',
+        ok: true,
+      },
+    },
+    {
+      dns: '0123456789ab.fedcba9876543.us-central1.sql-psc.goog.',
+      want: {
+        instanceLabel: '0123456789ab',
+        projectLabel: 'fedcba9876543',
+        region: 'us-central1',
+        suffix: 'sql-psc.goog',
+        ok: true,
+      },
+    },
+    {
+      dns: '0123456789ab.fedcba9876543.global.sql-psc.goog',
+      want: {
+        instanceLabel: '',
+        projectLabel: '',
+        region: '',
+        suffix: '',
+        ok: false,
+      },
+    },
+    {
+      dns: 'not-hex-label.fedcba9876543.us-central1.sql-psc.goog',
+      want: {
+        instanceLabel: '',
+        projectLabel: '',
+        region: '',
+        suffix: '',
+        ok: false,
+      },
+    },
+    {
+      dns: '0123456789ab.fedcba9876543.us-central1.invalid-suffix.goog',
+      want: {
+        instanceLabel: '',
+        projectLabel: '',
+        region: '',
+        suffix: '',
+        ok: false,
+      },
+    },
+  ];
+  for (const tc of tcs) {
+    t.same(parseInstanceDNSName(tc.dns), tc.want, 'parse DNS: ' + tc.dns);
+  }
+});
+
+t.test('resolveDomainName with PSC DNS and CNAME', async t => {
+  const {resolveDomainName} = t.mockRequire(
+    '../src/parse-instance-connection-name',
+    {
+      '../src/dns-lookup': {
+        resolveTxtRecord: async (name: string) => {
+          switch (name) {
+            case 'txt-direct.example.com':
+              return ['my-project:region-1:my-instance'];
+            case 'global.sql-psc.goog':
+              throw new Error('TXT not found');
+            case 'cname-to-txt.example.com':
+              throw new Error('TXT not found');
+            default:
+              throw new Error('TXT not found');
+          }
+        },
+        resolveCnameRecord: async (name: string) => {
+          switch (name) {
+            case 'cname-to-txt.example.com':
+              return 'txt-direct.example.com';
+            case 'cname-to-psc.example.com':
+              return '0123456789ab.fedcba9876543.us-central1.sql-psc.goog';
+            case 'cname-loop.example.com':
+              return 'cname-loop.example.com';
+            case 'cname-loop-1.example.com':
+              return 'cname-loop-2.example.com';
+            case 'cname-loop-2.example.com':
+              return 'cname-loop-1.example.com';
+            default:
+              throw new Error('CNAME not found');
+          }
+        },
+      },
+    }
+  );
+
+  const mockFetcher = {
+    resolveConnectSettings: async (region: string, dnsName: string) => {
+      t.equal(region, 'us-central1');
+      t.equal(dnsName, '0123456789ab.fedcba9876543.us-central1.sql-psc.goog');
+      return 'my-project:us-central1:my-instance';
+    },
+  };
+
+  const info1 = await resolveDomainName(
+    '0123456789ab.fedcba9876543.us-central1.sql-psc.goog',
+    mockFetcher
+  );
+  t.same(info1, {
+    projectId: 'my-project',
+    regionId: 'us-central1',
+    instanceId: 'my-instance',
+    domainName: '0123456789ab.fedcba9876543.us-central1.sql-psc.goog',
+  });
+
+  await t.rejects(
+    resolveDomainName('0123456789ab.fedcba9876543.us-central1.sql-psc.goog'),
+    {code: 'EDNSRESOLVERNOTINITIALIZED'}
+  );
+
+  const info2 = await resolveDomainName('txt-direct.example.com', mockFetcher);
+  t.same(info2, {
+    projectId: 'my-project',
+    regionId: 'region-1',
+    instanceId: 'my-instance',
+    domainName: 'txt-direct.example.com',
+  });
+
+  const info3 = await resolveDomainName(
+    'cname-to-txt.example.com',
+    mockFetcher
+  );
+  t.same(info3, {
+    projectId: 'my-project',
+    regionId: 'region-1',
+    instanceId: 'my-instance',
+    domainName: 'cname-to-txt.example.com',
+  });
+
+  const info4 = await resolveDomainName(
+    'cname-to-psc.example.com',
+    mockFetcher
+  );
+  t.same(info4, {
+    projectId: 'my-project',
+    regionId: 'us-central1',
+    instanceId: 'my-instance',
+    domainName: 'cname-to-psc.example.com',
+  });
+
+  await t.rejects(resolveDomainName('cname-loop.example.com', mockFetcher), {
+    code: 'EDOMAINNAMELOOKUPFAILED',
+    message: /CNAME record loop detected or record not found/,
+  });
+
+  await t.rejects(resolveDomainName('cname-loop-1.example.com', mockFetcher), {
+    code: 'ECNAMELOOPLIMITEXCEEDED',
+    message: /CNAME lookup limit exceeded/,
+  });
 });

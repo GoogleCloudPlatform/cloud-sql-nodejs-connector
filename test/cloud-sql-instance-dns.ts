@@ -66,6 +66,9 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
     '../src/dns-lookup': {
       resolveARecord: async (name: string) => resolveARecordMock(name),
       resolveTxtRecord: async (name: string) => resolveTXTRecordMock(name),
+      resolveCnameRecord: async () => {
+        throw new Error('CNAME not mocked');
+      },
     },
   });
 

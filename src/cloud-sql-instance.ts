@@ -47,11 +47,12 @@ interface Fetcher {
     publicKey: string,
     authType: AuthTypes
   ): Promise<SslCert>;
+  resolveConnectSettings(region: string, dnsName: string): Promise<string>;
 }
 
 interface CloudSQLInstanceOptions {
   authType: AuthTypes;
-  instanceConnectionName: string;
+  instanceConnectionName?: string;
   domainName?: string;
   ipType: IpAddressTypes;
   limitRateInterval?: number;
@@ -72,7 +73,8 @@ export class CloudSQLInstance {
   ): Promise<CloudSQLInstance> {
     const instanceInfo = await resolveInstanceName(
       options.instanceConnectionName,
-      options.domainName
+      options.domainName,
+      options.sqlAdminFetcher
     );
     const instance = new CloudSQLInstance({
       options: options,
@@ -383,7 +385,8 @@ export class CloudSQLInstance {
 
     const newInfo = await resolveInstanceName(
       undefined,
-      this.instanceInfo.domainName
+      this.instanceInfo.domainName,
+      this.sqlAdminFetcher
     );
     if (!isSameInstance(this.instanceInfo, newInfo)) {
       // Domain name changed. Close and remove, then create a new map entry.
