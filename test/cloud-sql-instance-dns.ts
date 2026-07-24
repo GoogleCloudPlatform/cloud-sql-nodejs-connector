@@ -25,7 +25,7 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
     async getInstanceMetadata() {
       return {
         ipAddresses: {
-          public: '127.0.0.1',
+          public: ['127.0.0.1'],
         },
         serverCaCert: {
           cert: CA_CERT,
@@ -89,7 +89,7 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
     });
     t.after(() => instance.close());
 
-    t.equal(instance.host, expectedIp, 'Host should match resolved IP');
+    t.same(instance.host, [expectedIp], 'Host should match resolved IP');
   });
 
   t.test('should fallback to metadata IP when resolution fails', async t => {
@@ -110,7 +110,7 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
     });
     t.after(() => instance.close());
 
-    t.equal(instance.host, '127.0.0.1', 'Host should fallback to metadata IP');
+    t.same(instance.host, ['127.0.0.1'], 'Host should fallback to metadata IP');
   });
 
   t.test(
@@ -133,9 +133,9 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
       });
       t.after(() => instance.close());
 
-      t.equal(
+      t.same(
         instance.host,
-        '127.0.0.1',
+        ['127.0.0.1'],
         'Host should fallback to metadata IP'
       );
     }
@@ -156,6 +156,57 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
     });
     t.after(() => instance.close());
 
-    t.equal(instance.host, '127.0.0.1', 'Host should use metadata IP');
+    t.same(instance.host, ['127.0.0.1'], 'Host should use metadata IP');
   });
+
+  t.test(
+    'should fallback to PRIVATE metadata IP when preferred IP is DNS and resolution fails',
+    async t => {
+      const dnsName = '1ad3b5d73f10.3oxon2yfo9tob.us-east1.sql.goog';
+      const pscFetcher = {
+        async getInstanceMetadata() {
+          return {
+            ipAddresses: {
+              psc: [dnsName],
+              private: ['10.0.0.2'],
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          };
+        },
+        async getEphemeralCertificate() {
+          return {
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          };
+        },
+      };
+
+      resolveARecordMock = async () => {
+        throw new Error('DNS Error');
+      };
+      const expectInstanceName = 'my-project:us-east1:my-instance';
+      resolveTXTRecordMock = async (name: string) => {
+        t.equal(name, 'example.com');
+        return [expectInstanceName];
+      };
+
+      const instance = await CloudSQLInstance.getCloudSQLInstance({
+        ipType: IpAddressTypes.PSC,
+        authType: AuthTypes.PASSWORD,
+        domainName: 'example.com',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sqlAdminFetcher: pscFetcher as any,
+      });
+      t.after(() => instance.close());
+
+      t.same(
+        instance.host,
+        ['10.0.0.2'],
+        'Host should fallback to private IP from metadata'
+      );
+    }
+  );
 });

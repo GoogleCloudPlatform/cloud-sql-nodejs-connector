@@ -60,3 +60,30 @@ export async function resolveARecord(name: string): Promise<string[]> {
     });
   });
 }
+
+export async function resolveCnameRecord(name: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    dns.resolveCname(name, (err, addresses) => {
+      if (err) {
+        reject(
+          new CloudSQLConnectorError({
+            code: 'EDOMAINNAMELOOKUPERROR',
+            message: 'Error looking up CNAME record for domain ' + name,
+            errors: [err],
+          })
+        );
+        return;
+      }
+      if (!addresses || addresses.length === 0) {
+        reject(
+          new CloudSQLConnectorError({
+            code: 'EDOMAINNAMELOOKUPFAILED',
+            message: 'No CNAME records returned for domain ' + name,
+          })
+        );
+        return;
+      }
+      resolve(addresses[0]);
+    });
+  });
+}
