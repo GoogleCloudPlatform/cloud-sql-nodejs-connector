@@ -178,6 +178,16 @@ export function isValidDomainName(name: string): boolean {
   return Boolean(matches);
 }
 
+const instanceDNSSuffixRegex = /\.sql(-\w+)?\.goog\.?$/;
+const globalInstanceDNSRegex = /\.global\.sql(-\w+)?\.goog\.?$/;
+
+export function isInstanceDNSName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    instanceDNSSuffixRegex.test(lower) && !globalInstanceDNSRegex.test(lower)
+  );
+}
+
 export function isInstanceConnectionName(name: string): boolean {
   const matches = String(name).match(connectionNameRegex);
   return Boolean(matches);

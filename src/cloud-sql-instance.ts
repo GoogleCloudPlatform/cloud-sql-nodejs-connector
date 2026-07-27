@@ -17,6 +17,8 @@ import {InstanceConnectionInfo} from './instance-connection-info';
 import {
   isSameInstance,
   resolveInstanceName,
+  isInstanceDNSName,
+  parseInstanceConnectionName,
 } from './parse-instance-connection-name';
 import {resolveARecord} from './dns-lookup';
 import {InstanceMetadata} from './sqladmin-fetcher';
@@ -113,14 +115,34 @@ export class CloudSQLInstance {
     instanceInfo,
   }: {
     options: CloudSQLInstanceOptions;
-    instanceInfo: InstanceConnectionInfo;
+    instanceInfo?: InstanceConnectionInfo;
   }) {
-    this.instanceInfo = instanceInfo;
     this.authType = options.authType || AuthTypes.PASSWORD;
     this.ipType = options.ipType || IpAddressTypes.PUBLIC;
     this.limitRateInterval = options.limitRateInterval || 30 * 1000; // 30 seconds
     this.sqlAdminFetcher = options.sqlAdminFetcher;
     this.failoverPeriod = options.failoverPeriod || 30 * 1000; // 30 seconds
+
+    if (instanceInfo) {
+      this.instanceInfo = instanceInfo;
+    } else if (options.instanceConnectionName) {
+      this.instanceInfo = parseInstanceConnectionName(
+        options.instanceConnectionName
+      );
+    } else if (options.domainName) {
+      this.instanceInfo = {
+        projectId: '',
+        regionId: '',
+        instanceId: '',
+        domainName: options.domainName,
+      };
+    } else {
+      throw new CloudSQLConnectorError({
+        message:
+          'instanceInfo or instanceConnectionName/domainName is required',
+        code: 'ENOCONNECTIONNAME',
+      });
+    }
   }
 
   // p-throttle library has to be initialized in an async scope in order to
@@ -179,13 +201,19 @@ export class CloudSQLInstance {
     // Lazy instantiation of the checkDomain interval on the first refresh
     // This avoids issues with test cases that instantiate a CloudSqlInstance.
     // If failoverPeriod is 0 (or negative) don't check for DNS updates.
+    const isInstanceDNS = isInstanceDNSName(
+      this.instanceInfo?.domainName || ''
+    );
     if (
       this?.instanceInfo?.domainName &&
+      !isInstanceDNS &&
       !this.checkDomainID &&
       this.failoverPeriod > 0
     ) {
       this.checkDomainID = setInterval(() => {
-        this.checkDomainChanged();
+        this.checkDomainChanged().catch(() => {
+          // ignore unhandled rejections
+        });
       }, this.failoverPeriod);
     }
 
@@ -383,15 +411,46 @@ export class CloudSQLInstance {
       return;
     }
 
-    const newInfo = await resolveInstanceName(
-      undefined,
-      this.instanceInfo.domainName,
-      this.sqlAdminFetcher
-    );
-    if (!isSameInstance(this.instanceInfo, newInfo)) {
-      // Domain name changed. Close and remove, then create a new map entry.
-      this.close();
+    try {
+      const newInfo = await resolveInstanceName(
+        undefined,
+        this.instanceInfo.domainName,
+        this.sqlAdminFetcher
+      );
+      if (!isSameInstance(this.instanceInfo, newInfo)) {
+        // Domain name changed. Close and remove, then create a new map entry.
+        this.close();
+      }
+    } catch (err) {
+      if (this.isNonTransient(err)) {
+        this.close();
+      }
     }
+  }
+
+  private isNonTransient(err: unknown): boolean {
+    if (err instanceof CloudSQLConnectorError) {
+      if (
+        err.code === 'ECNAMELOOPLIMITEXCEEDED' ||
+        err.code === 'EDNSRESOLVERNOTINITIALIZED' ||
+        err.code === 'EBADCONNECTIONNAME'
+      ) {
+        return true;
+      }
+      if (err.code === 'ENOSQLADMINRESOLVE') {
+        for (const nestedErr of err.errors) {
+          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+          const response = (nestedErr as any).response;
+          if (
+            response &&
+            (response.status === 403 || response.status === 404)
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
   addSocket(socket: DestroyableSocket) {
     if (!this.instanceInfo.domainName) {
