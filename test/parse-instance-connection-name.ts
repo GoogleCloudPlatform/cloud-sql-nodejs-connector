@@ -407,6 +407,26 @@ t.test('parseInstanceDNSName', async t => {
       },
     },
     {
+      dns: 'not-hex-label.fedcba9876543.us-central1.sql-psc.goog',
+      want: {
+        instanceLabel: 'not-hex-label',
+        projectLabel: 'fedcba9876543',
+        region: 'us-central1',
+        suffix: 'sql-psc.goog',
+        ok: true,
+      },
+    },
+    {
+      dns: 'abc.def.uscentral.sql-psc.goog',
+      want: {
+        instanceLabel: 'abc',
+        projectLabel: 'def',
+        region: 'uscentral',
+        suffix: 'sql-psc.goog',
+        ok: true,
+      },
+    },
+    {
       dns: '0123456789ab.fedcba9876543.global.sql-psc.goog',
       want: {
         instanceLabel: '',
@@ -417,7 +437,7 @@ t.test('parseInstanceDNSName', async t => {
       },
     },
     {
-      dns: 'not-hex-label.fedcba9876543.us-central1.sql-psc.goog',
+      dns: '0123456789ab.fedcba9876543.us-central1.invalid-suffix.goog',
       want: {
         instanceLabel: '',
         projectLabel: '',
@@ -427,7 +447,27 @@ t.test('parseInstanceDNSName', async t => {
       },
     },
     {
-      dns: '0123456789ab.fedcba9876543.us-central1.invalid-suffix.goog',
+      dns: '-starts-with-hyphen.proj.region.sql.goog',
+      want: {
+        instanceLabel: '',
+        projectLabel: '',
+        region: '',
+        suffix: '',
+        ok: false,
+      },
+    },
+    {
+      dns: 'ends-with-hyphen-.proj.region.sql.goog',
+      want: {
+        instanceLabel: '',
+        projectLabel: '',
+        region: '',
+        suffix: '',
+        ok: false,
+      },
+    },
+    {
+      dns: 'empty..region.sql.goog',
       want: {
         instanceLabel: '',
         projectLabel: '',
