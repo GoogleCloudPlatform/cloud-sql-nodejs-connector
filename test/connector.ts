@@ -553,14 +553,20 @@ function setupConnectorModule(t) {
         }),
       },
       '../src/dns-lookup': {
-        async resolveTxtRecord(): Promise<string> {
-          return response.resolveTxtResponse;
+        async resolveTxtRecord(): Promise<string[]> {
+          return [response.resolveTxtResponse];
+        },
+        async resolveCnameRecord(): Promise<string> {
+          throw new Error('CNAME not mocked');
         },
       },
     }),
     '../src/dns-lookup': {
-      async resolveTxtRecord(): Promise<string> {
-        return response.resolveTxtResponse;
+      async resolveTxtRecord(): Promise<string[]> {
+        return [response.resolveTxtResponse];
+      },
+      async resolveCnameRecord(): Promise<string> {
+        throw new Error('CNAME not mocked');
       },
     },
   });

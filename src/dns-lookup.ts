@@ -15,7 +15,7 @@
 import dns from 'node:dns';
 import {CloudSQLConnectorError} from './errors';
 
-export async function resolveTxtRecord(name: string): Promise<string> {
+export async function resolveTxtRecord(name: string): Promise<string[]> {
   return new Promise((resolve, reject) => {
     dns.resolveTxt(name, (err, addresses) => {
       if (err) {
@@ -41,10 +41,9 @@ export async function resolveTxtRecord(name: string): Promise<string> {
 
       // Each result may be split into multiple strings. Join the strings.
       const joinedAddresses = addresses.map(strs => strs.join(''));
-      // Sort the results alphabetically for consistency,
+      // Sort the results alphabetically for consistency.
       joinedAddresses.sort((a, b) => a.localeCompare(b));
-      // Return the first result.
-      resolve(joinedAddresses[0]);
+      resolve(joinedAddresses);
     });
   });
 }
@@ -57,6 +56,22 @@ export async function resolveARecord(name: string): Promise<string[]> {
         return;
       }
       resolve(addresses);
+    });
+  });
+}
+
+export async function resolveCnameRecord(name: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    dns.resolveCname(name, (err, addresses) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      if (!addresses || addresses.length === 0) {
+        reject(new Error('No CNAME records found for ' + name));
+        return;
+      }
+      resolve(addresses[0]);
     });
   });
 }

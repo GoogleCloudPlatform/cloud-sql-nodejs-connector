@@ -58,8 +58,10 @@ const sqlAdminClient: SQLAdminClient = {
 
 class Sqladmin {
   public connect;
+  public context;
   constructor(opts: SQLAdminOptions) {
     this.connect = sqlAdminClient;
+    this.context = {_options: opts};
     sqlAdminOptions = opts;
   }
 }
@@ -482,4 +484,71 @@ t.test('getEphemeralCertificate sets access token on IAM', async t => {
   );
 
   t.same(ephemeralCert.cert, CLIENT_CERT, 'should return expected ssl cert');
+});
+
+t.test('resolveConnectSettings', async t => {
+  const mockRequest = async (opts: {method: string; url: string}) => {
+    t.equal(opts.method, 'GET');
+    t.equal(
+      opts.url,
+      'https://sqladmin.googleapis.com/sql/v1beta4/locations/us-central1/dns/my-dns.example.com.:resolveConnectSettings'
+    );
+    return {
+      data: {
+        connectionName: 'my-project:us-central1:my-instance',
+      },
+    };
+  };
+
+  const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
+    'google-auth-library': {
+      GoogleAuth: class {
+        async getClient() {
+          return {
+            request: mockRequest,
+          };
+        }
+      },
+    },
+    '@googleapis/sqladmin': {
+      sqladmin_v1beta4: {Sqladmin},
+    },
+  });
+
+  const fetcher = new SQLAdminFetcher();
+  const connectionName = await fetcher.resolveConnectSettings(
+    'us-central1',
+    'my-dns.example.com'
+  );
+  t.equal(connectionName, 'my-project:us-central1:my-instance');
+});
+
+t.test('resolveConnectSettings error', async t => {
+  const mockRequest = async () => {
+    throw new Error('API error');
+  };
+
+  const {SQLAdminFetcher} = t.mockRequire('../src/sqladmin-fetcher', {
+    'google-auth-library': {
+      GoogleAuth: class {
+        async getClient() {
+          return {
+            request: mockRequest,
+          };
+        }
+      },
+    },
+    '@googleapis/sqladmin': {
+      sqladmin_v1beta4: {Sqladmin},
+    },
+  });
+
+  const fetcher = new SQLAdminFetcher();
+  t.rejects(
+    fetcher.resolveConnectSettings('us-central1', 'my-dns.example.com'),
+    {
+      code: 'ENOSQLADMINRESOLVE',
+      message: /Failed to resolve connect settings for DNS name/,
+    }
+  );
 });

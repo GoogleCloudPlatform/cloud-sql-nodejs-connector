@@ -14,7 +14,108 @@
 
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {CloudSQLConnectorError} from './errors';
-import {resolveTxtRecord} from './dns-lookup';
+import {resolveTxtRecord, resolveCnameRecord} from './dns-lookup';
+
+export interface DNSFetcher {
+  resolveConnectSettings(region: string, dnsName: string): Promise<string>;
+}
+
+export function parseInstanceDNSName(dnsName: string): {
+  instanceLabel: string;
+  projectLabel: string;
+  region: string;
+  suffix: string;
+  ok: boolean;
+} {
+  let name = dnsName.toLowerCase();
+  if (name.endsWith('.')) {
+    name = name.slice(0, -1);
+  }
+
+  const parts = name.split('.');
+  if (parts.length !== 5) {
+    return {
+      instanceLabel: '',
+      projectLabel: '',
+      region: '',
+      suffix: '',
+      ok: false,
+    };
+  }
+
+  if (parts[4] !== 'goog') {
+    return {
+      instanceLabel: '',
+      projectLabel: '',
+      region: '',
+      suffix: '',
+      ok: false,
+    };
+  }
+
+  const suffixType = parts[3];
+  if (
+    suffixType !== 'sql' &&
+    suffixType !== 'sql-psa' &&
+    suffixType !== 'sql-psc'
+  ) {
+    return {
+      instanceLabel: '',
+      projectLabel: '',
+      region: '',
+      suffix: '',
+      ok: false,
+    };
+  }
+
+  const instanceLabel = parts[0];
+  const projectLabel = parts[1];
+  const region = parts[2];
+  const suffix = suffixType + '.goog';
+
+  if (region === 'global') {
+    return {
+      instanceLabel: '',
+      projectLabel: '',
+      region: '',
+      suffix: '',
+      ok: false,
+    };
+  }
+
+  if (instanceLabel.length !== 12) {
+    return {
+      instanceLabel: '',
+      projectLabel: '',
+      region: '',
+      suffix: '',
+      ok: false,
+    };
+  }
+
+  // Validate instanceLabel is hex
+  if (!/^[0-9a-f]{12}$/.test(instanceLabel)) {
+    return {
+      instanceLabel: '',
+      projectLabel: '',
+      region: '',
+      suffix: '',
+      ok: false,
+    };
+  }
+
+  if (!region.includes('-')) {
+    return {
+      instanceLabel: '',
+      projectLabel: '',
+      region: '',
+      suffix: '',
+      ok: false,
+    };
+  }
+
+  return {instanceLabel, projectLabel, region, suffix, ok: true};
+}
 
 export function isSameInstance(
   a: InstanceConnectionInfo,
@@ -30,9 +131,19 @@ export function isSameInstance(
 
 export async function resolveInstanceName(
   instanceConnectionName?: string,
-  domainName?: string
+  domainName?: string,
+  fetcher?: DNSFetcher
 ): Promise<InstanceConnectionInfo> {
-  if (!instanceConnectionName && !domainName) {
+  let resolvedDomain = domainName;
+  if (
+    !resolvedDomain &&
+    instanceConnectionName &&
+    isValidDomainName(instanceConnectionName)
+  ) {
+    resolvedDomain = instanceConnectionName;
+  }
+
+  if (!instanceConnectionName && !resolvedDomain) {
     throw new CloudSQLConnectorError({
       message:
         'Missing instance connection name, expected: "PROJECT:REGION:INSTANCE" or a valid domain name.',
@@ -43,8 +154,8 @@ export async function resolveInstanceName(
     isInstanceConnectionName(instanceConnectionName)
   ) {
     return parseInstanceConnectionName(instanceConnectionName);
-  } else if (domainName && isValidDomainName(domainName)) {
-    return await resolveDomainName(domainName);
+  } else if (resolvedDomain && isValidDomainName(resolvedDomain)) {
+    return await resolveDomainName(resolvedDomain, fetcher);
   } else {
     throw new CloudSQLConnectorError({
       message:
@@ -67,29 +178,88 @@ export function isValidDomainName(name: string): boolean {
   return Boolean(matches);
 }
 
+const instanceDNSSuffixRegex = /\.sql(-\w+)?\.goog\.?$/;
+const globalInstanceDNSRegex = /\.global\.sql(-\w+)?\.goog\.?$/;
+
+export function isInstanceDNSName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    instanceDNSSuffixRegex.test(lower) && !globalInstanceDNSRegex.test(lower)
+  );
+}
+
 export function isInstanceConnectionName(name: string): boolean {
   const matches = String(name).match(connectionNameRegex);
   return Boolean(matches);
 }
 
 export async function resolveDomainName(
-  name: string
+  name: string,
+  fetcher?: DNSFetcher
 ): Promise<InstanceConnectionInfo> {
-  const icn = await resolveTxtRecord(name);
-  if (!isInstanceConnectionName(icn)) {
-    throw new CloudSQLConnectorError({
-      message:
-        'Malformed instance connection name returned for domain ' +
-        name +
-        ' : ' +
-        icn,
-      code: 'EBADDOMAINCONNECTIONNAME',
-    });
+  let current = name;
+  let txtErr: Error | undefined;
+
+  for (let depth = 0; depth < 10; depth++) {
+    const dnsInfo = parseInstanceDNSName(current);
+    if (dnsInfo.ok) {
+      if (!fetcher) {
+        throw new CloudSQLConnectorError({
+          message: 'DNS resolver SQL Admin API client is not initialized',
+          code: 'EDNSRESOLVERNOTINITIALIZED',
+        });
+      }
+      const resolvedName = await fetcher.resolveConnectSettings(
+        dnsInfo.region,
+        current
+      );
+      const info = parseInstanceConnectionName(resolvedName);
+      info.domainName = name;
+      return info;
+    }
+
+    try {
+      const records = await resolveTxtRecord(current);
+      for (const record of records) {
+        if (isInstanceConnectionName(record)) {
+          const info = parseInstanceConnectionName(record);
+          info.domainName = name;
+          return info;
+        }
+      }
+      txtErr = new CloudSQLConnectorError({
+        message: `No valid TXT records found for ${current}`,
+        code: 'ENOPPSCVALIDTXT',
+      });
+    } catch (e) {
+      txtErr = e as Error;
+    }
+
+    try {
+      let cnameVal = await resolveCnameRecord(current);
+      if (cnameVal.endsWith('.')) {
+        cnameVal = cnameVal.slice(0, -1);
+      }
+      if (cnameVal === current) {
+        throw new Error('CNAME record loop detected or record not found');
+      }
+      if (!isValidDomainName(cnameVal)) {
+        throw new Error(`Invalid format for CNAME record: ${cnameVal}`);
+      }
+      current = cnameVal;
+    } catch (cnameErr) {
+      throw new CloudSQLConnectorError({
+        message: `No DNS record found for ${name}, lookup of ${current}. Lookup TXT error: ${txtErr?.message} Lookup CNAME error: ${(cnameErr as Error).message}`,
+        code: 'EDOMAINNAMELOOKUPFAILED',
+        errors: [txtErr!, cnameErr as Error],
+      });
+    }
   }
 
-  const info = parseInstanceConnectionName(icn);
-  info.domainName = name;
-  return info;
+  throw new CloudSQLConnectorError({
+    message: `CNAME lookup limit exceeded (max 10) for ${name}`,
+    code: 'ECNAMELOOPLIMITEXCEEDED',
+  });
 }
 
 export function parseInstanceConnectionName(
