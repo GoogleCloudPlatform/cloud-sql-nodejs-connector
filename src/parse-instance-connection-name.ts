@@ -16,6 +16,9 @@ import {InstanceConnectionInfo} from './instance-connection-info';
 import {CloudSQLConnectorError} from './errors';
 import {resolveTxtRecord, resolveCnameRecord} from './dns-lookup';
 
+export const INSTANCE_DNS_NAME_PATTERN =
+  /^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])\.(sql|sql-psa|sql-psc)\.goog\.?$/;
+
 export interface DNSFetcher {
   resolveConnectSettings(region: string, dnsName: string): Promise<string>;
 }
@@ -27,13 +30,9 @@ export function parseInstanceDNSName(dnsName: string): {
   suffix: string;
   ok: boolean;
 } {
-  let name = dnsName.toLowerCase();
-  if (name.endsWith('.')) {
-    name = name.slice(0, -1);
-  }
-
-  const parts = name.split('.');
-  if (parts.length !== 5) {
+  const name = dnsName.toLowerCase();
+  const match = name.match(INSTANCE_DNS_NAME_PATTERN);
+  if (!match) {
     return {
       instanceLabel: '',
       projectLabel: '',
@@ -43,68 +42,12 @@ export function parseInstanceDNSName(dnsName: string): {
     };
   }
 
-  if (parts[4] !== 'goog') {
-    return {
-      instanceLabel: '',
-      projectLabel: '',
-      region: '',
-      suffix: '',
-      ok: false,
-    };
-  }
-
-  const suffixType = parts[3];
-  if (
-    suffixType !== 'sql' &&
-    suffixType !== 'sql-psa' &&
-    suffixType !== 'sql-psc'
-  ) {
-    return {
-      instanceLabel: '',
-      projectLabel: '',
-      region: '',
-      suffix: '',
-      ok: false,
-    };
-  }
-
-  const instanceLabel = parts[0];
-  const projectLabel = parts[1];
-  const region = parts[2];
-  const suffix = suffixType + '.goog';
+  const instanceLabel = match[1];
+  const projectLabel = match[2];
+  const region = match[3];
+  const suffix = match[4] + '.goog';
 
   if (region === 'global') {
-    return {
-      instanceLabel: '',
-      projectLabel: '',
-      region: '',
-      suffix: '',
-      ok: false,
-    };
-  }
-
-  if (instanceLabel.length !== 12) {
-    return {
-      instanceLabel: '',
-      projectLabel: '',
-      region: '',
-      suffix: '',
-      ok: false,
-    };
-  }
-
-  // Validate instanceLabel is hex
-  if (!/^[0-9a-f]{12}$/.test(instanceLabel)) {
-    return {
-      instanceLabel: '',
-      projectLabel: '',
-      region: '',
-      suffix: '',
-      ok: false,
-    };
-  }
-
-  if (!region.includes('-')) {
     return {
       instanceLabel: '',
       projectLabel: '',
@@ -178,14 +121,14 @@ export function isValidDomainName(name: string): boolean {
   return Boolean(matches);
 }
 
-const instanceDNSSuffixRegex = /\.sql(-\w+)?\.goog\.?$/;
-const globalInstanceDNSRegex = /\.global\.sql(-\w+)?\.goog\.?$/;
-
 export function isInstanceDNSName(name: string): boolean {
   const lower = name.toLowerCase();
-  return (
-    instanceDNSSuffixRegex.test(lower) && !globalInstanceDNSRegex.test(lower)
-  );
+  const match = lower.match(INSTANCE_DNS_NAME_PATTERN);
+  if (!match) {
+    return false;
+  }
+  const region = match[3];
+  return region !== 'global';
 }
 
 export function isInstanceConnectionName(name: string): boolean {
