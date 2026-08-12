@@ -39,6 +39,9 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
         expirationTime: '2033-01-06T10:00:00.232Z',
       };
     },
+    async resolveConnectSettings() {
+      return 'my-project:us-east1:my-instance';
+    },
   };
 
   let resolveARecordMock = async (): Promise<string[]> => {
@@ -161,4 +164,65 @@ t.test('CloudSQLInstance DNS Lookup', async t => {
 
     t.equal(instance.host, '127.0.0.1', 'Host should use metadata IP');
   });
+
+  t.test('optimization for immutable names - custom DNS', async t => {
+    resolveARecordMock = async () => ['10.0.0.1'];
+    resolveTXTRecordMock = async () => ['my-project:us-east1:my-instance'];
+
+    const instance = await CloudSQLInstance.getCloudSQLInstance({
+      ipType: IpAddressTypes.PUBLIC,
+      authType: AuthTypes.PASSWORD,
+      domainName: 'example.com',
+      sqlAdminFetcher: fetcher,
+    });
+    t.after(() => instance.close());
+
+    t.ok(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (instance as any).checkDomainID,
+      'should enable checkDomain interval for custom DNS'
+    );
+  });
+
+  t.test(
+    'optimization for immutable names - immutable instance DNS',
+    async t => {
+      resolveARecordMock = async () => ['10.0.0.1'];
+
+      const instance = await CloudSQLInstance.getCloudSQLInstance({
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        domainName: '0123456789ab.fedcba9876543.us-central1.sql-psc.goog',
+        sqlAdminFetcher: fetcher,
+      });
+      t.after(() => instance.close());
+
+      t.notOk(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (instance as any).checkDomainID,
+        'should NOT enable checkDomain interval for immutable instance DNS'
+      );
+    }
+  );
+
+  t.test(
+    'optimization for immutable names - mutable global instance DNS',
+    async t => {
+      resolveARecordMock = async () => ['10.0.0.1'];
+
+      const instance = await CloudSQLInstance.getCloudSQLInstance({
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        domainName: '0123456789ab.fedcba9876543.global.sql-psc.goog',
+        sqlAdminFetcher: fetcher,
+      });
+      t.after(() => instance.close());
+
+      t.ok(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (instance as any).checkDomainID,
+        'should enable checkDomain interval for mutable global instance DNS'
+      );
+    }
+  );
 });
