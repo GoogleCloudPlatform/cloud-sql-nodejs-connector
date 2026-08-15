@@ -20,6 +20,7 @@ import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
 import {AuthTypes} from '../src/auth-types';
 import {SQLAdminFetcherOptions} from '../src/sqladmin-fetcher';
+import {SqlDataClientOptions} from '../src/sql-data-client';
 
 t.test('Connector', async t => {
   setupCredentials(t); // setup google-auth credentials mocks
@@ -692,5 +693,134 @@ t.test(
 
     t.same(oldInstance.isClosed(), true, 'old instance is closed');
     t.same(mockSocket.destroyed, true, 'old instance closed its sockets');
+  }
+);
+
+t.test(
+  'Connector getOptions with SQL_DATA does not mutate caller options',
+  async t => {
+    setupCredentials(t);
+    const {Connector} = t.mockRequire('../src/connector', {
+      '../src/sqladmin-fetcher': {
+        SQLAdminFetcher: class {
+          getInstanceMetadata() {
+            return Promise.resolve({
+              ipAddresses: {
+                public: '127.0.0.1',
+              },
+              serverCaCert: {
+                cert: CA_CERT,
+                expirationTime: '2033-01-06T10:00:00.232Z',
+              },
+            });
+          }
+        },
+      },
+      '../src/sql-data-client': {
+        SqlDataClient: class {
+          start() {
+            return Promise.resolve(54321);
+          }
+          close() {
+            return Promise.resolve();
+          }
+        },
+      },
+    });
+
+    const connector = new Connector();
+    const inputOpts = {
+      ipType: IpAddressTypes.SQL_DATA,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+    };
+
+    const opts = await connector.getOptions(inputOpts);
+    t.same(typeof opts.stream, 'function', 'should return stream function');
+    t.same(
+      inputOpts.ipType,
+      IpAddressTypes.SQL_DATA,
+      'should not mutate inputOpts.ipType'
+    );
+
+    connector.close();
+  }
+);
+
+t.test(
+  'Connector getOptions fallback selects private IP when public is not available',
+  async t => {
+    setupCredentials(t);
+    let capturedFallbackOpts: SqlDataClientOptions | undefined;
+    const {Connector} = t.mockRequire('../src/connector', {
+      '../src/sqladmin-fetcher': {
+        SQLAdminFetcher: class {
+          getInstanceMetadata() {
+            return Promise.resolve({
+              ipAddresses: {
+                private: '10.0.0.1',
+              },
+              serverCaCert: {
+                cert: CA_CERT,
+                expirationTime: '2033-01-06T10:00:00.232Z',
+              },
+            });
+          }
+          getEphemeralCertificate() {
+            return Promise.resolve({
+              cert: CLIENT_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            });
+          }
+        },
+      },
+      '../src/cloud-sql-instance': t.mockRequire('../src/cloud-sql-instance', {
+        '../src/crypto': {
+          generateKeys: async () => ({
+            publicKey: '-----BEGIN PUBLIC KEY-----',
+            privateKey: CLIENT_KEY,
+          }),
+        },
+      }),
+      '../src/sql-data-client': {
+        SqlDataClient: class {
+          private readonly opts: SqlDataClientOptions;
+          constructor(opts: SqlDataClientOptions) {
+            this.opts = opts;
+            capturedFallbackOpts = opts;
+          }
+          start() {
+            return Promise.resolve(54321);
+          }
+          close() {
+            return Promise.resolve();
+          }
+        },
+      },
+    });
+
+    const connector = new Connector();
+    await connector.getOptions({
+      ipType: IpAddressTypes.SQL_DATA,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+      sqlDataKeepAliveTimeMs: 45000,
+      sqlDataKeepAliveTimeoutMs: 15000,
+    });
+
+    t.same(
+      capturedFallbackOpts?.keepAliveTimeMs,
+      45000,
+      'should pass keepAliveTimeMs'
+    );
+    t.same(
+      capturedFallbackOpts?.keepAliveTimeoutMs,
+      15000,
+      'should pass keepAliveTimeoutMs'
+    );
+
+    // Invoke getDirectSocket to test fallback resolution
+    const directSocket = await capturedFallbackOpts?.getDirectSocket?.();
+    t.ok(directSocket, 'should return direct TLS socket');
+
+    connector.close();
   }
 );

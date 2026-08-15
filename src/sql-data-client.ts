@@ -23,8 +23,10 @@ export interface SqlDataClientOptions {
   auth: GoogleAuth<AuthClient>;
   endpoint?: string;
   streamTimeout?: number;
+  keepAliveTimeMs?: number;
+  keepAliveTimeoutMs?: number;
   channelCredentials?: grpc.ChannelCredentials;
-  getDirectSocket?: () => net.Socket;
+  getDirectSocket?: () => Promise<net.Socket> | net.Socket;
   onUnsupported?: () => void;
 }
 
@@ -33,12 +35,15 @@ export class SqlDataClient {
   private readonly auth: GoogleAuth<AuthClient>;
   private readonly endpoint: string;
   private readonly streamTimeout: number;
+  private readonly keepAliveTimeMs: number;
+  private readonly keepAliveTimeoutMs: number;
   private readonly projectId: string;
   private readonly regionId: string;
   private readonly instanceId: string;
   private readonly channelCredentials?: grpc.ChannelCredentials;
-  private readonly getDirectSocket?: () => net.Socket;
+  private readonly getDirectSocket?: () => Promise<net.Socket> | net.Socket;
   private readonly onUnsupported?: () => void;
+  private readonly activeSockets = new Set<net.Socket>();
   private server?: net.Server;
   private client?: v1beta4.SqlDataServiceClient;
   private port?: number;
@@ -48,6 +53,8 @@ export class SqlDataClient {
     this.auth = opts.auth;
     this.endpoint = opts.endpoint || 'sqladmin.googleapis.com';
     this.streamTimeout = opts.streamTimeout || 2 * 60 * 60 * 1000; // 2 hours
+    this.keepAliveTimeMs = opts.keepAliveTimeMs ?? 30 * 1000; // 30 seconds
+    this.keepAliveTimeoutMs = opts.keepAliveTimeoutMs ?? 10 * 1000; // 10 seconds
     this.channelCredentials = opts.channelCredentials;
     this.getDirectSocket = opts.getDirectSocket;
     this.onUnsupported = opts.onUnsupported;
@@ -62,6 +69,34 @@ export class SqlDataClient {
     this.projectId = parts[0];
     this.regionId = parts[1];
     this.instanceId = parts[2];
+  }
+
+  private getClient(): v1beta4.SqlDataServiceClient {
+    if (this.client) {
+      return this.client;
+    }
+
+    let servicePath = this.endpoint.replace(/^https?:\/\//, '');
+    let port = 443;
+    if (servicePath.includes(':')) {
+      const parts = servicePath.split(':');
+      servicePath = parts[0];
+      port = parseInt(parts[1], 10);
+    }
+
+    const clientOptions = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      auth: this.auth as any,
+      servicePath,
+      sslCreds: this.channelCredentials,
+      port,
+      'grpc.keepalive_time_ms': this.keepAliveTimeMs,
+      'grpc.keepalive_timeout_ms': this.keepAliveTimeoutMs,
+      'grpc.keepalive_permit_without_calls': 1,
+    };
+
+    this.client = new v1beta4.SqlDataServiceClient(clientOptions);
+    return this.client;
   }
 
   async start(): Promise<number> {
@@ -90,6 +125,19 @@ export class SqlDataClient {
   }
 
   async close(): Promise<void> {
+    for (const socket of this.activeSockets) {
+      socket.destroy();
+    }
+    this.activeSockets.clear();
+
+    if (this.client) {
+      try {
+        await this.client.close();
+      } catch {
+        // ignore
+      }
+      this.client = undefined;
+    }
     if (this.server) {
       return new Promise(resolvePromise => {
         this.server?.close(() => {
@@ -100,28 +148,18 @@ export class SqlDataClient {
   }
 
   private async handleConnection(socket: net.Socket): Promise<void> {
+    this.activeSockets.add(socket);
+    socket.once('close', () => {
+      this.activeSockets.delete(socket);
+    });
+
     let isFallback = false;
     let isEstablished = false;
     let isClosed = false;
     const clientBuffer: Buffer[] = [];
     let directSocket: net.Socket | undefined;
 
-    let servicePath = this.endpoint;
-    let port = 443;
-    if (this.endpoint.includes(':')) {
-      const parts = this.endpoint.split(':');
-      servicePath = parts[0];
-      port = parseInt(parts[1], 10);
-    }
-
-    const client = new v1beta4.SqlDataServiceClient({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      auth: this.auth as any,
-      servicePath,
-      sslCreds: this.channelCredentials,
-      port,
-    });
-    this.client = client;
+    const client = this.getClient();
 
     const instanceResource = `projects/${this.projectId}/instances/${this.instanceId}`;
     const locationResource = `locations/${this.regionId}`;
@@ -131,6 +169,7 @@ export class SqlDataClient {
         headers: {
           'x-goog-request-params': `instance_id=${instanceResource}&location_id=${locationResource}`,
         },
+        timeout: this.streamTimeout,
       },
     });
 
@@ -153,7 +192,10 @@ export class SqlDataClient {
           clientBuffer.length = 0;
         }
         if (response.data && response.data.data) {
-          socket.write(response.data.data);
+          const ok = socket.write(response.data.data);
+          if (!ok) {
+            stream.pause();
+          }
         }
         if (response.terminateSession) {
           const status = response.terminateSession.status;
@@ -168,7 +210,19 @@ export class SqlDataClient {
       }
     );
 
-    stream.on('error', (err: grpc.ServiceError) => {
+    socket.on('drain', () => {
+      if (!isFallback && !isClosed) {
+        stream.resume();
+      }
+    });
+
+    stream.on('drain', () => {
+      if (!isFallback && !isClosed) {
+        socket.resume();
+      }
+    });
+
+    stream.on('error', async (err: grpc.ServiceError) => {
       if (isFallback || isClosed) {
         return;
       }
@@ -182,7 +236,7 @@ export class SqlDataClient {
           // ignore
         }
         try {
-          directSocket = this.getDirectSocket();
+          directSocket = await this.getDirectSocket();
           while (clientBuffer.length > 0) {
             const chunk = clientBuffer.shift();
             if (chunk) {
@@ -215,40 +269,39 @@ export class SqlDataClient {
 
     socket.on('data', chunk => {
       if (isFallback) {
-        if (directSocket) {
-          directSocket.write(chunk);
-        }
-      } else {
-        if (!isEstablished) {
-          clientBuffer.push(chunk);
-        }
-        stream.write({
-          data: {
-            firstByteOffset: 0,
-            data: chunk,
-          },
-        });
+        // Handled by pipe(directSocket)
+        return;
+      }
+      if (!isEstablished) {
+        clientBuffer.push(chunk);
+      }
+      const ok = stream.write({
+        data: {
+          firstByteOffset: 0,
+          data: chunk,
+        },
+      });
+      if (!ok) {
+        socket.pause();
       }
     });
 
     socket.on('end', () => {
       isClosed = true;
       if (isFallback) {
-        if (directSocket) {
-          directSocket.end();
-        }
-      } else {
-        const terminateSessionMsg = {
-          terminateSession: {
-            status: {
-              code: 0,
-              message: 'Client closed connection',
-            },
-          },
-        };
-        stream.write(terminateSessionMsg);
-        stream.end();
+        // Handled by pipe(directSocket)
+        return;
       }
+      const terminateSessionMsg = {
+        terminateSession: {
+          status: {
+            code: 0,
+            message: 'Client closed connection',
+          },
+        },
+      };
+      stream.write(terminateSessionMsg);
+      stream.end();
     });
 
     socket.on('error', err => {

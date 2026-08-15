@@ -239,3 +239,43 @@ t.test(
     t.ok(returnedDate.getTime(), 'should have valid returned date object');
   }
 );
+
+t.test(
+  'open connection to AIDE instance retrieves standard pg tables',
+  async t => {
+    const connectionName = process.env.POSTGRES_AIDE_CONNECTION_NAME;
+    const user = process.env.POSTGRES_AIDE_USER;
+    const pass = process.env.POSTGRES_AIDE_PASS;
+    const database = process.env.POSTGRES_AIDE_DB;
+    if (!connectionName || !user || !pass || !database) {
+      t.skip('POSTGRES_AIDE_* env vars not set, skipping');
+      return;
+    }
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({
+      instanceConnectionName: connectionName,
+      ipType: IpAddressTypes.SQL_DATA,
+    });
+    const client = new Client({
+      ...clientOpts,
+      user,
+      password: pass,
+      database,
+    });
+    t.after(async () => {
+      try {
+        await client.end();
+      } finally {
+        connector.close();
+      }
+    });
+
+    await client.connect();
+
+    const {
+      rows: [result],
+    } = await client.query('SELECT NOW();');
+    const returnedDate = result['now'];
+    t.ok(returnedDate.getTime(), 'should have valid returned date object');
+  }
+);

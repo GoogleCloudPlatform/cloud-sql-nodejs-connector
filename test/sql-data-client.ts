@@ -52,6 +52,10 @@ interface StreamSqlDataRequest {
   };
 }
 
+// Prevent grpc-js from routing localhost test connections through corporate proxies
+process.env.NO_PROXY = '127.0.0.1,localhost,::1';
+process.env.no_proxy = '127.0.0.1,localhost,::1';
+
 const SqlDataServiceClientClass =
   v1beta4.SqlDataService as grpc.ServiceClientConstructor;
 
@@ -185,7 +189,7 @@ t.test('SqlDataClient socket tunnel', async t => {
   });
 
   t.test(
-    'should fallback to direct socket when server returns FAILED_PRECONDITION (9)',
+    'should fallback to async direct socket when server returns FAILED_PRECONDITION (9)',
     async t => {
       let unsupportedCalled = false;
       const testClientData = Buffer.from('client hello');
@@ -231,7 +235,7 @@ t.test('SqlDataClient socket tunnel', async t => {
         auth: mockAuth,
         endpoint: `127.0.0.1:${port}`,
         channelCredentials: grpc.credentials.createInsecure(),
-        getDirectSocket: () =>
+        getDirectSocket: async () =>
           net.connect({port: directPort, host: '127.0.0.1'}),
         onUnsupported: () => {
           unsupportedCalled = true;
@@ -318,6 +322,109 @@ t.test('SqlDataClient socket tunnel', async t => {
       await client.close();
 
       t.ok(socketClosed, 'client socket should be closed on server error');
+    }
+  );
+
+  t.test('should handle server terminateSession response', async t => {
+    const {server, port} = await startFakeServer(call => {
+      call.on('data', request => {
+        if (request.start_session) {
+          call.write({
+            session_metadata: {
+              supported_features: ['SQL_DATA_FEATURE_UNSPECIFIED'],
+            },
+          });
+          call.write({
+            terminate_session: {
+              status: {
+                code: 10, // ABORTED
+                message: 'Session aborted by server',
+              },
+            },
+          });
+        }
+      });
+    });
+
+    t.teardown(() => {
+      server.forceShutdown();
+    });
+
+    const client = new SqlDataClient({
+      instanceConnectionName: 'proj:reg:inst',
+      auth: mockAuth,
+      endpoint: `https://127.0.0.1:${port}`,
+      channelCredentials: grpc.credentials.createInsecure(),
+    });
+
+    const localPort = await client.start();
+    const socket = net.connect({port: localPort, host: '127.0.0.1'});
+
+    let socketClosed = false;
+    await new Promise<void>(resolve => {
+      socket.on('connect', () => {
+        socket.write(Buffer.from('hello'));
+      });
+      socket.on('error', () => {
+        socketClosed = true;
+        resolve();
+      });
+      socket.on('close', () => {
+        socketClosed = true;
+        resolve();
+      });
+    });
+
+    await client.close();
+
+    t.ok(socketClosed, 'client socket should be closed on terminateSession');
+  });
+
+  t.test(
+    'should destroy active sockets when client.close() is called',
+    async t => {
+      const {server, port} = await startFakeServer(call => {
+        call.on('data', request => {
+          if (request.start_session) {
+            call.write({
+              session_metadata: {
+                supported_features: ['SQL_DATA_FEATURE_UNSPECIFIED'],
+              },
+            });
+          }
+        });
+      });
+
+      t.teardown(() => {
+        server.forceShutdown();
+      });
+
+      const client = new SqlDataClient({
+        instanceConnectionName: 'proj:reg:inst',
+        auth: mockAuth,
+        endpoint: `127.0.0.1:${port}`,
+        channelCredentials: grpc.credentials.createInsecure(),
+      });
+
+      const localPort = await client.start();
+      const socket = net.connect({port: localPort, host: '127.0.0.1'});
+
+      let socketClosed = false;
+      await new Promise<void>(resolve => {
+        socket.on('connect', async () => {
+          socket.on('error', () => {
+            socketClosed = true;
+            resolve();
+          });
+          socket.on('close', () => {
+            socketClosed = true;
+            resolve();
+          });
+          await client.close();
+        });
+      });
+
+      t.ok(socketClosed, 'socket should be closed when client closes');
     }
   );
 });
