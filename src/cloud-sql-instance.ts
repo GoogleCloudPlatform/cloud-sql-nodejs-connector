@@ -461,7 +461,7 @@ export class CloudSQLInstance {
     // Add the socket to the list
     this.sockets.add(socket);
     // When the socket is closed, remove it.
-    socket.once('closed', () => {
+    socket.once('close', () => {
       this.sockets.delete(socket);
     });
   }

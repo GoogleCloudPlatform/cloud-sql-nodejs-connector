@@ -694,3 +694,160 @@ t.test(
     t.same(mockSocket.destroyed, true, 'old instance closed its sockets');
   }
 );
+
+t.test('Connector startLocalProxy manages and cleans up sockets', async t => {
+  setupCredentials(t);
+
+  class MockSocket extends EventEmitter {
+    destroyed = false;
+    pipedTo: unknown = null;
+    pipe(dest: unknown) {
+      this.pipedTo = dest;
+      return dest;
+    }
+    destroy() {
+      this.destroyed = true;
+      this.emit('close');
+      return this;
+    }
+  }
+
+  let serverListenOptions: unknown = null;
+  let serverClosed = false;
+  let mockServer: EventEmitter & {listen: Function; close: Function};
+
+  const {Connector} = t.mockRequire('../src/connector', {
+    'node:net': {
+      createServer() {
+        mockServer = Object.assign(new EventEmitter(), {
+          listen(opts: unknown, cb: Function) {
+            serverListenOptions = opts;
+            if (cb) cb();
+          },
+          close(cb?: Function) {
+            serverClosed = true;
+            mockServer.emit('close');
+            if (cb) cb();
+          },
+        });
+        return mockServer;
+      },
+    },
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': t.mockRequire('../src/cloud-sql-instance', {
+      '../src/crypto': {
+        generateKeys: async () => ({
+          publicKey: '-----BEGIN PUBLIC KEY-----',
+          privateKey: CLIENT_KEY,
+        }),
+      },
+    }),
+  });
+
+  interface ConnectorWithInternals {
+    localProxies: Set<unknown>;
+    sockets: Set<unknown>;
+    startLocalProxy(opts: unknown): Promise<void>;
+    close(): void;
+    getOptions: (opts: unknown) => Promise<{stream: () => unknown}>;
+  }
+
+  const connector = new Connector() as unknown as ConnectorWithInternals;
+  const mockStreamSockets: MockSocket[] = [];
+
+  // Mock getOptions to return mock stream sockets
+  connector.getOptions = async () => {
+    return {
+      stream() {
+        const s = new MockSocket();
+        mockStreamSockets.push(s);
+        return s;
+      },
+    };
+  };
+
+  await connector.startLocalProxy({
+    ipType: 'PUBLIC',
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+    listenOptions: {path: '/tmp/test.sock'},
+  });
+
+  t.same(
+    serverListenOptions,
+    {path: '/tmp/test.sock', readableAll: undefined, writableAll: undefined},
+    'server should listen with options'
+  );
+  t.equal(
+    connector.localProxies.size,
+    1,
+    'server should be tracked in localProxies'
+  );
+
+  // Simulate a client connecting
+  const clientSocket1 = new MockSocket();
+  mockServer.emit('connection', clientSocket1);
+
+  t.equal(mockStreamSockets.length, 1, 'stream() should have been called');
+  const streamSocket1 = mockStreamSockets[0];
+
+  t.equal(
+    clientSocket1.pipedTo,
+    streamSocket1,
+    'client socket piped to stream socket'
+  );
+  t.equal(
+    streamSocket1.pipedTo,
+    clientSocket1,
+    'stream socket piped to client socket'
+  );
+  t.equal(connector.sockets.size, 2, 'both client and stream sockets tracked');
+
+  // Emit close on stream socket
+  streamSocket1.emit('close');
+  t.equal(connector.sockets.size, 1, 'stream socket removed on close');
+  t.ok(connector.sockets.has(clientSocket1), 'client socket still tracked');
+
+  // Emit close on client socket
+  clientSocket1.emit('close');
+  t.equal(connector.sockets.size, 0, 'client socket removed on close');
+
+  // Simulate another connection
+  const clientSocket2 = new MockSocket();
+  mockServer.emit('connection', clientSocket2);
+  t.equal(connector.sockets.size, 2, 'second connection pair tracked');
+
+  // Close connector
+  connector.close();
+  t.equal(serverClosed, true, 'server should be closed');
+  t.equal(
+    connector.localProxies.size,
+    0,
+    'server removed from localProxies on close'
+  );
+  t.equal(clientSocket2.destroyed, true, 'remaining client socket destroyed');
+  t.equal(
+    mockStreamSockets[1].destroyed,
+    true,
+    'remaining stream socket destroyed'
+  );
+});

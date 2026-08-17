@@ -337,12 +337,22 @@ export class Connector {
       console.error(err);
     });
 
+    server.once('close', () => {
+      this.localProxies.delete(server);
+    });
+
     // When a connection is established, pipe data from the
     // local proxy server to the secure TCP Socket and vice-versa.
     server.on('connection', c => {
       const s = stream();
       this.sockets.add(s);
       this.sockets.add(c);
+      s.once('close', () => {
+        this.sockets.delete(s);
+      });
+      c.once('close', () => {
+        this.sockets.delete(c);
+      });
       c.pipe(s);
       s.pipe(c);
     });

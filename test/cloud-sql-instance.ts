@@ -628,4 +628,79 @@ t.test('CloudSQLInstance', async t => {
         }))();
     }
   );
+
+  t.test('addSocket manages and cleans up sockets on close event', async t => {
+    const {EventEmitter} = await import('node:events');
+    interface InstanceWithInternals {
+      sockets: Set<unknown>;
+      addSocket(socket: unknown): void;
+      close(): void;
+    }
+    const instance = new CloudSQLInstance({
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        domainName: 'db.example.com',
+        sqlAdminFetcher: fetcher,
+      },
+    }) as unknown as InstanceWithInternals;
+    t.after(() => instance.close());
+
+    class MockSocket extends EventEmitter {
+      destroyed = false;
+      destroy() {
+        this.destroyed = true;
+        this.emit('close');
+      }
+    }
+
+    const socket1 = new MockSocket();
+    const socket2 = new MockSocket();
+
+    instance.addSocket(socket1);
+    instance.addSocket(socket2);
+
+    t.equal(instance.sockets.size, 2, 'both sockets added');
+
+    // Close socket1
+    socket1.emit('close');
+    t.equal(instance.sockets.size, 1, 'socket1 removed on close');
+    t.ok(instance.sockets.has(socket2), 'socket2 still tracked');
+
+    // close instance destroys remaining sockets
+    instance.close();
+    t.equal(
+      socket2.destroyed,
+      true,
+      'remaining socket destroyed on instance close'
+    );
+  });
+
+  t.test('addSocket ignores sockets when domainName is not set', async t => {
+    const {EventEmitter} = await import('node:events');
+    interface InstanceWithInternals {
+      sockets: Set<unknown>;
+      addSocket(socket: unknown): void;
+      close(): void;
+    }
+    const instance = new CloudSQLInstance({
+      options: {
+        ipType: IpAddressTypes.PUBLIC,
+        authType: AuthTypes.PASSWORD,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+        sqlAdminFetcher: fetcher,
+      },
+    }) as unknown as InstanceWithInternals;
+    t.after(() => instance.close());
+
+    const socket = new EventEmitter();
+    Object.assign(socket, {destroy: () => {}});
+
+    instance.addSocket(socket);
+    t.equal(
+      instance.sockets.size,
+      0,
+      'socket not added when domainName not set'
+    );
+  });
 });
