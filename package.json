@@ -58,6 +58,7 @@
     "allow-incomplete-coverage": true
   },
   "devDependencies": {
+    "@grpc/proto-loader": "^0.8.1",
     "@prisma/client": "^5.22.0",
     "@sequelize/core": "^7.0.0-alpha.29",
     "@sequelize/mssql": "^7.0.0-alpha.29",
@@ -87,7 +88,9 @@
     "url": "git+https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector"
   },
   "dependencies": {
+    "@google-cloud/sql": "^0.25.0",
     "@googleapis/sqladmin": "^37.0.0",
+    "@grpc/grpc-js": "^1.14.4",
     "gaxios": "^7.3.1",
     "google-auth-library": "^10.9.1",
     "p-throttle": "^8.1.0"
