@@ -14,7 +14,7 @@
 
 import {EventEmitter} from 'node:events';
 import t from 'tap';
-import {Connector} from '../src/connector';
+import {Connector, cooldownBackoff} from '../src/connector';
 import {setupCredentials} from './fixtures/setup-credentials';
 import {IpAddressTypes} from '../src/ip-addresses';
 import {CA_CERT, CLIENT_CERT, CLIENT_KEY} from './fixtures/certs';
@@ -824,3 +824,318 @@ t.test(
     connector.close();
   }
 );
+
+t.test(
+  'Connector getOptions fallback prefers PRIVATE over PSC and PUBLIC',
+  async t => {
+    setupCredentials(t);
+    let capturedFallbackOpts: SqlDataClientOptions | undefined;
+    const {Connector} = t.mockRequire('../src/connector', {
+      '../src/sqladmin-fetcher': {
+        SQLAdminFetcher: class {
+          getInstanceMetadata() {
+            return Promise.resolve({
+              ipAddresses: {
+                public: '127.0.0.1',
+                private: '10.0.0.1',
+                psc: 'abcde.12345.us-central1.sql.goog',
+              },
+              serverCaCert: {
+                cert: CA_CERT,
+                expirationTime: '2033-01-06T10:00:00.232Z',
+              },
+            });
+          }
+          getEphemeralCertificate() {
+            return Promise.resolve({
+              cert: CLIENT_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            });
+          }
+        },
+      },
+      '../src/cloud-sql-instance': t.mockRequire('../src/cloud-sql-instance', {
+        '../src/crypto': {
+          generateKeys: async () => ({
+            publicKey: '-----BEGIN PUBLIC KEY-----',
+            privateKey: CLIENT_KEY,
+          }),
+        },
+      }),
+      '../src/sql-data-client': {
+        SqlDataClient: class {
+          constructor(opts: SqlDataClientOptions) {
+            capturedFallbackOpts = opts;
+          }
+          start() {
+            return Promise.resolve(54321);
+          }
+          close() {
+            return Promise.resolve();
+          }
+        },
+      },
+    });
+
+    const connector = new Connector();
+    await connector.getOptions({
+      ipType: IpAddressTypes.SQL_DATA,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+    });
+
+    // Invoke getDirectSocket and verify fallback IP is PRIVATE
+    const directSocket = await capturedFallbackOpts?.getDirectSocket?.();
+    t.ok(directSocket, 'should return direct TLS socket');
+    t.same(
+      connector['sqlDataFallbackIpTypes'].get(
+        'my-project:us-east1:my-instance'
+      ),
+      IpAddressTypes.PRIVATE,
+      'should select PRIVATE as highest fallback priority'
+    );
+
+    connector.close();
+  }
+);
+
+t.test(
+  'Connector getOptions fallback prefers PSC over PUBLIC when PRIVATE is missing',
+  async t => {
+    setupCredentials(t);
+    let capturedFallbackOpts: SqlDataClientOptions | undefined;
+    const {Connector} = t.mockRequire('../src/connector', {
+      '../src/sqladmin-fetcher': {
+        SQLAdminFetcher: class {
+          getInstanceMetadata() {
+            return Promise.resolve({
+              ipAddresses: {
+                public: '127.0.0.1',
+                psc: 'abcde.12345.us-central1.sql.goog',
+              },
+              serverCaCert: {
+                cert: CA_CERT,
+                expirationTime: '2033-01-06T10:00:00.232Z',
+              },
+            });
+          }
+          getEphemeralCertificate() {
+            return Promise.resolve({
+              cert: CLIENT_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            });
+          }
+        },
+      },
+      '../src/cloud-sql-instance': t.mockRequire('../src/cloud-sql-instance', {
+        '../src/crypto': {
+          generateKeys: async () => ({
+            publicKey: '-----BEGIN PUBLIC KEY-----',
+            privateKey: CLIENT_KEY,
+          }),
+        },
+      }),
+      '../src/sql-data-client': {
+        SqlDataClient: class {
+          constructor(opts: SqlDataClientOptions) {
+            capturedFallbackOpts = opts;
+          }
+          start() {
+            return Promise.resolve(54321);
+          }
+          close() {
+            return Promise.resolve();
+          }
+        },
+      },
+    });
+
+    const connector = new Connector();
+    await connector.getOptions({
+      ipType: IpAddressTypes.SQL_DATA,
+      instanceConnectionName: 'my-project:us-east1:my-instance',
+    });
+
+    // Invoke getDirectSocket and verify fallback IP is PSC
+    const directSocket = await capturedFallbackOpts?.getDirectSocket?.();
+    t.ok(directSocket, 'should return direct TLS socket');
+    t.same(
+      connector['sqlDataFallbackIpTypes'].get(
+        'my-project:us-east1:my-instance'
+      ),
+      IpAddressTypes.PSC,
+      'should select PSC over PUBLIC when PRIVATE is missing'
+    );
+
+    connector.close();
+  }
+);
+
+t.test('cooldownBackoff calculates expected backoff with jitter', async t => {
+  const base = 500; // 500ms
+
+  // Attempt 1: exp in [0, 1) -> 500 * [1, 1.618) = [500, 809]
+  for (let i = 0; i < 20; i++) {
+    const b1 = cooldownBackoff(base, 1);
+    t.ok(
+      b1 >= 500 && b1 <= 809,
+      `attempt 1 backoff ${b1} should be in [500, 809]`
+    );
+  }
+
+  // Attempt 2: exp in [1, 2) -> 500 * [1.618, 2.618) = [809, 1309]
+  for (let i = 0; i < 20; i++) {
+    const b2 = cooldownBackoff(base, 2);
+    t.ok(
+      b2 >= 809 && b2 <= 1309,
+      `attempt 2 backoff ${b2} should be in [809, 1309]`
+    );
+  }
+
+  // Attempt 3: exp in [2, 3) -> 500 * [2.618, 4.236) = [1309, 2118]
+  for (let i = 0; i < 20; i++) {
+    const b3 = cooldownBackoff(base, 3);
+    t.ok(
+      b3 >= 1309 && b3 <= 2118,
+      `attempt 3 backoff ${b3} should be in [1309, 2118]`
+    );
+  }
+});
+
+t.test('Connector handles ResourceExhausted cooldown and reset', async t => {
+  setupCredentials(t);
+  let capturedOpts: SqlDataClientOptions | undefined;
+  const {Connector} = t.mockRequire('../src/connector', {
+    '../src/sqladmin-fetcher': {
+      SQLAdminFetcher: class {
+        getInstanceMetadata() {
+          return Promise.resolve({
+            ipAddresses: {
+              public: '127.0.0.1',
+            },
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          });
+        }
+        getEphemeralCertificate() {
+          return Promise.resolve({
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          });
+        }
+      },
+    },
+    '../src/cloud-sql-instance': t.mockRequire('../src/cloud-sql-instance', {
+      '../src/crypto': {
+        generateKeys: async () => ({
+          publicKey: '-----BEGIN PUBLIC KEY-----',
+          privateKey: CLIENT_KEY,
+        }),
+      },
+    }),
+    '../src/sql-data-client': {
+      SqlDataClient: class {
+        constructor(opts: SqlDataClientOptions) {
+          capturedOpts = opts;
+        }
+        start() {
+          return Promise.resolve(54321);
+        }
+        close() {
+          return Promise.resolve();
+        }
+      },
+    },
+  });
+
+  const cooldownPeriod = 500; // 500ms
+  const connector = new Connector({
+    resourceExhaustedCooldownPeriod: cooldownPeriod,
+  });
+
+  const driverOptions = await connector.getOptions({
+    ipType: IpAddressTypes.SQL_DATA,
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+  });
+
+  t.ok(capturedOpts, 'SqlDataClientOptions should be captured');
+
+  // 1. Initial State: no cooldown
+  // Calling stream() should succeed (connects to tunnel)
+  const sock1 = driverOptions.stream();
+  t.ok(sock1, 'stream should return socket');
+  sock1.destroy();
+
+  // 2. First failure (ResourceExhausted)
+  const dummyErr = new Error('Resource busy');
+  capturedOpts?.onResourceExhausted?.(dummyErr);
+
+  // 3. Second call during active cooldown should fail immediately
+  await t.rejects(
+    async () => {
+      await connector.getOptions({
+        ipType: IpAddressTypes.SQL_DATA,
+        instanceConnectionName: 'my-project:us-east1:my-instance',
+      });
+    },
+    {
+      name: 'CloudSQLConnectorError',
+      code: 'ERESOURCEEXHAUSTED',
+    },
+    'getOptions should throw ERESOURCEEXHAUSTED during cooldown'
+  );
+
+  t.throws(
+    () => {
+      driverOptions.stream();
+    },
+    {
+      name: 'CloudSQLConnectorError',
+      code: 'ERESOURCEEXHAUSTED',
+    },
+    'stream should throw ERESOURCEEXHAUSTED during cooldown'
+  );
+
+  // Wait for first cooldown to expire (~500ms to 809ms)
+  await new Promise(resolve => setTimeout(resolve, 900));
+
+  // Now getOptions and stream() should succeed again
+  const driverOptions2 = await connector.getOptions({
+    ipType: IpAddressTypes.SQL_DATA,
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+  });
+  const sock2 = driverOptions2.stream();
+  t.ok(sock2, 'stream should return socket after cooldown expires');
+  sock2.destroy();
+
+  // 4. Second failure increments backoff counter to 2
+  capturedOpts?.onResourceExhausted?.(dummyErr);
+
+  t.throws(
+    () => {
+      driverOptions2.stream();
+    },
+    {
+      name: 'CloudSQLConnectorError',
+      code: 'ERESOURCEEXHAUSTED',
+    },
+    'stream should throw ERESOURCEEXHAUSTED after second failure'
+  );
+
+  // Wait for second cooldown to expire (~809ms to 1309ms)
+  await new Promise(resolve => setTimeout(resolve, 1400));
+
+  // 5. Success resets backoff counter and clears cooldown
+  capturedOpts?.onSuccess?.();
+
+  const driverOptions3 = await connector.getOptions({
+    ipType: IpAddressTypes.SQL_DATA,
+    instanceConnectionName: 'my-project:us-east1:my-instance',
+  });
+  const sock3 = driverOptions3.stream();
+  t.ok(sock3, 'stream should return socket after success reset');
+  sock3.destroy();
+
+  connector.close();
+});

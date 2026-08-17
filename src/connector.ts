@@ -19,7 +19,7 @@ import {promisify} from 'node:util';
 import {AuthClient, GoogleAuth} from 'google-auth-library';
 import {CloudSQLInstance} from './cloud-sql-instance';
 import {getSocket} from './socket';
-import {IpAddressTypes, selectIpAddress} from './ip-addresses';
+import {IpAddressTypes} from './ip-addresses';
 import {AuthTypes} from './auth-types';
 import {SQLAdminFetcher} from './sqladmin-fetcher';
 import {CloudSQLConnectorError} from './errors';
@@ -35,14 +35,20 @@ export declare interface UnixSocketOptions {
   writableAll?: boolean | undefined;
 }
 
-// ConnectionOptions are the arguments that the user can provide
-// to the Connector.getOptions method when calling it, e.g:
+export function cooldownBackoff(base: number, attempt: number): number {
+  const multi = 1.618;
+  const exp = attempt - 1 + Math.random();
+  return Math.floor(base * Math.pow(multi, exp));
+}
+
+// Connector.getOptions accepts a ConnectionOptions object to configure how
+// the connector will connect to the Cloud SQL instance.
+//
 // const connector = new Connector()
 // const connectionOptions:ConnectionOptions = {
 //   ipType: 'PUBLIC',
 //   instanceConnectionName: 'PROJECT:REGION:INSTANCE',
 // };
-// await connector.getOptions(connectionOptions);
 export declare interface ConnectionOptions {
   authType?: AuthTypes;
   ipType?: IpAddressTypes;
@@ -54,6 +60,7 @@ export declare interface ConnectionOptions {
   sqlDataStreamTimeout?: number;
   sqlDataKeepAliveTimeMs?: number;
   sqlDataKeepAliveTimeoutMs?: number;
+  resourceExhaustedCooldownPeriod?: number;
 }
 
 export declare interface SocketConnectionOptions extends ConnectionOptions {
@@ -186,6 +193,13 @@ class CloudSQLInstanceMap extends Map<string, CacheEntry> {
   }
 }
 
+export interface SqlDataState {
+  allowed: boolean;
+  cooldownUntil: number;
+  lastErr?: Error;
+  backoffCounter: number;
+}
+
 export interface ConnectorOptions {
   auth?: GoogleAuth<AuthClient> | AuthClient;
   sqlAdminAPIEndpoint?: string;
@@ -199,6 +213,7 @@ export interface ConnectorOptions {
   sqlDataStreamTimeout?: number;
   sqlDataKeepAliveTimeMs?: number;
   sqlDataKeepAliveTimeoutMs?: number;
+  resourceExhaustedCooldownPeriod?: number;
 }
 
 // The Connector class is the main public API to interact
@@ -212,8 +227,9 @@ export class Connector {
   private readonly sqlDataStreamTimeout?: number;
   private readonly sqlDataKeepAliveTimeMs?: number;
   private readonly sqlDataKeepAliveTimeoutMs?: number;
+  private readonly resourceExhaustedCooldownPeriod: number;
   private readonly sqlDataTunnels = new Map<string, SqlDataClient>();
-  private readonly sqlDataUnsupportedInstances = new Set<string>();
+  private readonly sqlDataStates = new Map<string, SqlDataState>();
   private readonly sqlDataFallbackIpTypes = new Map<string, IpAddressTypes>();
 
   constructor(opts: ConnectorOptions = {}) {
@@ -230,6 +246,21 @@ export class Connector {
     this.sqlDataStreamTimeout = opts.sqlDataStreamTimeout;
     this.sqlDataKeepAliveTimeMs = opts.sqlDataKeepAliveTimeMs;
     this.sqlDataKeepAliveTimeoutMs = opts.sqlDataKeepAliveTimeoutMs;
+    this.resourceExhaustedCooldownPeriod =
+      opts.resourceExhaustedCooldownPeriod ?? 5000;
+  }
+
+  private getSqlDataState(connectionName: string): SqlDataState {
+    let state = this.sqlDataStates.get(connectionName);
+    if (!state) {
+      state = {
+        allowed: true,
+        cooldownUntil: 0,
+        backoffCounter: 0,
+      };
+      this.sqlDataStates.set(connectionName, state);
+    }
+    return state;
   }
 
   // Connector.getOptions is a method that accepts a Cloud SQL instance
@@ -255,13 +286,20 @@ export class Connector {
 
     let ipType = opts.ipType || IpAddressTypes.PUBLIC;
 
-    if (
-      ipType === IpAddressTypes.SQL_DATA &&
-      this.sqlDataUnsupportedInstances.has(connectionName)
-    ) {
-      ipType =
-        this.sqlDataFallbackIpTypes.get(connectionName) ||
-        (await this.getFallbackIpType(instanceInfo));
+    const state = this.getSqlDataState(connectionName);
+
+    if (ipType === IpAddressTypes.SQL_DATA) {
+      if (!state.allowed) {
+        ipType =
+          this.sqlDataFallbackIpTypes.get(connectionName) ||
+          (await this.getFallbackIpType(instanceInfo));
+      } else if (state.cooldownUntil && Date.now() < state.cooldownUntil) {
+        throw new CloudSQLConnectorError({
+          message: `Resource exhausted: cooldown active for ${connectionName}`,
+          code: 'ERESOURCEEXHAUSTED',
+          errors: state.lastErr ? [state.lastErr] : [],
+        });
+      }
     }
 
     const resolvedOpts: ConnectionOptions = {
@@ -290,18 +328,14 @@ export class Connector {
   ): Promise<IpAddressTypes> {
     const metadata =
       await this.sqlAdminFetcher.getInstanceMetadata(instanceInfo);
-    const selectedIp = selectIpAddress(
-      metadata.ipAddresses,
-      IpAddressTypes.SQL_DATA
-    );
-    if (
-      metadata.ipAddresses.private &&
-      selectedIp === metadata.ipAddresses.private
-    ) {
+    if (metadata.ipAddresses.private) {
       return IpAddressTypes.PRIVATE;
     }
-    if (metadata.ipAddresses.psc && selectedIp === metadata.ipAddresses.psc) {
+    if (metadata.ipAddresses.psc) {
       return IpAddressTypes.PSC;
+    }
+    if (metadata.ipAddresses.public) {
+      return IpAddressTypes.PUBLIC;
     }
     return IpAddressTypes.PUBLIC;
   }
@@ -363,6 +397,11 @@ export class Connector {
     opts: ConnectionOptions,
     instanceInfo: InstanceConnectionInfo
   ): Promise<DriverOptions> {
+    const state = this.getSqlDataState(connectionName);
+    const cooldownPeriod =
+      opts.resourceExhaustedCooldownPeriod ??
+      this.resourceExhaustedCooldownPeriod;
+
     let tunnel = this.sqlDataTunnels.get(connectionName);
     if (!tunnel) {
       const getDirectSocket = async () => {
@@ -387,7 +426,20 @@ export class Connector {
           opts.sqlDataKeepAliveTimeoutMs || this.sqlDataKeepAliveTimeoutMs,
         getDirectSocket,
         onUnsupported: () => {
-          this.sqlDataUnsupportedInstances.add(connectionName);
+          state.allowed = false;
+        },
+        onResourceExhausted: (err: Error) => {
+          if (state.backoffCounter < 5) {
+            state.backoffCounter++;
+          }
+          const backoff = cooldownBackoff(cooldownPeriod, state.backoffCounter);
+          state.cooldownUntil = Date.now() + backoff;
+          state.lastErr = err;
+        },
+        onSuccess: () => {
+          state.backoffCounter = 0;
+          state.cooldownUntil = 0;
+          state.lastErr = undefined;
         },
       });
       this.sqlDataTunnels.set(connectionName, tunnel);
@@ -397,7 +449,7 @@ export class Connector {
 
     return {
       stream: () => {
-        if (this.sqlDataUnsupportedInstances.has(connectionName)) {
+        if (!state.allowed) {
           const fallbackIpType =
             this.sqlDataFallbackIpTypes.get(connectionName) ||
             IpAddressTypes.PUBLIC;
@@ -406,6 +458,14 @@ export class Connector {
             ipType: fallbackIpType,
           };
           return this.createDirectSocket(instances, fallbackOpts);
+        }
+
+        if (state.cooldownUntil && Date.now() < state.cooldownUntil) {
+          throw new CloudSQLConnectorError({
+            message: `Resource exhausted: cooldown active for ${connectionName}`,
+            code: 'ERESOURCEEXHAUSTED',
+            errors: state.lastErr ? [state.lastErr] : [],
+          });
         }
 
         const socket = new Socket();

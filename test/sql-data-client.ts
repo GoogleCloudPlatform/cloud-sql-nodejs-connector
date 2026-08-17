@@ -427,4 +427,166 @@ t.test('SqlDataClient socket tunnel', async t => {
       t.ok(socketClosed, 'socket should be closed when client closes');
     }
   );
+
+  t.test(
+    'should call onResourceExhausted when server emits RESOURCE_EXHAUSTED error',
+    async t => {
+      const {server, port} = await startFakeServer(call => {
+        call.on('data', request => {
+          if (request.start_session) {
+            call.emit('error', {
+              code: grpc.status.RESOURCE_EXHAUSTED,
+              details: 'Resource busy',
+            });
+          }
+        });
+      });
+
+      t.teardown(() => {
+        server.forceShutdown();
+      });
+
+      let resourceExhaustedCalled = false;
+      let errorReceived: Error | undefined;
+
+      const client = new SqlDataClient({
+        instanceConnectionName: 'proj:reg:inst',
+        auth: mockAuth,
+        endpoint: `127.0.0.1:${port}`,
+        channelCredentials: grpc.credentials.createInsecure(),
+        onResourceExhausted: err => {
+          resourceExhaustedCalled = true;
+          errorReceived = err;
+        },
+      });
+
+      const localPort = await client.start();
+      t.teardown(async () => {
+        await client.close();
+      });
+
+      const socket = net.connect({port: localPort, host: '127.0.0.1'});
+      await new Promise<void>(resolve => {
+        socket.on('connect', () => {
+          socket.write(Buffer.from('hello'));
+        });
+        socket.on('error', () => {
+          resolve();
+        });
+        socket.on('close', () => {
+          resolve();
+        });
+      });
+
+      t.ok(
+        resourceExhaustedCalled,
+        'onResourceExhausted should be called on RESOURCE_EXHAUSTED error'
+      );
+      t.ok(errorReceived, 'should receive the error');
+    }
+  );
+
+  t.test(
+    'should call onResourceExhausted when server sends terminateSession with RESOURCE_EXHAUSTED',
+    async t => {
+      const {server, port} = await startFakeServer(call => {
+        call.on('data', request => {
+          if (request.start_session) {
+            call.write({
+              terminate_session: {
+                status: {
+                  code: grpc.status.RESOURCE_EXHAUSTED,
+                  message: 'Server resource exhausted',
+                },
+              },
+            });
+          }
+        });
+      });
+
+      t.teardown(() => {
+        server.forceShutdown();
+      });
+
+      let resourceExhaustedCalled = false;
+
+      const client = new SqlDataClient({
+        instanceConnectionName: 'proj:reg:inst',
+        auth: mockAuth,
+        endpoint: `127.0.0.1:${port}`,
+        channelCredentials: grpc.credentials.createInsecure(),
+        onResourceExhausted: () => {
+          resourceExhaustedCalled = true;
+        },
+      });
+
+      const localPort = await client.start();
+      t.teardown(async () => {
+        await client.close();
+      });
+
+      const socket = net.connect({port: localPort, host: '127.0.0.1'});
+      await new Promise<void>(resolve => {
+        socket.on('connect', () => {
+          socket.write(Buffer.from('hello'));
+        });
+        socket.on('error', () => {
+          resolve();
+        });
+        socket.on('close', () => {
+          resolve();
+        });
+      });
+
+      t.ok(
+        resourceExhaustedCalled,
+        'onResourceExhausted should be called on terminateSession with RESOURCE_EXHAUSTED'
+      );
+    }
+  );
+
+  t.test('should call onSuccess on first server data packet', async t => {
+    const {server, port} = await startFakeServer(call => {
+      call.on('data', request => {
+        if (request.start_session) {
+          call.write({
+            data: {
+              data: Buffer.from('hello from server'),
+            },
+          });
+        }
+      });
+    });
+
+    t.teardown(() => {
+      server.forceShutdown();
+    });
+
+    let successCalled = false;
+
+    const client = new SqlDataClient({
+      instanceConnectionName: 'proj:reg:inst',
+      auth: mockAuth,
+      endpoint: `127.0.0.1:${port}`,
+      channelCredentials: grpc.credentials.createInsecure(),
+      onSuccess: () => {
+        successCalled = true;
+      },
+    });
+
+    const localPort = await client.start();
+    t.teardown(async () => {
+      await client.close();
+    });
+
+    const socket = net.connect({port: localPort, host: '127.0.0.1'});
+    await new Promise<void>(resolve => {
+      socket.on('data', () => {
+        socket.end();
+        resolve();
+      });
+    });
+
+    t.ok(successCalled, 'onSuccess should be called when data packet arrives');
+  });
 });

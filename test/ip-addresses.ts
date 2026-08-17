@@ -83,34 +83,48 @@ t.same(
     },
     IpAddressTypes.SQL_DATA
   ),
-  '0.0.0.0',
-  'should select public ip as fallback for SQL_DATA'
-);
-
-t.same(
-  selectIpAddress(
-    {
-      private: '0.0.0.2',
-    },
-    IpAddressTypes.SQL_DATA
-  ),
   '0.0.0.2',
-  'should select private ip as fallback for SQL_DATA if public is missing'
+  'should select private ip as fallback for SQL_DATA when public is also present'
 );
 
 t.same(
   selectIpAddress(
     {
+      public: '0.0.0.0',
       psc: 'abcde.12345.us-central1.sql.goog',
     },
     IpAddressTypes.SQL_DATA
   ),
   'abcde.12345.us-central1.sql.goog',
-  'should select psc ip as fallback for SQL_DATA if public and private are missing'
+  'should select psc ip as fallback for SQL_DATA when public is also present'
+);
+
+t.same(
+  selectIpAddress(
+    {
+      public: '0.0.0.0',
+      private: '0.0.0.2',
+      psc: 'abcde.12345.us-central1.sql.goog',
+    },
+    IpAddressTypes.SQL_DATA
+  ),
+  '0.0.0.2',
+  'should select private ip as highest priority fallback for SQL_DATA'
+);
+
+t.same(
+  selectIpAddress(
+    {
+      public: '0.0.0.0',
+    },
+    IpAddressTypes.SQL_DATA
+  ),
+  '0.0.0.0',
+  'should select public ip as fallback for SQL_DATA if private and psc are missing'
 );
 
 t.same(
   selectIpAddress({}, IpAddressTypes.SQL_DATA),
   '',
-  'should return empty string if no public, private, or psc ip fallback found for SQL_DATA'
+  'should return empty string if no private, psc, or public ip fallback found for SQL_DATA'
 );

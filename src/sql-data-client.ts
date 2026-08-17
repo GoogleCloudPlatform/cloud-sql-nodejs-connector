@@ -28,6 +28,8 @@ export interface SqlDataClientOptions {
   channelCredentials?: grpc.ChannelCredentials;
   getDirectSocket?: () => Promise<net.Socket> | net.Socket;
   onUnsupported?: () => void;
+  onResourceExhausted?: (err: Error) => void;
+  onSuccess?: () => void;
 }
 
 export class SqlDataClient {
@@ -43,6 +45,8 @@ export class SqlDataClient {
   private readonly channelCredentials?: grpc.ChannelCredentials;
   private readonly getDirectSocket?: () => Promise<net.Socket> | net.Socket;
   private readonly onUnsupported?: () => void;
+  private readonly onResourceExhausted?: (err: Error) => void;
+  private readonly onSuccess?: () => void;
   private readonly activeSockets = new Set<net.Socket>();
   private server?: net.Server;
   private client?: v1beta4.SqlDataServiceClient;
@@ -58,6 +62,8 @@ export class SqlDataClient {
     this.channelCredentials = opts.channelCredentials;
     this.getDirectSocket = opts.getDirectSocket;
     this.onUnsupported = opts.onUnsupported;
+    this.onResourceExhausted = opts.onResourceExhausted;
+    this.onSuccess = opts.onSuccess;
 
     const parts = this.instanceConnectionName.split(':');
     if (parts.length !== 3) {
@@ -190,6 +196,7 @@ export class SqlDataClient {
         if (!isEstablished) {
           isEstablished = true;
           clientBuffer.length = 0;
+          this.onSuccess?.();
         }
         if (response.data && response.data.data) {
           const ok = socket.write(response.data.data);
@@ -201,11 +208,17 @@ export class SqlDataClient {
           const status = response.terminateSession.status;
           const code = status ? status.code : 'UNKNOWN';
           const msg = status ? status.message : 'Session terminated by server';
-          socket.destroy(
-            new Error(
-              `gRPC Stream terminated by server: Code ${code}, Message: ${msg}`
-            )
+          const termErr = new Error(
+            `gRPC Stream terminated by server: Code ${code}, Message: ${msg}`
           );
+          if (
+            status &&
+            (status.code === grpc.status.RESOURCE_EXHAUSTED ||
+              (status.code as unknown as string) === 'RESOURCE_EXHAUSTED')
+          ) {
+            this.onResourceExhausted?.(termErr);
+          }
+          socket.destroy(termErr);
         }
       }
     );
@@ -226,9 +239,14 @@ export class SqlDataClient {
       if (isFallback || isClosed) {
         return;
       }
-      if (err.code === 9 && !isEstablished && this.getDirectSocket) {
+      if (
+        err.code === grpc.status.FAILED_PRECONDITION &&
+        !isEstablished &&
+        this.getDirectSocket
+      ) {
         // FAILED_PRECONDITION: Instance does not support SQL_DATA.
         isFallback = true;
+        socket.pause();
         this.onUnsupported?.();
         try {
           stream.destroy();
@@ -252,10 +270,14 @@ export class SqlDataClient {
           directSocket.on('close', () => {
             socket.end();
           });
+          socket.resume();
         } catch (directErr) {
           socket.destroy(directErr as Error);
         }
         return;
+      }
+      if (err.code === grpc.status.RESOURCE_EXHAUSTED) {
+        this.onResourceExhausted?.(err);
       }
       socket.destroy(err);
     });

@@ -69,14 +69,14 @@ export function selectIpAddress(
     case IpAddressTypes.PSC:
       return getPSCIpAddress(ipAddresses);
     case IpAddressTypes.SQL_DATA:
-      if (ipAddresses.public) {
-        return getPublicIpAddress(ipAddresses);
-      }
       if (ipAddresses.private) {
         return getPrivateIpAddress(ipAddresses);
       }
       if (ipAddresses.psc) {
         return getPSCIpAddress(ipAddresses);
+      }
+      if (ipAddresses.public) {
+        return getPublicIpAddress(ipAddresses);
       }
       return '';
     default:
