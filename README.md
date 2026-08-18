@@ -87,14 +87,13 @@ Here is how to start a new
 [`pg`](https://www.npmjs.com/package/pg) connection pool.
 
 ```js
-import pg from 'pg';
-import {Connector} from '@google-cloud/cloud-sql-connector';
-const {Pool} = pg;
+import {Pool} from 'pg';
+import {Connector, IpAddressTypes} from '@google-cloud/cloud-sql-connector';
 
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
-  ipType: 'PUBLIC',
+  ipType: IpAddressTypes.PUBLIC,
 });
 const pool = new Pool({
   ...clientOpts,
