@@ -31,6 +31,9 @@ import {AuthTypes} from './auth-types';
 import {CloudSQLConnectorError} from './errors';
 import {validateCertificate} from './socket';
 
+export const DEFAULT_SERVER_PROXY_PORT = 3307;
+export const DEFAULT_CONNECT_TIMEOUT_MS = 30 * 1000;
+
 // Private types that describe exactly the methods
 // needed from tls.Socket to be able to close
 // sockets when the DNS Name changes.
@@ -355,29 +358,28 @@ export class CloudSQLInstance {
     if (this.instanceInfo && this.instanceInfo.domainName) {
       targets.push(this.instanceInfo.domainName);
     } else {
-      if (metadata.ipAddresses.psc) {
-        targets.push(metadata.ipAddresses.psc);
-      }
-      if (metadata.ipAddresses.private) {
-        targets.push(metadata.ipAddresses.private);
-      }
-      if (metadata.ipAddresses.public) {
-        targets.push(metadata.ipAddresses.public);
+      try {
+        const selectedIp = selectIpAddress(metadata.ipAddresses, this.ipType);
+        if (selectedIp) {
+          targets.push(selectedIp);
+        }
+      } catch {
+        // If the configured IP type is not available in metadata, skip probe
       }
     }
 
-    if (targets.length === 0 && refreshResult.host) {
-      targets.push(refreshResult.host);
+    if (targets.length === 0) {
+      return;
     }
 
-    const port = this.port || 3307;
+    const port = this.port || DEFAULT_SERVER_PROXY_PORT;
     for (const target of targets) {
       try {
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             socket.destroy(new Error('Probe timeout'));
             reject(new Error('Probe timeout'));
-          }, 15000);
+          }, DEFAULT_CONNECT_TIMEOUT_MS);
 
           const socket: tls.TLSSocket = tls.connect(
             {
