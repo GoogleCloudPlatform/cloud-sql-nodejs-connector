@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.12.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.11.3...v1.12.0) (2026-08-18)
+
+
+### Features
+
+* Add PSC DNS and Global Write Endpoint support to NodeJS Connector ([#593](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/593)) ([dc28e53](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/dc28e53352baf1d282a6dad38d31c8bc831b5f02))
+
+
+### Bug Fixes
+
+* Clean up sockets when closed in startLocalProxy and CloudSQLInstance ([#605](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/605)) ([0f6ef2a](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/0f6ef2ad13acc2a61fad63db47de649ed2abe99c))
+* Optimize DNS resolution logic ([#602](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/602)) ([1ed4e98](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/1ed4e98b7477cc2d4b0072928c80ed9d4286d1e4))
+* update deps to the latest ([#604](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/604)) ([f30f4fe](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/f30f4fe06febd0def24af66629e9173a19522685))
+
 ## [1.11.3](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.11.2...v1.11.3) (2026-07-22)
 
 
