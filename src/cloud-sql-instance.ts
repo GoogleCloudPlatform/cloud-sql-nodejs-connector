@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import tls from 'node:tls';
 import {IpAddressTypes, selectIpAddress} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {
@@ -28,6 +29,10 @@ import {SslCert} from './ssl-cert';
 import {getRefreshInterval, isExpirationTimeValid} from './time';
 import {AuthTypes} from './auth-types';
 import {CloudSQLConnectorError} from './errors';
+import {validateCertificate} from './socket';
+
+export const DEFAULT_SERVER_PROXY_PORT = 3307;
+export const DEFAULT_CONNECT_TIMEOUT_MS = 30 * 1000;
 
 // Private types that describe exactly the methods
 // needed from tls.Socket to be able to close
@@ -331,6 +336,10 @@ export class CloudSQLInstance {
       serverCaCert,
     };
 
+    if (this.authType === AuthTypes.IAM) {
+      await this.probeConnection(nextValues, metadata);
+    }
+
     // In the rather odd case that the current ephemeral certificate is still
     // valid while we get an invalid result from the API calls, then preserve
     // the current metadata.
@@ -339,6 +348,73 @@ export class CloudSQLInstance {
     }
 
     return nextValues;
+  }
+
+  private async probeConnection(
+    refreshResult: RefreshResult,
+    metadata: InstanceMetadata
+  ): Promise<void> {
+    const targets: string[] = [];
+    if (this.instanceInfo && this.instanceInfo.domainName) {
+      targets.push(this.instanceInfo.domainName);
+    } else {
+      try {
+        const selectedIp = selectIpAddress(metadata.ipAddresses, this.ipType);
+        if (selectedIp) {
+          targets.push(selectedIp);
+        }
+      } catch {
+        // If the configured IP type is not available in metadata, skip probe
+      }
+    }
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    const port = this.port || DEFAULT_SERVER_PROXY_PORT;
+    for (const target of targets) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            socket.destroy(new Error('Probe timeout'));
+            reject(new Error('Probe timeout'));
+          }, DEFAULT_CONNECT_TIMEOUT_MS);
+
+          const socket: tls.TLSSocket = tls.connect(
+            {
+              host: target,
+              port,
+              secureContext: tls.createSecureContext({
+                ca: refreshResult.serverCaCert.cert,
+                cert: refreshResult.ephemeralCert.cert,
+                key: refreshResult.privateKey,
+                minVersion: 'TLSv1.3',
+              }),
+              checkServerIdentity: validateCertificate(
+                this.instanceInfo,
+                metadata.dnsName || '',
+                target
+              ),
+            },
+            () => {
+              clearTimeout(timeout);
+              socket.end();
+              resolve();
+            }
+          );
+
+          socket.on('error', err => {
+            clearTimeout(timeout);
+            socket.destroy();
+            reject(err);
+          });
+        });
+        return;
+      } catch (e) {
+        // Ignore probe error across single target and try next target
+      }
+    }
   }
 
   private isValid({
