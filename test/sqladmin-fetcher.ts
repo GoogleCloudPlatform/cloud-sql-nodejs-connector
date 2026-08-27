@@ -208,6 +208,46 @@ t.test('getInstanceMetadata', async t => {
   );
 });
 
+t.test(
+  'getInstanceMetadata PSC auto DNS prioritization and dot trimming',
+  async t => {
+    const instanceConnectionInfo: InstanceConnectionInfo = {
+      projectId: 'my-project',
+      regionId: 'us-east1',
+      instanceId: 'my-instance',
+    };
+    mockSQLAdminGetInstanceMetadata(instanceConnectionInfo, {
+      dnsNames: [
+        {
+          name: 'abcde.12345.us-central1.sql.goog.',
+          connectionType: 'PRIVATE_SERVICE_CONNECT',
+          dnsScope: 'INSTANCE',
+        },
+        {
+          name: 'abcde.12345.us-central1.sql-psc.goog.',
+          connectionType: 'PRIVATE_SERVICE_CONNECT',
+          dnsScope: 'INSTANCE',
+        },
+      ],
+    });
+
+    const fetcher = new SQLAdminFetcher();
+    const instanceMetadata = await fetcher.getInstanceMetadata(
+      instanceConnectionInfo
+    );
+    t.same(
+      instanceMetadata.ipAddresses.psc,
+      'abcde.12345.us-central1.sql-psc.goog',
+      'should prioritize .sql-psc.goog and trim trailing dot'
+    );
+    t.same(
+      instanceMetadata.dnsName,
+      'abcde.12345.us-central1.sql-psc.goog',
+      'should set dnsName to prioritized .sql-psc.goog'
+    );
+  }
+);
+
 t.test('getInstanceMetadata custom SQL Admin API endpoint', async t => {
   const sqlAdminAPIEndpoint = 'https://sqladmin.mydomain.com';
   new SQLAdminFetcher({sqlAdminAPIEndpoint});
