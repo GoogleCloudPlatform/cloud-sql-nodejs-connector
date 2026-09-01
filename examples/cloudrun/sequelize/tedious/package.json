@@ -8,12 +8,12 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "@google-cloud/cloud-sql-connector": "^1.8.4",
-    "express": "^5.1.0",
-    "@sequelize/core": "^7.0.0-alpha.37",
-    "@sequelize/mssql": "^7.0.0-alpha.37",
-    "tedious": "^18.6.1",
-    "express-rate-limit": "8.2.2"
+    "@google-cloud/cloud-sql-connector": "^1.11.3",
+    "express": "^5.2.1",
+    "@sequelize/core": "^7.0.0-alpha.48",
+    "@sequelize/mssql": "^7.0.0-alpha.48",
+    "tedious": "^20.0.0",
+    "express-rate-limit": "8.7.0"
   },
   "devDependencies": {
   }
