@@ -273,13 +273,8 @@ t.test('getInstanceMetadata no ip', async t => {
   });
 
   const fetcher = new SQLAdminFetcher();
-  t.rejects(
-    fetcher.getInstanceMetadata(instanceConnectionInfo),
-    {
-      code: 'ENOSQLADMINIPADDRESS',
-    },
-    'should throw no ip type found'
-  );
+  const res = await fetcher.getInstanceMetadata(instanceConnectionInfo);
+  t.strictSame(res.ipAddresses, {}, 'should return empty ipAddresses');
 });
 
 t.test('getInstanceMetadata no valid cert', async t => {
@@ -293,12 +288,11 @@ t.test('getInstanceMetadata no valid cert', async t => {
   });
 
   const fetcher = new SQLAdminFetcher();
-  t.rejects(
-    fetcher.getInstanceMetadata(instanceConnectionInfo),
-    {
-      code: 'ENOSQLADMINCERT',
-    },
-    'should throw no cert error'
+  const res = await fetcher.getInstanceMetadata(instanceConnectionInfo);
+  t.strictSame(
+    res.serverCaCert,
+    undefined,
+    'should return undefined serverCaCert'
   );
 });
 

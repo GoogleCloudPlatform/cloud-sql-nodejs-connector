@@ -236,3 +236,84 @@ t.test(
     t.ok(returnedDate.getTime(), 'should have valid returned date object');
   }
 );
+
+t.test(
+  'open connection to AIDE instance retrieves standard pg tables',
+  async t => {
+    const connectionName = process.env.POSTGRES_AIDE_CONNECTION_NAME;
+    const user = process.env.POSTGRES_AIDE_USER;
+    const pass = process.env.POSTGRES_AIDE_PASS;
+    const database = process.env.POSTGRES_AIDE_DB;
+    if (!connectionName || !user || !pass || !database) {
+      t.skip('POSTGRES_AIDE_* env vars not set, skipping');
+      return;
+    }
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({
+      instanceConnectionName: connectionName,
+      ipType: 'SQL_DATA',
+    });
+    const client = new Client({
+      ...clientOpts,
+      user,
+      password: pass,
+      database,
+    });
+    t.after(async () => {
+      try {
+        await client.end();
+      } finally {
+        connector.close();
+      }
+    });
+
+    await client.connect();
+
+    const {
+      rows: [result],
+    } = await client.query('SELECT NOW();');
+    const returnedDate = result['now'];
+    t.ok(returnedDate.getTime(), 'should have valid returned date object');
+  }
+);
+
+t.test(
+  'open connection to standard instance with SQL_DATA ipType falls back to public IP and retrieves standard pg tables',
+  async t => {
+    const connectionName = process.env.POSTGRES_FALLBACK_CONNECTION_NAME;
+    const user = process.env.POSTGRES_FALLBACK_USER;
+    const pass = process.env.POSTGRES_FALLBACK_PASS;
+    const database = process.env.POSTGRES_FALLBACK_DB;
+    if (!connectionName || !user || !pass || !database) {
+      t.skip('POSTGRES_FALLBACK_* env vars not set, skipping');
+      return;
+    }
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({
+      instanceConnectionName: connectionName,
+      ipType: 'SQL_DATA',
+    });
+    const client = new Client({
+      ...clientOpts,
+      user,
+      password: pass,
+      database,
+    });
+    t.after(async () => {
+      try {
+        await client.end();
+      } finally {
+        connector.close();
+      }
+    });
+
+    await client.connect();
+
+    const {
+      rows: [result],
+    } = await client.query('SELECT NOW();');
+    const returnedDate = result['now'];
+    t.ok(returnedDate.getTime(), 'should have valid returned date object');
+  }
+);
+
