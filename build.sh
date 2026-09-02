@@ -70,17 +70,6 @@ function lint() {
   npm run lint
 }
 
-function fix_registry_urls() {
-  local target_file="$1"
-  if [[ -f "$target_file" ]] ; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      sed -i '' "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" "$target_file"
-    else
-      sed -i "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" "$target_file"
-    fi
-  fi
-}
-
 ## deps - updates project dependencies to latest
 function deps() {
   version=${1:-24}
@@ -96,48 +85,14 @@ function deps() {
   nvm use $version
 
   npm update --save
-  fix_registry_urls "package-lock.json"
-
-  # Update dependencies in examples
-  for pkg in examples/cloudrun/*/*/package.json ; do
-    if [[ -f "$pkg" ]] ; then
-      sub_dir=$(dirname "$pkg")
-      echo "Updating dependencies in $sub_dir"
-      (cd "$sub_dir" && npx --yes npm-check-updates -u --target minor -x prisma,@prisma/client 2>/dev/null || true)
-    fi
-  done
-}
-
-## deps-major-version - updates project dependencies to latest major versions
-function deps-major-version() {
-  version=${1:-24}
-
-  # Use NVM
-  if [[ ! -d "$NVM_DIR" ]] ; then
-    echo "Please activate nvm"
-    exit 1
+  # When we run this on a cloudtop, the urls in package-lock.json are replaced
+  # with an internal server. We need to manually update package-lock.json
+  # to set them back to https://registry.npmjs.org/
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" package-lock.json
+  else
+    sed -i "s|https://us-npm.pkg.dev/artifact-foundry-prod/ah-3p-staging-npm/|https://registry.npmjs.org/|g" package-lock.json
   fi
-
-  # Use the minimum node version to run the updates.
-  source "$NVM_DIR/nvm.sh"
-  nvm use $version
-
-  npx --yes npm-check-updates -u -x prisma,@prisma/client,gts,@typescript-eslint/eslint-plugin,typescript
-  npm install
-  fix_registry_urls "package-lock.json"
-
-  # Update major dependencies in examples
-  for pkg in examples/cloudrun/*/*/package.json ; do
-    if [[ -f "$pkg" ]] ; then
-      sub_dir=$(dirname "$pkg")
-      echo "Updating major dependencies in $sub_dir"
-      (cd "$sub_dir" && npx --yes npm-check-updates -u -x prisma,@prisma/client 2>/dev/null || true)
-    fi
-  done
-}
-
-function deps_major_version() {
-  deps-major-version "$@"
 }
 
 ## test_node_versions deps uses nvm to run the test against all
