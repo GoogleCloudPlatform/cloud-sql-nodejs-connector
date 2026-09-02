@@ -155,21 +155,35 @@ export class SQLAdminFetcher {
 
     // Search the dns_names field for the PSC DNS Name.
     if (dnsNames) {
+      const pscDnsNames: string[] = [];
       for (const dnm of dnsNames) {
         if (
           dnm.name &&
           dnm.connectionType === 'PRIVATE_SERVICE_CONNECT' &&
           dnm.dnsScope === 'INSTANCE'
         ) {
-          ipAddresses.psc = dnm.name;
-          break;
+          pscDnsNames.push(dnm.name.replace(/\.$/, ''));
         }
+      }
+      if (pscDnsNames.length > 0) {
+        pscDnsNames.sort((a, b) => {
+          const aIsPsc = a.toLowerCase().endsWith('.sql-psc.goog');
+          const bIsPsc = b.toLowerCase().endsWith('.sql-psc.goog');
+          if (aIsPsc && !bIsPsc) {
+            return -1;
+          }
+          if (!aIsPsc && bIsPsc) {
+            return 1;
+          }
+          return a.localeCompare(b);
+        });
+        ipAddresses.psc = pscDnsNames[0];
       }
     }
 
     // If the psc dns name was not found, use the legacy dns_name field
     if (!ipAddresses.psc && dnsName && pscEnabled) {
-      ipAddresses.psc = dnsName;
+      ipAddresses.psc = dnsName.replace(/\.$/, '');
     }
 
     if (!ipAddresses.public && !ipAddresses.private && !ipAddresses.psc) {
@@ -238,11 +252,15 @@ export class SQLAdminFetcher {
     // name in the list may be used to validate the server TLS certificate.
     // Fall back to legacy dns_name field if necessary.
     let serverName = null;
-    if (res.data.dnsNames && res.data.dnsNames.length > 0) {
-      serverName = res.data.dnsNames[0].name;
+    if (ipAddresses.psc) {
+      serverName = ipAddresses.psc;
+    } else if (res.data.dnsNames && res.data.dnsNames.length > 0) {
+      serverName = res.data.dnsNames[0].name
+        ? res.data.dnsNames[0].name.replace(/\.$/, '')
+        : null;
     }
-    if (serverName === null) {
-      serverName = res.data.dnsName;
+    if (serverName === null && res.data.dnsName) {
+      serverName = res.data.dnsName.replace(/\.$/, '');
     }
 
     return {
