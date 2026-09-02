@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.12.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.11.3...v1.12.0) (2026-09-02)
+
+
+### Features
+
+* Add PSC DNS and Global Write Endpoint support to NodeJS Connector ([#593](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/593)) ([dc28e53](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/dc28e53352baf1d282a6dad38d31c8bc831b5f02))
+* Support Developer Edition connections ([#603](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/603)) ([ccc3182](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/ccc3182944fe9046dadb6103fbc72a8d193d8b0f))
+
+
+### Bug Fixes
+
+* Clean up sockets when closed in startLocalProxy and CloudSQLInstance ([#605](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/605)) ([0f6ef2a](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/0f6ef2ad13acc2a61fad63db47de649ed2abe99c))
+* Optimize DNS resolution logic ([#602](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/602)) ([1ed4e98](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/1ed4e98b7477cc2d4b0072928c80ed9d4286d1e4))
+* prioritize PSC auto-DNS names (.sql-psc.goog) and trim trailing dots ([#610](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/610)) ([45996fa](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/45996fa2ddd6d0a00e3f2cf92d7da1b74eec34dd))
+* update deps to the latest ([#604](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/604)) ([f30f4fe](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/f30f4fe06febd0def24af66629e9173a19522685))
+* update deps to the latest ([#611](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/611)) ([e14a42d](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/e14a42d2c3d3b1beca881992bbc75e0cdff87413))
+
 ## [1.11.3](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.11.2...v1.11.3) (2026-07-22)
 
 
