@@ -59,7 +59,7 @@
   },
   "devDependencies": {
     "@grpc/proto-loader": "^0.8.1",
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^7.0.0",
     "@sequelize/core": "^7.0.0-alpha.29",
     "@sequelize/mssql": "^7.0.0-alpha.29",
     "@sequelize/mysql": "^7.0.0-alpha.29",
