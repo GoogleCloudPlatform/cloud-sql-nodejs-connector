@@ -94,5 +94,8 @@
     "gaxios": "^8.0.0",
     "google-auth-library": "^11.0.2",
     "p-throttle": "^8.1.0"
+  },
+  "overrides": {
+    "tmp": "^0.2.4"
   }
 }
