@@ -711,53 +711,51 @@ t.test('CloudSQLInstance', async t => {
       const writtenPackets: Buffer[] = [];
       let ended = false;
 
-      const {
-        CloudSQLInstance: MockedInstance,
-        buildPostgresStartupPacket,
-      } = t.mockRequire('../src/cloud-sql-instance', {
-        '../src/crypto': {
-          generateKeys: async () => ({
-            publicKey: '-----BEGIN PUBLIC KEY-----',
-            privateKey: CLIENT_KEY,
-          }),
-        },
-        '../src/time': {
-          getRefreshInterval() {
-            return 50;
+      const {CloudSQLInstance: MockedInstance, buildPostgresStartupPacket} =
+        t.mockRequire('../src/cloud-sql-instance', {
+          '../src/crypto': {
+            generateKeys: async () => ({
+              publicKey: '-----BEGIN PUBLIC KEY-----',
+              privateKey: CLIENT_KEY,
+            }),
           },
-          isExpirationTimeValid() {
-            return true;
-          },
-        },
-        'node:tls': {
-          createSecureContext: () => ({}),
-          connect: (_opts: unknown, onSecureConnect: () => void) => {
-            const fakeSocket = new EventEmitter() as EventEmitter & {
-              write: (buf: Buffer) => boolean;
-              end: () => void;
-              destroy: () => void;
-            };
-            fakeSocket.write = (buf: Buffer) => {
-              writtenPackets.push(Buffer.from(buf));
-              if (writtenPackets.length === 1) {
-                setImmediate(() => {
-                  fakeSocket.emit(
-                    'data',
-                    Buffer.from([0x52, 0, 0, 0, 8, 0, 0, 0, 0])
-                  );
-                });
-              }
+          '../src/time': {
+            getRefreshInterval() {
+              return 50;
+            },
+            isExpirationTimeValid() {
               return true;
-            };
-            fakeSocket.end = () => {
-              ended = true;
-            };
-            fakeSocket.destroy = () => {};
-            setImmediate(onSecureConnect);
-            return fakeSocket;
+            },
           },
-        },
-      });
+          'node:tls': {
+            createSecureContext: () => ({}),
+            connect: (_opts: unknown, onSecureConnect: () => void) => {
+              const fakeSocket = new EventEmitter() as EventEmitter & {
+                write: (buf: Buffer) => boolean;
+                end: () => void;
+                destroy: () => void;
+              };
+              fakeSocket.write = (buf: Buffer) => {
+                writtenPackets.push(Buffer.from(buf));
+                if (writtenPackets.length === 1) {
+                  setImmediate(() => {
+                    fakeSocket.emit(
+                      'data',
+                      Buffer.from([0x52, 0, 0, 0, 8, 0, 0, 0, 0])
+                    );
+                  });
+                }
+                return true;
+              };
+              fakeSocket.end = () => {
+                ended = true;
+              };
+              fakeSocket.destroy = () => {};
+              setImmediate(onSecureConnect);
+              return fakeSocket;
+            },
+          },
+        });
 
       const instance = new MockedInstance({
         options: {
@@ -772,14 +770,17 @@ t.test('CloudSQLInstance', async t => {
 
       // Simulate an application socket capturing (user, database) via addSocket
       const clientSocket = {
-        write: (_chunk: Buffer) => true,
+        write: (chunk: Buffer) => chunk.length >= 0,
         destroy: () => {},
         once: () => {},
       };
       instance.addSocket(clientSocket);
       const sslReq = Buffer.from([0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f]);
       clientSocket.write(sslReq);
-      const startup = buildPostgresStartupPacket('iam-user@example.com', 'mydb');
+      const startup = buildPostgresStartupPacket(
+        'iam-user@example.com',
+        'mydb'
+      );
       clientSocket.write(startup);
 
       await instance.refresh();

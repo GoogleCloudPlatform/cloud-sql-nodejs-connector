@@ -372,6 +372,11 @@ export class CloudSQLInstance {
     refreshResult: RefreshResult,
     metadata: InstanceMetadata
   ): Promise<void> {
+    const {ephemeralCert, privateKey, serverCaCert} = refreshResult;
+    if (!ephemeralCert || !privateKey || !serverCaCert) {
+      return;
+    }
+
     const targets: string[] = [];
     if (this.instanceInfo && this.instanceInfo.domainName) {
       targets.push(this.instanceInfo.domainName);
@@ -424,9 +429,9 @@ export class CloudSQLInstance {
                 host: target,
                 port,
                 secureContext: tls.createSecureContext({
-                  ca: refreshResult.serverCaCert.cert,
-                  cert: refreshResult.ephemeralCert.cert,
-                  key: refreshResult.privateKey,
+                  ca: serverCaCert.cert,
+                  cert: ephemeralCert.cert,
+                  key: privateKey,
                   minVersion: 'TLSv1.3',
                 }),
                 checkServerIdentity: validateCertificate(
@@ -453,10 +458,7 @@ export class CloudSQLInstance {
                   finish();
                 });
                 socket.write(
-                  buildPostgresStartupPacket(
-                    principal.user,
-                    principal.database
-                  )
+                  buildPostgresStartupPacket(principal.user, principal.database)
                 );
               }
             );
@@ -616,30 +618,31 @@ export class CloudSQLInstance {
     let buf: Buffer = Buffer.alloc(0);
     let done = false;
     writable.write = (...args: unknown[]): boolean => {
-      if (!done) {
-        const chunk = args[0];
-        const chunkBuf: Buffer | null = Buffer.isBuffer(chunk)
-          ? chunk
-          : typeof chunk === 'string'
+      if (done) {
+        return origWrite.apply(socket, args);
+      }
+      const chunk = args[0];
+      const chunkBuf: Buffer | null = Buffer.isBuffer(chunk)
+        ? chunk
+        : typeof chunk === 'string'
+          ? Buffer.from(chunk)
+          : chunk instanceof Uint8Array
             ? Buffer.from(chunk)
-            : chunk instanceof Uint8Array
-              ? Buffer.from(chunk)
-              : null;
-        if (chunkBuf) {
-          buf = Buffer.concat([buf, chunkBuf]);
-          const parsed = parsePostgresStartupPacket(buf);
-          if (parsed.complete) {
-            done = true;
-            buf = Buffer.alloc(0);
-            writable.write = origWrite;
-            if (parsed.user) {
-              this.recordIamPrincipal(parsed.user, parsed.database);
-            }
-          } else if (buf.length > MAX_PG_STARTUP_PACKET_LEN + 8) {
-            done = true;
-            buf = Buffer.alloc(0);
-            writable.write = origWrite;
+            : null;
+      if (chunkBuf) {
+        buf = Buffer.concat([buf, chunkBuf]);
+        const parsed = parsePostgresStartupPacket(buf);
+        if (parsed.complete) {
+          done = true;
+          buf = Buffer.alloc(0);
+          writable.write = origWrite;
+          if (parsed.user) {
+            this.recordIamPrincipal(parsed.user, parsed.database);
           }
+        } else if (buf.length > MAX_PG_STARTUP_PACKET_LEN + 8) {
+          done = true;
+          buf = Buffer.alloc(0);
+          writable.write = origWrite;
         }
       }
       return origWrite.apply(socket, args);
