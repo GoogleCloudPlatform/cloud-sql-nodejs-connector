@@ -5,7 +5,6 @@
 
 ### Bug Fixes
 
-* send PostgreSQL v3 StartupMessage in proactive IAM refresh probe for MCP ([#619](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/619)) ([ba34a29](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/ba34a29420f85d6a7628a32b23bdb231ab6005a8))
 * update deps to the latest ([#623](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/issues/623)) ([05099dc](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/commit/05099dc8e08209e6b167e2640bf468041b2a8872))
 
 ## [1.12.0](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector/compare/v1.11.3...v1.12.0) (2026-09-02)
