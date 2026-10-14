@@ -89,7 +89,7 @@
   },
   "dependencies": {
     "@google-cloud/sql": "^0.25.0",
-    "@googleapis/sqladmin": "^38.1.1",
+    "@googleapis/sqladmin": "^41.0.0",
     "@grpc/grpc-js": "^1.14.5",
     "gaxios": "^8.1.0",
     "google-auth-library": "^11.1.0",
