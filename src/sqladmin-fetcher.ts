@@ -29,6 +29,7 @@ export interface InstanceMetadata {
   serverCaCert?: SslCert;
   serverCaMode: string;
   dnsName: string;
+  databaseVersion?: string;
 }
 
 interface RequestBody {
@@ -264,6 +265,7 @@ export class SQLAdminFetcher {
           : undefined,
       serverCaMode: res.data.serverCaMode || '',
       dnsName: serverName || '',
+      databaseVersion: res.data.databaseVersion || undefined,
     };
   }
 

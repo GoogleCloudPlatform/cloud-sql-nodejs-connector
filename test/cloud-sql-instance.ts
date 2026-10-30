@@ -710,6 +710,40 @@ t.test('CloudSQLInstance', async t => {
       const {EventEmitter} = await import('node:events');
       const writtenPackets: Buffer[] = [];
       let ended = false;
+      let destroyed = false;
+
+      const fakeDial = (_opts: unknown, onSecureConnect?: () => void) => {
+        const fakeSocket = new EventEmitter() as EventEmitter & {
+          write: (buf: Buffer, cb?: () => void) => boolean;
+          end: () => void;
+          destroy: () => void;
+        };
+        fakeSocket.write = (buf: Buffer, cb?: () => void) => {
+          writtenPackets.push(Buffer.from(buf));
+          if (cb) {
+            setImmediate(cb);
+          }
+          if (writtenPackets.length === 1) {
+            setImmediate(() => {
+              fakeSocket.emit(
+                'data',
+                Buffer.from([0x52, 0, 0, 0, 8, 0, 0, 0, 0])
+              );
+            });
+          }
+          return true;
+        };
+        fakeSocket.end = () => {
+          ended = true;
+        };
+        fakeSocket.destroy = () => {
+          destroyed = true;
+        };
+        if (onSecureConnect) {
+          setImmediate(onSecureConnect);
+        }
+        return fakeSocket as unknown as import('node:tls').TLSSocket;
+      };
 
       const {CloudSQLInstance: MockedInstance, buildPostgresStartupPacket} =
         t.mockRequire('../src/cloud-sql-instance', {
@@ -727,34 +761,6 @@ t.test('CloudSQLInstance', async t => {
               return true;
             },
           },
-          'node:tls': {
-            createSecureContext: () => ({}),
-            connect: (_opts: unknown, onSecureConnect: () => void) => {
-              const fakeSocket = new EventEmitter() as EventEmitter & {
-                write: (buf: Buffer) => boolean;
-                end: () => void;
-                destroy: () => void;
-              };
-              fakeSocket.write = (buf: Buffer) => {
-                writtenPackets.push(Buffer.from(buf));
-                if (writtenPackets.length === 1) {
-                  setImmediate(() => {
-                    fakeSocket.emit(
-                      'data',
-                      Buffer.from([0x52, 0, 0, 0, 8, 0, 0, 0, 0])
-                    );
-                  });
-                }
-                return true;
-              };
-              fakeSocket.end = () => {
-                ended = true;
-              };
-              fakeSocket.destroy = () => {};
-              setImmediate(onSecureConnect);
-              return fakeSocket;
-            },
-          },
         });
 
       const instance = new MockedInstance({
@@ -764,6 +770,7 @@ t.test('CloudSQLInstance', async t => {
           instanceConnectionName: 'my-project:us-east1:my-instance',
           sqlAdminFetcher: fetcher,
           limitRateInterval: 50,
+          dialFunc: fakeDial,
         },
       });
       t.after(() => instance.close());
@@ -792,6 +799,127 @@ t.test('CloudSQLInstance', async t => {
         'should write PostgreSQL StartupMessage and Terminate on probe'
       );
       t.ok(ended, 'should end probe socket after Terminate');
+      t.ok(destroyed, 'should destroy probe socket after Terminate');
+    }
+  );
+
+  t.test(
+    'probeConnection does NOT probe if databaseVersion is MySQL',
+    async t => {
+      let probeCalled = false;
+      const {CloudSQLInstance: MockedInstance} = t.mockRequire(
+        '../src/cloud-sql-instance',
+        {
+          '../src/crypto': {
+            generateKeys: async () => ({
+              publicKey: '-----BEGIN PUBLIC KEY-----',
+              privateKey: CLIENT_KEY,
+            }),
+          },
+          '../src/time': {
+            getRefreshInterval() {
+              return 50;
+            },
+            isExpirationTimeValid() {
+              return true;
+            },
+          },
+          '../src/socket': {
+            getSocket: () => {
+              probeCalled = true;
+              throw new Error('should not be called');
+            },
+          },
+        }
+      );
+
+      const mysqlFetcher = {
+        async getInstanceMetadata() {
+          return {
+            ipAddresses: {public: '127.0.0.1'},
+            serverCaMode: '',
+            dnsName: '',
+            databaseVersion: 'MYSQL_8_0',
+            serverCaCert: {
+              cert: CA_CERT,
+              expirationTime: '2033-01-06T10:00:00.232Z',
+            },
+          };
+        },
+        async getEphemeralCertificate() {
+          return {
+            cert: CLIENT_CERT,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          };
+        },
+        resolveConnectSettings: async () => '',
+      };
+
+      const instance = new MockedInstance({
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.IAM,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: mysqlFetcher,
+          limitRateInterval: 50,
+        },
+      });
+      t.after(() => instance.close());
+
+      instance.recordIamPrincipal('iam-user@example.com', 'mydb');
+      await instance.refresh();
+      instance.cancelRefresh();
+
+      t.notOk(probeCalled, 'should not probe non-Postgres instance');
+    }
+  );
+
+  t.test(
+    'probeConnection does NOT probe if no IAM principals are recorded',
+    async t => {
+      let probeCalled = false;
+      const {CloudSQLInstance: MockedInstance} = t.mockRequire(
+        '../src/cloud-sql-instance',
+        {
+          '../src/crypto': {
+            generateKeys: async () => ({
+              publicKey: '-----BEGIN PUBLIC KEY-----',
+              privateKey: CLIENT_KEY,
+            }),
+          },
+          '../src/time': {
+            getRefreshInterval() {
+              return 50;
+            },
+            isExpirationTimeValid() {
+              return true;
+            },
+          },
+          '../src/socket': {
+            getSocket: () => {
+              probeCalled = true;
+              throw new Error('should not be called');
+            },
+          },
+        }
+      );
+
+      const instance = new MockedInstance({
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.IAM,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: fetcher,
+          limitRateInterval: 50,
+        },
+      });
+      t.after(() => instance.close());
+
+      // Do NOT record any IAM principal
+      await instance.refresh();
+      instance.cancelRefresh();
+
+      t.notOk(probeCalled, 'should not probe when principals set is empty');
     }
   );
 });

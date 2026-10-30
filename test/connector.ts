@@ -907,11 +907,13 @@ t.test(
   'Connector getOptions fallback selects private IP when public is not available',
   async t => {
     setupCredentials(t);
+    let metadataCalls = 0;
     let capturedFallbackOpts: SqlDataClientOptions | undefined;
     const {Connector} = t.mockRequire('../src/connector', {
       '../src/sqladmin-fetcher': {
         SQLAdminFetcher: class {
           getInstanceMetadata() {
+            metadataCalls++;
             return Promise.resolve({
               ipAddresses: {
                 private: '10.0.0.1',
@@ -963,6 +965,7 @@ t.test(
       sqlDataKeepAliveTimeoutMs: 15000,
     });
 
+    t.equal(metadataCalls, 0, 'should not call Admin API before fallback');
     t.same(
       capturedFallbackOpts?.keepAliveTimeMs,
       45000,
@@ -977,6 +980,8 @@ t.test(
     // Invoke getDirectSocket to test fallback resolution
     const directSocket = await capturedFallbackOpts?.getDirectSocket?.();
     t.ok(directSocket, 'should return direct TLS socket');
+    t.ok(metadataCalls > 0, 'should call Admin API on fallback');
+    directSocket?.destroy();
 
     connector.close();
   }
@@ -1043,6 +1048,7 @@ t.test(
     // Invoke getDirectSocket and verify fallback IP is PRIVATE
     const directSocket = await capturedFallbackOpts?.getDirectSocket?.();
     t.ok(directSocket, 'should return direct TLS socket');
+    directSocket?.destroy();
     t.same(
       connector['sqlDataFallbackIpTypes'].get(
         'my-project:us-east1:my-instance'
@@ -1115,6 +1121,7 @@ t.test(
     // Invoke getDirectSocket and verify fallback IP is PSC
     const directSocket = await capturedFallbackOpts?.getDirectSocket?.();
     t.ok(directSocket, 'should return direct TLS socket');
+    directSocket?.destroy();
     t.same(
       connector['sqlDataFallbackIpTypes'].get(
         'my-project:us-east1:my-instance'
