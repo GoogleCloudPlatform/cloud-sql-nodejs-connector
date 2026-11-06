@@ -466,6 +466,9 @@ export class CloudSQLInstance {
             const timeout = setTimeout(() => {
               cleanup(new Error('Probe timeout'));
             }, DEFAULT_CONNECT_TIMEOUT_MS);
+            if (typeof timeout.unref === 'function') {
+              timeout.unref();
+            }
 
             const onConnect = () => {
               if (!socket) {

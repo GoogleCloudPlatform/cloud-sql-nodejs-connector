@@ -735,9 +735,15 @@ t.test('CloudSQLInstance', async t => {
         };
         fakeSocket.end = () => {
           ended = true;
+          setImmediate(() => {
+            fakeSocket.emit('end');
+          });
         };
         fakeSocket.destroy = () => {
           destroyed = true;
+          setImmediate(() => {
+            fakeSocket.emit('close');
+          });
         };
         if (onSecureConnect) {
           setImmediate(onSecureConnect);
