@@ -247,7 +247,6 @@ export class SqlDataClient {
         // FAILED_PRECONDITION: Instance does not support SQL_DATA.
         isFallback = true;
         socket.pause();
-        this.onUnsupported?.();
         try {
           stream.destroy();
         } catch {
@@ -255,6 +254,7 @@ export class SqlDataClient {
         }
         try {
           directSocket = await this.getDirectSocket();
+          this.onUnsupported?.();
           while (clientBuffer.length > 0) {
             const chunk = clientBuffer.shift();
             if (chunk) {

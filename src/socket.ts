@@ -19,7 +19,7 @@ import {CloudSQLConnectorError} from './errors';
 
 const DEFAULT_KEEP_ALIVE_DELAY_MS = 30 * 1000;
 
-interface SocketOptions {
+export interface SocketOptions {
   ephemeralCert: SslCert;
   host: string;
   port: number;
@@ -116,16 +116,19 @@ function checkCn(
   return undefined;
 }
 
-export function getSocket({
-  ephemeralCert,
-  host,
-  port,
-  instanceInfo,
-  privateKey,
-  serverCaCert,
-  instanceDnsName,
-  serverName,
-}: SocketOptions): tls.TLSSocket {
+export function getSocket(
+  {
+    ephemeralCert,
+    host,
+    port,
+    instanceInfo,
+    privateKey,
+    serverCaCert,
+    instanceDnsName,
+    serverName,
+  }: SocketOptions,
+  onSecureConnect?: () => void
+): tls.TLSSocket {
   const socketOpts = {
     host,
     port,
@@ -143,7 +146,7 @@ export function getSocket({
       serverName
     ),
   };
-  const tlsSocket = tls.connect(socketOpts);
+  const tlsSocket = tls.connect(socketOpts, onSecureConnect);
   tlsSocket.setKeepAlive(true, DEFAULT_KEEP_ALIVE_DELAY_MS);
   // overrides the stream.connect method since the stream is already
   // connected and some drivers might try to call it internally
