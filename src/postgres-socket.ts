@@ -122,7 +122,7 @@ export function parsePostgresStartupPacket(buf: Buffer): {
   complete: boolean;
 } {
   let slice = buf;
-  // Skip SSLRequest or GSSENCRequest if prepended (can occur in succession)
+  // Step 1: Skip SSLRequest or GSSENCRequest if prepended (can occur in succession).
   while (
     slice.length >= 8 &&
     slice.readUInt32BE(0) === 8 &&
@@ -132,6 +132,7 @@ export function parsePostgresStartupPacket(buf: Buffer): {
     slice = slice.subarray(8);
   }
 
+  // Step 2: Wait for at least 8 bytes (4-byte packet length + 4-byte protocol code).
   if (slice.length < 8) {
     return {user: '', database: '', complete: false};
   }
@@ -139,6 +140,7 @@ export function parsePostgresStartupPacket(buf: Buffer): {
   const pktLen = slice.readUInt32BE(0);
   const code = slice.readUInt32BE(4);
 
+  // Step 3: Validate protocol version (v3.0) and packet length bounds.
   if (
     code !== PG_PROTOCOL_VERSION_30 ||
     pktLen < 8 ||
@@ -147,10 +149,12 @@ export function parsePostgresStartupPacket(buf: Buffer): {
     return {user: '', database: '', complete: true};
   }
 
+  // Step 4: Wait until the complete packet body has arrived.
   if (slice.length < pktLen) {
     return {user: '', database: '', complete: false};
   }
 
+  // Step 5: Decode null-terminated key-value pairs (user, database) from StartupMessage.
   let payload = slice.subarray(8, pktLen);
   let user = '';
   let database = '';
