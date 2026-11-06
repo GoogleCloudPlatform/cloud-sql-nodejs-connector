@@ -17,12 +17,17 @@ export const PG_GSS_ENC_REQUEST_CODE = 80877104; // 0x04d21630
 export const PG_PROTOCOL_VERSION_30 = 196608; // 0x00030000
 export const MAX_PG_STARTUP_PACKET_LEN = 10000;
 
+export type WriteCallback = (error?: Error | null) => void;
+
 export interface WritableSocket {
-  write?: (
-    chunk: string | Uint8Array,
-    encodingOrCb?: unknown,
-    cb?: unknown
-  ) => boolean;
+  write?: {
+    (chunk: Uint8Array | string, cb?: WriteCallback): boolean;
+    (
+      chunk: Uint8Array | string,
+      encoding: BufferEncoding,
+      cb?: WriteCallback
+    ): boolean;
+  };
 }
 
 /**
@@ -30,18 +35,26 @@ export interface WritableSocket {
  * the PostgreSQL v3 StartupMessage (user, database) pair for Auto-IAM refresh probes.
  *
  * Handles chunked streaming where the StartupMessage is split across multiple write() calls.
- * Once the startup message is detected or determined not to be a PostgreSQL v3 packet,
- * startupMessageSent is set to true, the buffer is cleared, and original write behavior is
- * restored with zero overhead on steady-state writes.
+ * Follows the Node.js Writable stream contract where synchronization of concurrent writes
+ * is the caller's responsibility, introducing zero locking overhead. Once the startup
+ * message is detected or determined not to be a PostgreSQL v3 packet, startupMessageSent is
+ * set to true, the buffer is cleared, and unbind() restores the original write method
+ * (re-assigning own-property write handlers or deleting the wrapper property to restore
+ * prototype-inherited write() on TLSSocket/net.Socket) for zero steady-state overhead.
  */
 export class PostgresSocket {
   private readonly socket: WritableSocket;
   private readonly onStartup: (user: string, database: string) => void;
-  private readonly origWrite: (
-    chunk: string | Uint8Array,
-    encodingOrCb?: unknown,
-    cb?: unknown
-  ) => boolean;
+  private readonly hasOwnWrite: boolean;
+  private readonly rawWrite?: WritableSocket['write'];
+  private readonly origWrite: {
+    (chunk: Uint8Array | string, cb?: WriteCallback): boolean;
+    (
+      chunk: Uint8Array | string,
+      encoding: BufferEncoding,
+      cb?: WriteCallback
+    ): boolean;
+  };
   private buf: Buffer = Buffer.alloc(0);
   public startupMessageSent = false;
 
@@ -53,40 +66,79 @@ export class PostgresSocket {
     this.onStartup = onStartup;
 
     if (typeof socket.write !== 'function') {
+      this.hasOwnWrite = false;
       this.startupMessageSent = true;
       this.origWrite = () => false;
       return;
     }
 
-    const boundWrite = socket.write.bind(socket);
-    this.origWrite = boundWrite;
+    this.hasOwnWrite = Object.prototype.hasOwnProperty.call(socket, 'write');
+    this.rawWrite = socket.write;
+    this.origWrite = socket.write.bind(socket);
     socket.write = (
-      chunk: string | Uint8Array,
-      encodingOrCb?: unknown,
-      cb?: unknown
-    ): boolean => this.write(chunk, encodingOrCb, cb);
+      chunk: Uint8Array | string,
+      encodingOrCb?: BufferEncoding | WriteCallback,
+      cb?: WriteCallback
+    ): boolean => this.write(chunk, encodingOrCb as BufferEncoding, cb);
   }
 
   private unbind(): void {
     this.startupMessageSent = true;
     this.buf = Buffer.alloc(0);
-    this.socket.write = this.origWrite;
+    if (this.hasOwnWrite && this.rawWrite) {
+      this.socket.write = this.rawWrite;
+    } else {
+      try {
+        delete this.socket.write;
+      } catch {
+        this.socket.write = this.origWrite;
+      }
+    }
   }
 
+  private forwardOrigWrite(
+    chunk: Uint8Array | string,
+    encodingOrCb?: BufferEncoding | WriteCallback,
+    cb?: WriteCallback
+  ): boolean {
+    if (typeof encodingOrCb === 'function') {
+      return this.origWrite(chunk, encodingOrCb);
+    }
+    if (encodingOrCb !== undefined) {
+      return cb !== undefined
+        ? this.origWrite(chunk, encodingOrCb, cb)
+        : this.origWrite(chunk, encodingOrCb);
+    }
+    return cb !== undefined ? this.origWrite(chunk, cb) : this.origWrite(chunk);
+  }
+
+  public write(chunk: Uint8Array | string, cb?: WriteCallback): boolean;
   public write(
-    chunk: string | Uint8Array,
-    encodingOrCb?: unknown,
-    cb?: unknown
+    chunk: Uint8Array | string,
+    encoding: BufferEncoding,
+    cb?: WriteCallback
+  ): boolean;
+  public write(
+    chunk: Uint8Array | string,
+    encodingOrCb?: BufferEncoding | WriteCallback,
+    cb?: WriteCallback
   ): boolean {
     if (this.startupMessageSent) {
-      return this.origWrite(chunk, encodingOrCb, cb);
+      return this.forwardOrigWrite(chunk, encodingOrCb, cb);
     }
 
-    const chunkBuf: Buffer = Buffer.isBuffer(chunk)
-      ? chunk
-      : typeof chunk === 'string'
-        ? Buffer.from(chunk)
-        : Buffer.from(chunk);
+    let chunkBuf: Buffer;
+    if (Buffer.isBuffer(chunk)) {
+      chunkBuf = chunk;
+    } else if (typeof chunk === 'string') {
+      const encoding =
+        typeof encodingOrCb === 'string' && Buffer.isEncoding(encodingOrCb)
+          ? encodingOrCb
+          : 'utf8';
+      chunkBuf = Buffer.from(chunk, encoding);
+    } else {
+      chunkBuf = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+    }
 
     if (chunkBuf.length > 0) {
       this.buf = Buffer.concat([this.buf, chunkBuf]);
@@ -96,12 +148,12 @@ export class PostgresSocket {
         if (parsed.user) {
           this.onStartup(parsed.user, parsed.database);
         }
-      } else if (this.buf.length > MAX_PG_STARTUP_PACKET_LEN + 8) {
+      } else if (this.buf.length > MAX_PG_STARTUP_PACKET_LEN + 16) {
         this.unbind();
       }
     }
 
-    return this.origWrite(chunk, encodingOrCb, cb);
+    return this.forwardOrigWrite(chunk, encodingOrCb, cb);
   }
 }
 

@@ -54,7 +54,7 @@ export const DEFAULT_CONNECT_TIMEOUT_MS = 30 * 1000;
 // needed from tls.Socket to be able to close
 // sockets when the DNS Name changes.
 type EventFn = () => void;
-type DestroyableSocket = {
+type DestroyableSocket = WritableSocket & {
   destroy: (error?: Error) => void;
   once: (name: string, handler: EventFn) => void;
 };
@@ -329,6 +329,7 @@ export class CloudSQLInstance {
     let host = '';
     let ephemeralCert;
     let privateKey;
+    let probeTargets: string[] = [];
 
     if (this.ipType !== IpAddressTypes.SQL_DATA) {
       const rsaKeys: RSAKeys = await generateKeys();
@@ -339,19 +340,8 @@ export class CloudSQLInstance {
       );
       privateKey = rsaKeys.privateKey;
 
-      if (this.instanceInfo && this.instanceInfo.domainName) {
-        try {
-          const ips = await resolveARecord(this.instanceInfo.domainName);
-          if (ips && ips.length > 0) {
-            host = ips[0];
-          }
-        } catch (e) {
-          // ignore error, fallback to metadata IP
-        }
-      }
-      if (!host) {
-        host = selectIpAddress(metadata.ipAddresses, this.ipType);
-      }
+      probeTargets = await this.resolveHostTargets(metadata);
+      host = probeTargets[0] || '';
     }
 
     const serverCaCert = metadata.serverCaCert;
@@ -377,7 +367,7 @@ export class CloudSQLInstance {
     }
 
     if (this.authType === AuthTypes.IAM) {
-      await this.probeConnection(nextValues, metadata);
+      await this.probeConnection(nextValues, metadata, probeTargets);
     }
 
     // In the rather odd case that the current ephemeral certificate is still
@@ -390,6 +380,41 @@ export class CloudSQLInstance {
     return nextValues;
   }
 
+  /**
+   * Resolves ordered, deduplicated host IP targets from domainName A-records
+   * with fallback to the metadata IP selected for this instance's ipType.
+   */
+  private async resolveHostTargets(
+    metadata: InstanceMetadata
+  ): Promise<string[]> {
+    const targets: string[] = [];
+    if (this.instanceInfo && this.instanceInfo.domainName) {
+      try {
+        const ips = await resolveARecord(this.instanceInfo.domainName);
+        if (ips && ips.length > 0) {
+          for (const ip of ips) {
+            if (ip && !targets.includes(ip)) {
+              targets.push(ip);
+            }
+          }
+        }
+      } catch {
+        // ignore error, fallback to metadata IP
+      }
+    }
+    try {
+      const selectedIp = selectIpAddress(metadata.ipAddresses, this.ipType);
+      if (selectedIp && !targets.includes(selectedIp)) {
+        targets.push(selectedIp);
+      }
+    } catch (err) {
+      if (targets.length === 0) {
+        throw err;
+      }
+    }
+    return targets;
+  }
+
   recordIamPrincipal(user: string, database: string): void {
     if (!user) {
       return;
@@ -400,8 +425,12 @@ export class CloudSQLInstance {
 
   private async probeConnection(
     refreshResult: RefreshResult,
-    metadata: InstanceMetadata
+    metadata: InstanceMetadata,
+    resolvedTargets?: string[]
   ): Promise<void> {
+    if (this.closed) {
+      return;
+    }
     if (this.databaseVersion && !this.databaseVersion.startsWith('POSTGRES')) {
       return;
     }
@@ -414,15 +443,12 @@ export class CloudSQLInstance {
       return;
     }
 
-    const targets: string[] = [];
-    if (this.instanceInfo && this.instanceInfo.domainName) {
-      targets.push(this.instanceInfo.domainName);
+    let targets: string[] = [];
+    if (resolvedTargets && resolvedTargets.length > 0) {
+      targets = resolvedTargets;
     } else {
       try {
-        const selectedIp = selectIpAddress(metadata.ipAddresses, this.ipType);
-        if (selectedIp) {
-          targets.push(selectedIp);
-        }
+        targets = await this.resolveHostTargets(metadata);
       } catch {
         // If the configured IP type is not available in metadata, skip probe
       }
@@ -436,17 +462,31 @@ export class CloudSQLInstance {
     const port = this.port || DEFAULT_SERVER_PROXY_PORT;
 
     for (const principal of principals) {
+      if (this.closed) {
+        break;
+      }
       for (const target of targets) {
+        if (this.closed) {
+          break;
+        }
         try {
           await new Promise<void>((resolve, reject) => {
             let settled = false;
             let socket: tls.TLSSocket | null = null;
+            let connectStarted = false;
+            let connectedEventFired = false;
+            let eofTimer: ReturnType<typeof setTimeout> | undefined;
+
             const cleanup = (err?: Error) => {
               if (settled) {
                 return;
               }
               settled = true;
               clearTimeout(timeout);
+              if (eofTimer) {
+                clearTimeout(eofTimer);
+                eofTimer = undefined;
+              }
               if (socket) {
                 try {
                   socket.removeAllListeners('error');
@@ -466,42 +506,74 @@ export class CloudSQLInstance {
             const timeout = setTimeout(() => {
               cleanup(new Error('Probe timeout'));
             }, DEFAULT_CONNECT_TIMEOUT_MS);
+            if (typeof timeout.unref === 'function') {
+              timeout.unref();
+            }
 
-            const onConnect = () => {
-              if (!socket) {
+            const startProbe = () => {
+              if (settled || connectStarted || !socket) {
                 return;
               }
-              socket.once('data', () => {
-                try {
-                  socket?.write(buildTerminatePacket(), () => {
-                    socket?.end();
-                    // Wait for server EOF/close before destroying socket to prevent TCP RST
-                    const eofTimer = setTimeout(() => cleanup(), 500);
-                    if (typeof eofTimer.unref === 'function') {
-                      eofTimer.unref();
-                    }
-                    socket?.once('end', () => {
-                      clearTimeout(eofTimer);
-                      cleanup();
+              connectStarted = true;
+              const activeSocket = socket;
+              try {
+                activeSocket.once('data', () => {
+                  if (settled) {
+                    return;
+                  }
+                  try {
+                    activeSocket.write(buildTerminatePacket(), () => {
+                      if (settled) {
+                        return;
+                      }
+                      activeSocket.end();
+                      // Wait for server EOF/close before destroying socket to prevent TCP RST
+                      eofTimer = setTimeout(() => cleanup(), 500);
+                      if (typeof eofTimer.unref === 'function') {
+                        eofTimer.unref();
+                      }
                     });
-                    socket?.once('close', () => {
-                      clearTimeout(eofTimer);
-                      cleanup();
-                    });
-                  });
-                } catch {
+                  } catch {
+                    cleanup();
+                  }
+                });
+                activeSocket.once('end', () => {
                   cleanup();
+                });
+                activeSocket.once('close', () => {
+                  cleanup();
+                });
+                activeSocket.write(
+                  buildPostgresStartupPacket(principal.user, principal.database)
+                );
+              } catch (err) {
+                cleanup(err as Error);
+              }
+            };
+
+            const onConnect = () => {
+              connectedEventFired = true;
+              startProbe();
+            };
+
+            const setupSocket = (s: tls.TLSSocket) => {
+              if (settled) {
+                try {
+                  s.removeAllListeners('error');
+                  s.on('error', () => {});
+                  s.destroy();
+                } catch {
+                  // ignore destroy errors
                 }
+                return;
+              }
+              socket = s;
+              socket.on('error', err => {
+                cleanup(err);
               });
-              socket.once('end', () => {
-                cleanup();
-              });
-              socket.once('close', () => {
-                cleanup();
-              });
-              socket.write(
-                buildPostgresStartupPacket(principal.user, principal.database)
-              );
+              if (connectedEventFired) {
+                startProbe();
+              }
             };
 
             try {
@@ -522,26 +594,15 @@ export class CloudSQLInstance {
               if (dialResult instanceof Promise) {
                 dialResult
                   .then(s => {
-                    socket = s;
-                    setupSocketListeners();
+                    setupSocket(s);
                   })
                   .catch(err => cleanup(err));
               } else {
-                socket = dialResult;
-                setupSocketListeners();
+                setupSocket(dialResult);
               }
             } catch (err) {
               cleanup(err as Error);
               return;
-            }
-
-            function setupSocketListeners() {
-              if (!socket) {
-                return;
-              }
-              socket.on('error', err => {
-                cleanup(err);
-              });
             }
           });
           break;
@@ -671,12 +732,9 @@ export class CloudSQLInstance {
       this.authType === AuthTypes.IAM &&
       (!this.databaseVersion || this.databaseVersion.startsWith('POSTGRES'))
     ) {
-      attachPostgresSocket(
-        socket as unknown as WritableSocket,
-        (user, database) => {
-          this.recordIamPrincipal(user, database);
-        }
-      );
+      attachPostgresSocket(socket, (user, database) => {
+        this.recordIamPrincipal(user, database);
+      });
     }
     if (!this.instanceInfo.domainName) {
       // This was not connected by domain name. Ignore all sockets.

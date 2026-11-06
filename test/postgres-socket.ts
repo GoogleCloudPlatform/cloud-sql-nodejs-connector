@@ -246,4 +246,228 @@ t.test('PostgresSocket unit tests', async t => {
     const term = buildTerminatePacket();
     t.same(term, Buffer.from([0x58, 0x00, 0x00, 0x00, 0x04]));
   });
+
+  t.test(
+    'preserves write overloads (2-arg callback, encoding + callback, boolean backpressure return)',
+    async t => {
+      const recordedCalls: Array<{
+        argCount: number;
+        chunk: Uint8Array | string;
+        encodingOrCb?: unknown;
+        cb?: unknown;
+      }> = [];
+      let nextReturn = false;
+
+      const fakeSocket = {
+        write(
+          chunk: Uint8Array | string,
+          encodingOrCb?: unknown,
+          cb?: unknown
+        ) {
+          recordedCalls.push({
+            argCount: arguments.length,
+            chunk,
+            encodingOrCb,
+            cb,
+          });
+          if (typeof encodingOrCb === 'function') {
+            (encodingOrCb as () => void)();
+          } else if (typeof cb === 'function') {
+            (cb as () => void)();
+          }
+          return nextReturn;
+        },
+      };
+
+      let capturedUser = '';
+      let capturedDb = '';
+      const ps = new PostgresSocket(fakeSocket, (user, db) => {
+        capturedUser = user;
+        capturedDb = db;
+      });
+
+      const startup = buildPostgresStartupPacket('cbuser@example.com', 'cbdb');
+      const hexStartup = startup.toString('hex');
+
+      // 3-arg string + encoding + callback
+      let cb1Called = false;
+      nextReturn = false;
+      const ret1 = fakeSocket.write(
+        hexStartup.slice(0, 10),
+        'hex' as BufferEncoding,
+        () => {
+          cb1Called = true;
+        }
+      );
+      t.equal(ret1, false, 'should preserve false backpressure return value');
+      t.ok(cb1Called, '3-arg write callback should be invoked');
+      t.equal(recordedCalls[0].argCount, 3);
+      t.equal(recordedCalls[0].encodingOrCb, 'hex');
+
+      // 2-arg chunk + callback (completes packet)
+      let cb2Called = false;
+      nextReturn = true;
+      const ret2 = fakeSocket.write(
+        Buffer.from(hexStartup.slice(10), 'hex'),
+        () => {
+          cb2Called = true;
+        }
+      );
+      t.equal(ret2, true);
+      t.ok(cb2Called, '2-arg write callback should be invoked');
+      t.equal(recordedCalls[1].argCount, 2);
+      t.equal(typeof recordedCalls[1].encodingOrCb, 'function');
+      t.equal(capturedUser, 'cbuser@example.com');
+      t.equal(capturedDb, 'cbdb');
+      t.ok(ps.startupMessageSent);
+
+      // Post-unbind 1-arg write
+      const ret3 = fakeSocket.write('QSELECT 1;\x00');
+      t.equal(ret3, true);
+      t.equal(recordedCalls[2].argCount, 1);
+    }
+  );
+
+  t.test('handles Uint8Array views with non-zero byteOffset', async t => {
+    let capturedUser = '';
+    let capturedDb = '';
+    const fakeSocket = {
+      write: () => true,
+    };
+
+    new PostgresSocket(fakeSocket, (user, db) => {
+      capturedUser = user;
+      capturedDb = db;
+    });
+
+    const packet = buildPostgresStartupPacket('viewuser', 'viewdb');
+    const backing = Buffer.alloc(packet.length + 10, 0xff);
+    packet.copy(backing, 5);
+    const view = new Uint8Array(
+      backing.buffer,
+      backing.byteOffset + 5,
+      packet.length
+    );
+
+    fakeSocket.write(view);
+    t.equal(capturedUser, 'viewuser');
+    t.equal(capturedDb, 'viewdb');
+  });
+
+  t.test(
+    'unbind restores own-property write and prototype-inherited write cleanly',
+    async t => {
+      // 1. Own-property write restoration
+      const origOwnWrite = () => true;
+      const ownSocket = {write: origOwnWrite};
+      new PostgresSocket(ownSocket, () => {});
+      t.not(ownSocket.write, origOwnWrite, 'wrapped before startup');
+      (ownSocket.write as (chunk: Uint8Array | string) => boolean)(
+        buildPostgresStartupPacket('u', 'd')
+      );
+      t.equal(
+        ownSocket.write,
+        origOwnWrite,
+        'exact original own write restored after unbind'
+      );
+
+      // 2. Prototype-inherited write restoration (matches TLSSocket/net.Socket)
+      class ProtoSocket {
+        write(chunk: Uint8Array | string): boolean {
+          return chunk.length >= 0;
+        }
+      }
+      const protoSock = new ProtoSocket();
+      t.notOk(
+        Object.prototype.hasOwnProperty.call(protoSock, 'write'),
+        'write initially on prototype'
+      );
+      new PostgresSocket(protoSock, () => {});
+      t.ok(
+        Object.prototype.hasOwnProperty.call(protoSock, 'write'),
+        'wrapped as own property during inspection'
+      );
+      protoSock.write(buildPostgresStartupPacket('u2', 'd2'));
+      t.notOk(
+        Object.prototype.hasOwnProperty.call(protoSock, 'write'),
+        'own property deleted on unbind'
+      );
+      t.equal(
+        protoSock.write,
+        ProtoSocket.prototype.write,
+        'prototype method restored on unbind'
+      );
+    }
+  );
+
+  t.test(
+    'handles GSSENCRequest + SSLRequest + StartupMessage with default database',
+    async t => {
+      let capturedUser = '';
+      let capturedDb = '';
+      const fakeSocket = {write: () => true};
+
+      const ps = new PostgresSocket(fakeSocket, (user, db) => {
+        capturedUser = user;
+        capturedDb = db;
+      });
+
+      const gssReq = Buffer.from([0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x30]);
+      const sslReq = Buffer.from([0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f]);
+      // StartupMessage with user only (no database key)
+      const body = Buffer.from('user\0pguser\0\0', 'utf8');
+      const header = Buffer.alloc(8);
+      header.writeUInt32BE(8 + body.length, 0);
+      header.writeUInt32BE(196608, 4);
+      const startupUserOnly = Buffer.concat([header, body]);
+
+      (fakeSocket.write as (c: Uint8Array) => boolean)(gssReq);
+      t.notOk(ps.startupMessageSent);
+      (fakeSocket.write as (c: Uint8Array) => boolean)(sslReq);
+      t.notOk(ps.startupMessageSent);
+      (fakeSocket.write as (c: Uint8Array) => boolean)(startupUserOnly);
+
+      t.ok(ps.startupMessageSent);
+      t.equal(capturedUser, 'pguser');
+      t.equal(capturedDb, 'pguser', 'database defaults to user when omitted');
+    }
+  );
+
+  t.test(
+    'unbinds on oversized StartupMessage, CancelRequest, and bounded SSLRequest flood',
+    async t => {
+      // Oversized StartupMessage (pktLen > MAX_PG_STARTUP_PACKET_LEN)
+      let calls = 0;
+      const sock1 = {write: () => true};
+      const ps1 = new PostgresSocket(sock1, () => calls++);
+      const oversizedHeader = Buffer.alloc(8);
+      oversizedHeader.writeUInt32BE(10001, 0);
+      oversizedHeader.writeUInt32BE(196608, 4);
+      (sock1.write as (c: Uint8Array) => boolean)(oversizedHeader);
+      t.ok(ps1.startupMessageSent, 'unbinds immediately on oversized packet');
+      t.equal(calls, 0);
+
+      // CancelRequest (len 16, code 80877102)
+      const sock2 = {write: () => true};
+      const ps2 = new PostgresSocket(sock2, () => calls++);
+      const cancelPkt = Buffer.alloc(16);
+      cancelPkt.writeUInt32BE(16, 0);
+      cancelPkt.writeUInt32BE(80877102, 4);
+      (sock2.write as (c: Uint8Array) => boolean)(cancelPkt);
+      t.ok(ps2.startupMessageSent, 'unbinds on CancelRequest');
+      t.equal(calls, 0);
+
+      // Bounded buffer guard on repeated SSLRequest packets exceeding 10016 bytes
+      const sock3 = {write: () => true};
+      const ps3 = new PostgresSocket(sock3, () => calls++);
+      const sslReq = Buffer.from([0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f]);
+      const flood = Buffer.concat(Array(1260).fill(sslReq)); // 10080 bytes > 10016
+      (sock3.write as (c: Uint8Array) => boolean)(flood);
+      t.ok(
+        ps3.startupMessageSent,
+        'bounded guard unbinds on excessive pre-startup bytes'
+      );
+      t.equal(calls, 0);
+    }
+  );
 });
