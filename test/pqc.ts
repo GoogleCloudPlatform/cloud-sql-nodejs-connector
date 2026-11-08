@@ -84,12 +84,16 @@ async function startMockTLS13Server(
 
 function connectAndEcho(socket: tls.TLSSocket): Promise<HandshakeResult> {
   return new Promise((resolve, reject) => {
+    socket.setTimeout(10_000, () => {
+      socket.destroy(new Error('TLS test socket timed out'));
+    });
     socket.once('error', reject);
     socket.once('secureConnect', () => {
       const authorized = socket.authorized;
       const protocol = socket.getProtocol();
       const ephemeralKeyInfo = socket.getEphemeralKeyInfo();
       socket.once('data', data => {
+        socket.setTimeout(0);
         socket.end();
         resolve({
           authorized,
@@ -294,7 +298,7 @@ t.test('PQC TLS 1.3 key exchange and classical fallback', async t => {
   );
 
   await t.test(
-    'falls back cleanly to classical P-256 (prime256v1) via HelloRetryRequest',
+    'falls back cleanly to classical P-256 (prime256v1) when server only supports P-256',
     async t => {
       const p256Srv = await startMockTLS13Server('prime256v1');
       t.teardown(() => p256Srv.server.close());
@@ -338,13 +342,36 @@ t.test('PQC TLS 1.3 key exchange and classical fallback', async t => {
 
       if (pqcSupported) {
         const pqcOnlySrv = await startMockTLS13Server('X25519MLKEM768');
-        // Suppress unhandled TLS error events on the server socket for rejected handshake
-        pqcOnlySrv.server.on('tlsClientError', () => {});
+        let serverTlsError: Error | undefined;
+        let resolveServerTlsError!: (err: Error) => void;
+        const serverTlsErrorPromise = new Promise<Error>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(
+              new Error('Timed out waiting for server tlsClientError event')
+            );
+          }, 10_000);
+          timer.unref();
+          resolveServerTlsError = err => {
+            clearTimeout(timer);
+            resolve(err);
+          };
+        });
+        pqcOnlySrv.server.on('tlsClientError', err => {
+          serverTlsError = err;
+          resolveServerTlsError(err);
+        });
         t.teardown(() => pqcOnlySrv.server.close());
 
         await t.rejects(
           connectAndEcho(createTestSocket(pqcOnlySrv.port)),
+          /handshake failure|alert number 40|ERR_SSL_|ECONNRESET/i,
           'opted-out client should not advertise X25519MLKEM768'
+        );
+        const observedServerErr =
+          serverTlsError ?? (await serverTlsErrorPromise);
+        t.ok(
+          observedServerErr instanceof Error,
+          'server should emit tlsClientError on rejected handshake'
         );
       }
     }

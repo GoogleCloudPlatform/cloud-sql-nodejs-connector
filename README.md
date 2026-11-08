@@ -24,9 +24,10 @@ while providing the following benefits:
 - **IAM Authorization:** uses IAM permissions to control who/what can connect to
   your Cloud SQL instances
 - **Improved Security:** uses robust, updated TLS 1.3 encryption (including
-  automatic [hybrid post-quantum key exchange](#post-quantum-cryptography-pqc))
-  and identity verification between the client connector and the server-side
-  proxy, independent of the database protocol.
+  automatic [hybrid post-quantum key exchange](#post-quantum-cryptography-pqc)
+  on OpenSSL 3.5+ runtimes, such as Node.js 22.20+ and 24.5+) and identity
+  verification between the client connector and the server-side proxy,
+  independent of the database protocol.
 - **Convenience:** removes the requirement to use and distribute SSL
   certificates, as well as manage firewalls or source/destination IP addresses.
 - (optionally) **IAM DB Authentication:** provides support for
