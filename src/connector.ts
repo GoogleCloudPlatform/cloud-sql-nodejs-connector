@@ -307,9 +307,10 @@ export class Connector {
       ipType,
     };
 
-    await instances.loadInstance(resolvedOpts);
-
     if (ipType === IpAddressTypes.SQL_DATA) {
+      if (resolvedOpts.domainName) {
+        await instances.loadInstance(resolvedOpts);
+      }
       return await this.developerEditionOptions(
         connectionName,
         instances,
@@ -317,6 +318,8 @@ export class Connector {
         instanceInfo
       );
     }
+
+    await instances.loadInstance(resolvedOpts);
 
     return {
       stream: () => this.createDirectSocket(instances, resolvedOpts),
@@ -472,15 +475,17 @@ export class Connector {
         socket.connect(tunnelPort, '127.0.0.1');
         socket.setKeepAlive(true, 30 * 1000);
 
-        const cloudSqlInstance = instances.getInstance(opts);
-        socket.once('connect', () => {
-          cloudSqlInstance.setEstablishedConnection();
-        });
-        socket.once('error', () => {
-          cloudSqlInstance.forceRefresh();
-        });
+        if (opts.domainName) {
+          const cloudSqlInstance = instances.getInstance(opts);
+          socket.once('connect', () => {
+            cloudSqlInstance.setEstablishedConnection();
+          });
+          socket.once('error', () => {
+            cloudSqlInstance.forceRefresh();
+          });
 
-        cloudSqlInstance.addSocket(socket);
+          cloudSqlInstance.addSocket(socket);
+        }
 
         socket.connect = () => socket;
 

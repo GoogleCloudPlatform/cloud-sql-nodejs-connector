@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import tls from 'node:tls';
 import {IpAddressTypes, selectIpAddress} from './ip-addresses';
 import {InstanceConnectionInfo} from './instance-connection-info';
 import {
@@ -28,15 +29,89 @@ import {SslCert} from './ssl-cert';
 import {getRefreshInterval, isExpirationTimeValid} from './time';
 import {AuthTypes} from './auth-types';
 import {CloudSQLConnectorError} from './errors';
+import {SocketOptions, getSocket} from './socket';
+import {
+  attachPostgresSocket,
+  buildPostgresStartupPacket,
+  buildTerminatePacket,
+  parsePostgresStartupPacket,
+  PostgresSocket,
+  WritableSocket,
+} from './postgres-socket';
+
+export {
+  attachPostgresSocket,
+  buildPostgresStartupPacket,
+  buildTerminatePacket,
+  parsePostgresStartupPacket,
+  PostgresSocket,
+};
+
+export const DEFAULT_SERVER_PROXY_PORT = 3307;
+export const DEFAULT_CONNECT_TIMEOUT_MS = 30 * 1000;
 
 // Private types that describe exactly the methods
 // needed from tls.Socket to be able to close
 // sockets when the DNS Name changes.
 type EventFn = () => void;
-type DestroyableSocket = {
+type DestroyableSocket = WritableSocket & {
   destroy: (error?: Error) => void;
   once: (name: string, handler: EventFn) => void;
 };
+type IamPrincipal = {user: string; database: string};
+
+function destroySocketQuietly(socket: tls.TLSSocket): void {
+  try {
+    socket.removeAllListeners('error');
+    socket.on('error', () => {});
+    socket.destroy();
+  } catch {
+    // ignore destroy errors
+  }
+}
+
+function sendStartupProbe(
+  socket: tls.TLSSocket,
+  principal: IamPrincipal,
+  isSettled: () => boolean,
+  onFinish: (err?: Error) => void,
+  onEofTimer: (timer: ReturnType<typeof setTimeout>) => void
+): void {
+  try {
+    socket.once('data', () => {
+      if (isSettled()) {
+        return;
+      }
+      try {
+        socket.write(buildTerminatePacket(), () => {
+          if (isSettled()) {
+            return;
+          }
+          socket.end();
+          // Wait for server EOF/close before destroying socket to prevent TCP RST
+          const eofTimer = setTimeout(() => onFinish(), 500);
+          if (typeof eofTimer.unref === 'function') {
+            eofTimer.unref();
+          }
+          onEofTimer(eofTimer);
+        });
+      } catch {
+        onFinish();
+      }
+    });
+    socket.once('end', () => {
+      onFinish();
+    });
+    socket.once('close', () => {
+      onFinish();
+    });
+    socket.write(
+      buildPostgresStartupPacket(principal.user, principal.database)
+    );
+  } catch (err) {
+    onFinish(err as Error);
+  }
+}
 
 interface Fetcher {
   getInstanceMetadata({
@@ -60,6 +135,10 @@ interface CloudSQLInstanceOptions {
   limitRateInterval?: number;
   sqlAdminFetcher: Fetcher;
   failoverPeriod?: number;
+  dialFunc?: (
+    opts: SocketOptions,
+    onSecureConnect?: () => void
+  ) => tls.TLSSocket | Promise<tls.TLSSocket>;
 }
 
 interface RefreshResult {
@@ -100,6 +179,13 @@ export class CloudSQLInstance {
   private closed = false;
   private failoverPeriod: number;
   private sockets = new Set<DestroyableSocket>();
+  private iamPrincipals = new Map<string, {user: string; database: string}>();
+  private readonly activeProbeAborts = new Set<() => void>();
+  private readonly dialFunc?: (
+    opts: SocketOptions,
+    onSecureConnect?: () => void
+  ) => tls.TLSSocket | Promise<tls.TLSSocket>;
+  public databaseVersion?: string;
 
   public readonly instanceInfo: InstanceConnectionInfo;
   public ephemeralCert?: SslCert;
@@ -122,6 +208,7 @@ export class CloudSQLInstance {
     this.limitRateInterval = options.limitRateInterval || 30 * 1000; // 30 seconds
     this.sqlAdminFetcher = options.sqlAdminFetcher;
     this.failoverPeriod = options.failoverPeriod || 30 * 1000; // 30 seconds
+    this.dialFunc = options.dialFunc;
 
     if (instanceInfo) {
       this.instanceInfo = instanceInfo;
@@ -235,7 +322,10 @@ export class CloudSQLInstance {
       .then((nextValues: RefreshResult) => {
         // in case the id at the moment of starting this refresh cycle has
         // changed, that means that it has been canceled
-        if (currentRefreshId !== this.scheduledRefreshID) {
+        if (currentRefreshId !== this.scheduledRefreshID || this.closed) {
+          if (this.closed) {
+            this.next = undefined;
+          }
           return;
         }
 
@@ -297,6 +387,7 @@ export class CloudSQLInstance {
     let host = '';
     let ephemeralCert;
     let privateKey;
+    let probeTargets: string[] = [];
 
     if (this.ipType !== IpAddressTypes.SQL_DATA) {
       const rsaKeys: RSAKeys = await generateKeys();
@@ -307,19 +398,8 @@ export class CloudSQLInstance {
       );
       privateKey = rsaKeys.privateKey;
 
-      if (this.instanceInfo && this.instanceInfo.domainName) {
-        try {
-          const ips = await resolveARecord(this.instanceInfo.domainName);
-          if (ips && ips.length > 0) {
-            host = ips[0];
-          }
-        } catch (e) {
-          // ignore error, fallback to metadata IP
-        }
-      }
-      if (!host) {
-        host = selectIpAddress(metadata.ipAddresses, this.ipType);
-      }
+      probeTargets = await this.resolveHostTargets(metadata);
+      host = probeTargets[0] || '';
     }
 
     const serverCaCert = metadata.serverCaCert;
@@ -340,6 +420,14 @@ export class CloudSQLInstance {
       serverCaCert,
     };
 
+    if (metadata.databaseVersion) {
+      this.databaseVersion = metadata.databaseVersion;
+    }
+
+    if (this.authType === AuthTypes.IAM) {
+      await this.probeConnection(nextValues, metadata, probeTargets);
+    }
+
     // In the rather odd case that the current ephemeral certificate is still
     // valid while we get an invalid result from the API calls, then preserve
     // the current metadata.
@@ -348,6 +436,236 @@ export class CloudSQLInstance {
     }
 
     return nextValues;
+  }
+
+  /**
+   * Resolves ordered, deduplicated host IP targets from domainName A-records
+   * with fallback to the metadata IP selected for this instance's ipType.
+   */
+  private async resolveHostTargets(
+    metadata: InstanceMetadata
+  ): Promise<string[]> {
+    const targets: string[] = [];
+    if (this.instanceInfo && this.instanceInfo.domainName) {
+      try {
+        const ips = await resolveARecord(this.instanceInfo.domainName);
+        if (ips && ips.length > 0) {
+          for (const ip of ips) {
+            if (ip && !targets.includes(ip)) {
+              targets.push(ip);
+            }
+          }
+        }
+      } catch {
+        // ignore error, fallback to metadata IP
+      }
+    }
+    try {
+      const selectedIp = selectIpAddress(metadata.ipAddresses, this.ipType);
+      if (selectedIp && !targets.includes(selectedIp)) {
+        targets.push(selectedIp);
+      }
+    } catch (err) {
+      if (targets.length === 0) {
+        throw err;
+      }
+    }
+    return targets;
+  }
+
+  recordIamPrincipal(user: string, database: string): void {
+    if (!user) {
+      return;
+    }
+    const db = database || user;
+    this.iamPrincipals.set(`${user}\0${db}`, {user, database: db});
+  }
+
+  private async resolveProbeTargets(
+    metadata: InstanceMetadata,
+    resolvedTargets?: string[]
+  ): Promise<string[]> {
+    if (resolvedTargets && resolvedTargets.length > 0) {
+      return resolvedTargets;
+    }
+    try {
+      return await this.resolveHostTargets(metadata);
+    } catch {
+      // If the configured IP type is not available in metadata, skip probe
+      return [];
+    }
+  }
+
+  private probeTarget(
+    socketOpts: SocketOptions,
+    principal: IamPrincipal,
+    timeoutMs: number
+  ): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let socket: tls.TLSSocket | null = null;
+      let connectStarted = false;
+      let connectedEventFired = false;
+      let eofTimer: ReturnType<typeof setTimeout> | undefined;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+
+      const abortProbe = () => {
+        cleanup(new Error('Probe aborted: instance closed'));
+      };
+
+      const cleanup = (err?: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        this.activeProbeAborts.delete(abortProbe);
+        if (timeout) {
+          clearTimeout(timeout);
+          timeout = undefined;
+        }
+        if (eofTimer) {
+          clearTimeout(eofTimer);
+          eofTimer = undefined;
+        }
+        if (socket) {
+          destroySocketQuietly(socket);
+        }
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      };
+
+      this.activeProbeAborts.add(abortProbe);
+
+      timeout = setTimeout(() => {
+        cleanup(new Error('Probe timeout'));
+      }, timeoutMs);
+      if (typeof timeout.unref === 'function') {
+        timeout.unref();
+      }
+
+      const startProbe = () => {
+        if (settled || connectStarted || !socket) {
+          return;
+        }
+        connectStarted = true;
+        sendStartupProbe(
+          socket,
+          principal,
+          () => settled,
+          cleanup,
+          timer => {
+            eofTimer = timer;
+          }
+        );
+      };
+
+      const onConnect = () => {
+        connectedEventFired = true;
+        startProbe();
+      };
+
+      const setupSocket = (s: tls.TLSSocket) => {
+        if (settled) {
+          destroySocketQuietly(s);
+          return;
+        }
+        socket = s;
+        socket.on('error', err => {
+          cleanup(err);
+        });
+        if (connectedEventFired) {
+          startProbe();
+        }
+      };
+
+      try {
+        const dialResult = this.dialFunc
+          ? this.dialFunc(socketOpts, onConnect)
+          : getSocket(socketOpts, onConnect);
+        if (dialResult instanceof Promise) {
+          dialResult
+            .then(s => {
+              setupSocket(s);
+            })
+            .catch(err => cleanup(err));
+        } else {
+          setupSocket(dialResult);
+        }
+      } catch (err) {
+        cleanup(err as Error);
+      }
+    });
+  }
+
+  private async probePrincipal(
+    principal: IamPrincipal,
+    targets: string[],
+    baseOpts: Omit<SocketOptions, 'host'>,
+    deadline: number
+  ): Promise<void> {
+    for (const target of targets) {
+      const remainingMs = deadline - Date.now();
+      if (this.closed || remainingMs <= 0) {
+        break;
+      }
+      try {
+        await this.probeTarget(
+          {...baseOpts, host: target},
+          principal,
+          remainingMs
+        );
+        break;
+      } catch {
+        // Ignore probe error across single target and try next target
+      }
+    }
+  }
+
+  private async probeConnection(
+    refreshResult: RefreshResult,
+    metadata: InstanceMetadata,
+    resolvedTargets?: string[]
+  ): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    if (this.databaseVersion && !this.databaseVersion.startsWith('POSTGRES')) {
+      return;
+    }
+    if (this.iamPrincipals.size === 0) {
+      return;
+    }
+
+    const {ephemeralCert, privateKey, serverCaCert} = refreshResult;
+    if (!ephemeralCert || !privateKey || !serverCaCert) {
+      return;
+    }
+
+    const targets = await this.resolveProbeTargets(metadata, resolvedTargets);
+    if (targets.length === 0) {
+      return;
+    }
+
+    const deadline = Date.now() + DEFAULT_CONNECT_TIMEOUT_MS;
+    const baseOpts: Omit<SocketOptions, 'host'> = {
+      port: this.port || DEFAULT_SERVER_PROXY_PORT,
+      instanceInfo: this.instanceInfo,
+      serverName: this.instanceInfo.domainName || metadata.dnsName || '',
+      instanceDnsName: metadata.dnsName || '',
+      ephemeralCert,
+      privateKey,
+      serverCaCert,
+    };
+
+    for (const principal of Array.from(this.iamPrincipals.values())) {
+      if (this.closed || Date.now() >= deadline) {
+        break;
+      }
+      await this.probePrincipal(principal, targets, baseOpts, deadline);
+    }
   }
 
   private isValid({
@@ -405,6 +723,10 @@ export class CloudSQLInstance {
       clearInterval(this.checkDomainID);
       this.checkDomainID = null;
     }
+    for (const abortProbe of Array.from(this.activeProbeAborts)) {
+      abortProbe();
+    }
+    this.activeProbeAborts.clear();
     for (const socket of this.sockets) {
       socket.destroy(
         new CloudSQLConnectorError({
@@ -465,6 +787,14 @@ export class CloudSQLInstance {
     return false;
   }
   addSocket(socket: DestroyableSocket) {
+    if (
+      this.authType === AuthTypes.IAM &&
+      (!this.databaseVersion || this.databaseVersion.startsWith('POSTGRES'))
+    ) {
+      attachPostgresSocket(socket, (user, database) => {
+        this.recordIamPrincipal(user, database);
+      });
+    }
     if (!this.instanceInfo.domainName) {
       // This was not connected by domain name. Ignore all sockets.
       return;
