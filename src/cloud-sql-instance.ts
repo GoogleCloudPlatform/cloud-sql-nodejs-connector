@@ -58,6 +58,60 @@ type DestroyableSocket = WritableSocket & {
   destroy: (error?: Error) => void;
   once: (name: string, handler: EventFn) => void;
 };
+type IamPrincipal = {user: string; database: string};
+
+function destroySocketQuietly(socket: tls.TLSSocket): void {
+  try {
+    socket.removeAllListeners('error');
+    socket.on('error', () => {});
+    socket.destroy();
+  } catch {
+    // ignore destroy errors
+  }
+}
+
+function sendStartupProbe(
+  socket: tls.TLSSocket,
+  principal: IamPrincipal,
+  isSettled: () => boolean,
+  onFinish: (err?: Error) => void,
+  onEofTimer: (timer: ReturnType<typeof setTimeout>) => void
+): void {
+  try {
+    socket.once('data', () => {
+      if (isSettled()) {
+        return;
+      }
+      try {
+        socket.write(buildTerminatePacket(), () => {
+          if (isSettled()) {
+            return;
+          }
+          socket.end();
+          // Wait for server EOF/close before destroying socket to prevent TCP RST
+          const eofTimer = setTimeout(() => onFinish(), 500);
+          if (typeof eofTimer.unref === 'function') {
+            eofTimer.unref();
+          }
+          onEofTimer(eofTimer);
+        });
+      } catch {
+        onFinish();
+      }
+    });
+    socket.once('end', () => {
+      onFinish();
+    });
+    socket.once('close', () => {
+      onFinish();
+    });
+    socket.write(
+      buildPostgresStartupPacket(principal.user, principal.database)
+    );
+  } catch (err) {
+    onFinish(err as Error);
+  }
+}
 
 interface Fetcher {
   getInstanceMetadata({
@@ -427,6 +481,149 @@ export class CloudSQLInstance {
     this.iamPrincipals.set(`${user}\0${db}`, {user, database: db});
   }
 
+  private async resolveProbeTargets(
+    metadata: InstanceMetadata,
+    resolvedTargets?: string[]
+  ): Promise<string[]> {
+    if (resolvedTargets && resolvedTargets.length > 0) {
+      return resolvedTargets;
+    }
+    try {
+      return await this.resolveHostTargets(metadata);
+    } catch {
+      // If the configured IP type is not available in metadata, skip probe
+      return [];
+    }
+  }
+
+  private probeTarget(
+    socketOpts: SocketOptions,
+    principal: IamPrincipal,
+    timeoutMs: number
+  ): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let socket: tls.TLSSocket | null = null;
+      let connectStarted = false;
+      let connectedEventFired = false;
+      let eofTimer: ReturnType<typeof setTimeout> | undefined;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+
+      const abortProbe = () => {
+        cleanup(new Error('Probe aborted: instance closed'));
+      };
+
+      const cleanup = (err?: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        this.activeProbeAborts.delete(abortProbe);
+        if (timeout) {
+          clearTimeout(timeout);
+          timeout = undefined;
+        }
+        if (eofTimer) {
+          clearTimeout(eofTimer);
+          eofTimer = undefined;
+        }
+        if (socket) {
+          destroySocketQuietly(socket);
+        }
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      };
+
+      this.activeProbeAborts.add(abortProbe);
+
+      timeout = setTimeout(() => {
+        cleanup(new Error('Probe timeout'));
+      }, timeoutMs);
+      if (typeof timeout.unref === 'function') {
+        timeout.unref();
+      }
+
+      const startProbe = () => {
+        if (settled || connectStarted || !socket) {
+          return;
+        }
+        connectStarted = true;
+        sendStartupProbe(
+          socket,
+          principal,
+          () => settled,
+          cleanup,
+          timer => {
+            eofTimer = timer;
+          }
+        );
+      };
+
+      const onConnect = () => {
+        connectedEventFired = true;
+        startProbe();
+      };
+
+      const setupSocket = (s: tls.TLSSocket) => {
+        if (settled) {
+          destroySocketQuietly(s);
+          return;
+        }
+        socket = s;
+        socket.on('error', err => {
+          cleanup(err);
+        });
+        if (connectedEventFired) {
+          startProbe();
+        }
+      };
+
+      try {
+        const dialResult = this.dialFunc
+          ? this.dialFunc(socketOpts, onConnect)
+          : getSocket(socketOpts, onConnect);
+        if (dialResult instanceof Promise) {
+          dialResult
+            .then(s => {
+              setupSocket(s);
+            })
+            .catch(err => cleanup(err));
+        } else {
+          setupSocket(dialResult);
+        }
+      } catch (err) {
+        cleanup(err as Error);
+      }
+    });
+  }
+
+  private async probePrincipal(
+    principal: IamPrincipal,
+    targets: string[],
+    baseOpts: Omit<SocketOptions, 'host'>,
+    deadline: number
+  ): Promise<void> {
+    for (const target of targets) {
+      const remainingMs = deadline - Date.now();
+      if (this.closed || remainingMs <= 0) {
+        break;
+      }
+      try {
+        await this.probeTarget(
+          {...baseOpts, host: target},
+          principal,
+          remainingMs
+        );
+        break;
+      } catch {
+        // Ignore probe error across single target and try next target
+      }
+    }
+  }
+
   private async probeConnection(
     refreshResult: RefreshResult,
     metadata: InstanceMetadata,
@@ -447,186 +644,27 @@ export class CloudSQLInstance {
       return;
     }
 
-    let targets: string[] = [];
-    if (resolvedTargets && resolvedTargets.length > 0) {
-      targets = resolvedTargets;
-    } else {
-      try {
-        targets = await this.resolveHostTargets(metadata);
-      } catch {
-        // If the configured IP type is not available in metadata, skip probe
-      }
-    }
-
+    const targets = await this.resolveProbeTargets(metadata, resolvedTargets);
     if (targets.length === 0) {
       return;
     }
 
     const deadline = Date.now() + DEFAULT_CONNECT_TIMEOUT_MS;
-    const principals = Array.from(this.iamPrincipals.values());
-    const port = this.port || DEFAULT_SERVER_PROXY_PORT;
+    const baseOpts: Omit<SocketOptions, 'host'> = {
+      port: this.port || DEFAULT_SERVER_PROXY_PORT,
+      instanceInfo: this.instanceInfo,
+      serverName: this.instanceInfo.domainName || metadata.dnsName || '',
+      instanceDnsName: metadata.dnsName || '',
+      ephemeralCert,
+      privateKey,
+      serverCaCert,
+    };
 
-    for (const principal of principals) {
+    for (const principal of Array.from(this.iamPrincipals.values())) {
       if (this.closed || Date.now() >= deadline) {
         break;
       }
-      for (const target of targets) {
-        const remainingMs = deadline - Date.now();
-        if (this.closed || remainingMs <= 0) {
-          break;
-        }
-        try {
-          await new Promise<void>((resolve, reject) => {
-            let settled = false;
-            let socket: tls.TLSSocket | null = null;
-            let connectStarted = false;
-            let connectedEventFired = false;
-            let eofTimer: ReturnType<typeof setTimeout> | undefined;
-            let timeout: ReturnType<typeof setTimeout> | undefined;
-
-            const abortProbe = () => {
-              cleanup(new Error('Probe aborted: instance closed'));
-            };
-
-            const cleanup = (err?: Error) => {
-              if (settled) {
-                return;
-              }
-              settled = true;
-              this.activeProbeAborts.delete(abortProbe);
-              if (timeout) {
-                clearTimeout(timeout);
-                timeout = undefined;
-              }
-              if (eofTimer) {
-                clearTimeout(eofTimer);
-                eofTimer = undefined;
-              }
-              if (socket) {
-                try {
-                  socket.removeAllListeners('error');
-                  socket.on('error', () => {});
-                  socket.destroy();
-                } catch {
-                  // ignore destroy errors
-                }
-              }
-              if (err) {
-                reject(err);
-              } else {
-                resolve();
-              }
-            };
-
-            this.activeProbeAborts.add(abortProbe);
-
-            timeout = setTimeout(() => {
-              cleanup(new Error('Probe timeout'));
-            }, remainingMs);
-            if (typeof timeout.unref === 'function') {
-              timeout.unref();
-            }
-
-            const startProbe = () => {
-              if (settled || connectStarted || !socket) {
-                return;
-              }
-              connectStarted = true;
-              const activeSocket = socket;
-              try {
-                activeSocket.once('data', () => {
-                  if (settled) {
-                    return;
-                  }
-                  try {
-                    activeSocket.write(buildTerminatePacket(), () => {
-                      if (settled) {
-                        return;
-                      }
-                      activeSocket.end();
-                      // Wait for server EOF/close before destroying socket to prevent TCP RST
-                      eofTimer = setTimeout(() => cleanup(), 500);
-                      if (typeof eofTimer.unref === 'function') {
-                        eofTimer.unref();
-                      }
-                    });
-                  } catch {
-                    cleanup();
-                  }
-                });
-                activeSocket.once('end', () => {
-                  cleanup();
-                });
-                activeSocket.once('close', () => {
-                  cleanup();
-                });
-                activeSocket.write(
-                  buildPostgresStartupPacket(principal.user, principal.database)
-                );
-              } catch (err) {
-                cleanup(err as Error);
-              }
-            };
-
-            const onConnect = () => {
-              connectedEventFired = true;
-              startProbe();
-            };
-
-            const setupSocket = (s: tls.TLSSocket) => {
-              if (settled) {
-                try {
-                  s.removeAllListeners('error');
-                  s.on('error', () => {});
-                  s.destroy();
-                } catch {
-                  // ignore destroy errors
-                }
-                return;
-              }
-              socket = s;
-              socket.on('error', err => {
-                cleanup(err);
-              });
-              if (connectedEventFired) {
-                startProbe();
-              }
-            };
-
-            try {
-              const socketOpts: SocketOptions = {
-                host: target,
-                port,
-                instanceInfo: this.instanceInfo,
-                serverName:
-                  this.instanceInfo.domainName || metadata.dnsName || '',
-                instanceDnsName: metadata.dnsName || '',
-                ephemeralCert,
-                privateKey,
-                serverCaCert,
-              };
-              const dialResult = this.dialFunc
-                ? this.dialFunc(socketOpts, onConnect)
-                : getSocket(socketOpts, onConnect);
-              if (dialResult instanceof Promise) {
-                dialResult
-                  .then(s => {
-                    setupSocket(s);
-                  })
-                  .catch(err => cleanup(err));
-              } else {
-                setupSocket(dialResult);
-              }
-            } catch (err) {
-              cleanup(err as Error);
-              return;
-            }
-          });
-          break;
-        } catch {
-          // Ignore probe error across single target and try next target
-        }
-      }
+      await this.probePrincipal(principal, targets, baseOpts, deadline);
     }
   }
 
