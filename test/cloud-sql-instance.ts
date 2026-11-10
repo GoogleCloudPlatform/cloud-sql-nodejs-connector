@@ -1353,4 +1353,210 @@ t.test('CloudSQLInstance', async t => {
       );
     }
   );
+
+  t.test(
+    'probeConnection caps multiple principals and targets under one shared DEFAULT_CONNECT_TIMEOUT_MS budget',
+    async t => {
+      const {EventEmitter} = await import('node:events');
+      let dialCount = 0;
+      const scheduledTimeouts: number[] = [];
+      let virtualNow = 1000000;
+
+      const origNow = Date.now;
+      const origSetTimeout = global.setTimeout;
+      t.teardown(() => {
+        Date.now = origNow;
+        global.setTimeout = origSetTimeout;
+      });
+
+      Date.now = () => virtualNow;
+      global.setTimeout = ((
+        fn: (...args: unknown[]) => void,
+        delay?: number,
+        ...args: unknown[]
+      ) => {
+        if (typeof delay === 'number' && delay >= 1000) {
+          scheduledTimeouts.push(delay);
+          return origSetTimeout(() => {
+            virtualNow += delay;
+            fn(...args);
+          }, 5);
+        }
+        return origSetTimeout(fn, delay, ...args);
+      }) as typeof setTimeout;
+
+      const {CloudSQLInstance: MockedInstance} = t.mockRequire(
+        '../src/cloud-sql-instance',
+        {
+          '../src/crypto': {
+            generateKeys: async () => ({
+              publicKey: '-----BEGIN PUBLIC KEY-----',
+              privateKey: CLIENT_KEY,
+            }),
+          },
+          '../src/time': {
+            getRefreshInterval: () => 50,
+            isExpirationTimeValid: () => true,
+          },
+          '../src/dns-lookup': {
+            resolveARecord: async () => ['10.0.0.1'],
+            resolveTxtRecord: async () => ['my-project:us-east1:my-instance'],
+            resolveCnameRecord: async () => {
+              throw new Error('no cname');
+            },
+          },
+        }
+      );
+
+      const pgFetcher = {
+        ...fetcher,
+        async getInstanceMetadata() {
+          return {
+            ...(await fetcher.getInstanceMetadata()),
+            databaseVersion: 'POSTGRES_15',
+          };
+        },
+        resolveConnectSettings: async () => 'my-project:us-east1:my-instance',
+      };
+
+      const stallingDial = () => {
+        dialCount++;
+        const fakeSocket = new EventEmitter() as EventEmitter & {
+          destroy: () => void;
+        };
+        fakeSocket.destroy = () => {
+          setImmediate(() => fakeSocket.emit('close'));
+        };
+        return fakeSocket as unknown as import('node:tls').TLSSocket;
+      };
+
+      const inst = new MockedInstance({
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.IAM,
+          domainName: 'stalling.example.com',
+          sqlAdminFetcher: pgFetcher,
+          limitRateInterval: 50,
+          dialFunc: stallingDial,
+        },
+      });
+      t.after(() => inst.close());
+
+      // Record 4 principals across 2 targets (10.0.0.1 + 127.0.0.1)
+      for (let i = 1; i <= 4; i++) {
+        inst.recordIamPrincipal(`user${i}@example.com`, 'mydb');
+      }
+
+      await inst.refresh();
+      inst.cancelRefresh();
+
+      t.equal(
+        dialCount,
+        1,
+        'should stop after shared 30s budget expires on first stalling target instead of 4*2=8 dials'
+      );
+      t.same(
+        scheduledTimeouts,
+        [30000],
+        'should schedule only one 30000ms timeout across all principals and targets'
+      );
+    }
+  );
+
+  t.test(
+    'close() immediately aborts active stalling probe and skips updateValues',
+    async t => {
+      const {EventEmitter} = await import('node:events');
+      let socketDestroyed = false;
+      let certCalls = 0;
+
+      const {CloudSQLInstance: MockedInstance} = t.mockRequire(
+        '../src/cloud-sql-instance',
+        {
+          '../src/crypto': {
+            generateKeys: async () => ({
+              publicKey: '-----BEGIN PUBLIC KEY-----',
+              privateKey: CLIENT_KEY,
+            }),
+          },
+          '../src/time': {
+            getRefreshInterval: () => 50,
+            isExpirationTimeValid: () => true,
+          },
+        }
+      );
+
+      const versionedFetcher = {
+        ...fetcher,
+        async getInstanceMetadata() {
+          return {
+            ...(await fetcher.getInstanceMetadata()),
+            databaseVersion: 'POSTGRES_15',
+          };
+        },
+        async getEphemeralCertificate() {
+          certCalls++;
+          return {
+            cert: certCalls === 1 ? CLIENT_CERT : `${CLIENT_CERT}\n#gen2`,
+            expirationTime: '2033-01-06T10:00:00.232Z',
+          };
+        },
+      };
+
+      let dialStartedResolve: (() => void) | undefined;
+      const dialStarted = new Promise<void>(res => {
+        dialStartedResolve = res;
+      });
+
+      const stallingDial = () => {
+        const fakeSocket = new EventEmitter() as EventEmitter & {
+          destroy: () => void;
+        };
+        fakeSocket.destroy = () => {
+          socketDestroyed = true;
+          setImmediate(() => fakeSocket.emit('close'));
+        };
+        dialStartedResolve?.();
+        return fakeSocket as unknown as import('node:tls').TLSSocket;
+      };
+
+      const inst = new MockedInstance({
+        options: {
+          ipType: IpAddressTypes.PUBLIC,
+          authType: AuthTypes.IAM,
+          instanceConnectionName: 'my-project:us-east1:my-instance',
+          sqlAdminFetcher: versionedFetcher,
+          limitRateInterval: 50,
+          dialFunc: stallingDial,
+        },
+      });
+      t.after(() => inst.close());
+
+      // Initial refresh succeeds before principals are recorded
+      await inst.refresh();
+      inst.cancelRefresh();
+      t.equal(inst.ephemeralCert?.cert, CLIENT_CERT);
+
+      inst.recordIamPrincipal('user1@example.com', 'mydb');
+
+      const startMs = Date.now();
+      const refreshPromise = inst.refresh();
+      await dialStarted;
+
+      inst.close();
+      await refreshPromise;
+      const elapsedMs = Date.now() - startMs;
+
+      t.ok(socketDestroyed, 'close() should destroy active probe socket');
+      t.ok(
+        elapsedMs < 2000,
+        `close() should unblock refresh immediately without waiting 30s (took ${elapsedMs}ms)`
+      );
+      t.equal(
+        inst.ephemeralCert?.cert,
+        CLIENT_CERT,
+        'should not update ephemeralCert after close()'
+      );
+    }
+  );
 });

@@ -126,6 +126,7 @@ export class CloudSQLInstance {
   private failoverPeriod: number;
   private sockets = new Set<DestroyableSocket>();
   private iamPrincipals = new Map<string, {user: string; database: string}>();
+  private readonly activeProbeAborts = new Set<() => void>();
   private readonly dialFunc?: (
     opts: SocketOptions,
     onSecureConnect?: () => void
@@ -267,7 +268,10 @@ export class CloudSQLInstance {
       .then((nextValues: RefreshResult) => {
         // in case the id at the moment of starting this refresh cycle has
         // changed, that means that it has been canceled
-        if (currentRefreshId !== this.scheduledRefreshID) {
+        if (currentRefreshId !== this.scheduledRefreshID || this.closed) {
+          if (this.closed) {
+            this.next = undefined;
+          }
           return;
         }
 
@@ -458,15 +462,17 @@ export class CloudSQLInstance {
       return;
     }
 
+    const deadline = Date.now() + DEFAULT_CONNECT_TIMEOUT_MS;
     const principals = Array.from(this.iamPrincipals.values());
     const port = this.port || DEFAULT_SERVER_PROXY_PORT;
 
     for (const principal of principals) {
-      if (this.closed) {
+      if (this.closed || Date.now() >= deadline) {
         break;
       }
       for (const target of targets) {
-        if (this.closed) {
+        const remainingMs = deadline - Date.now();
+        if (this.closed || remainingMs <= 0) {
           break;
         }
         try {
@@ -476,13 +482,22 @@ export class CloudSQLInstance {
             let connectStarted = false;
             let connectedEventFired = false;
             let eofTimer: ReturnType<typeof setTimeout> | undefined;
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+
+            const abortProbe = () => {
+              cleanup(new Error('Probe aborted: instance closed'));
+            };
 
             const cleanup = (err?: Error) => {
               if (settled) {
                 return;
               }
               settled = true;
-              clearTimeout(timeout);
+              this.activeProbeAborts.delete(abortProbe);
+              if (timeout) {
+                clearTimeout(timeout);
+                timeout = undefined;
+              }
               if (eofTimer) {
                 clearTimeout(eofTimer);
                 eofTimer = undefined;
@@ -503,9 +518,11 @@ export class CloudSQLInstance {
               }
             };
 
-            const timeout = setTimeout(() => {
+            this.activeProbeAborts.add(abortProbe);
+
+            timeout = setTimeout(() => {
               cleanup(new Error('Probe timeout'));
-            }, DEFAULT_CONNECT_TIMEOUT_MS);
+            }, remainingMs);
             if (typeof timeout.unref === 'function') {
               timeout.unref();
             }
@@ -668,6 +685,10 @@ export class CloudSQLInstance {
       clearInterval(this.checkDomainID);
       this.checkDomainID = null;
     }
+    for (const abortProbe of Array.from(this.activeProbeAborts)) {
+      abortProbe();
+    }
+    this.activeProbeAborts.clear();
     for (const socket of this.sockets) {
       socket.destroy(
         new CloudSQLConnectorError({
