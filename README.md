@@ -23,7 +23,9 @@ while providing the following benefits:
 
 - **IAM Authorization:** uses IAM permissions to control who/what can connect to
   your Cloud SQL instances
-- **Improved Security:** uses robust, updated TLS 1.3 encryption and identity
+- **Improved Security:** uses robust, updated TLS 1.3 encryption (including
+  automatic [hybrid post-quantum key exchange](#post-quantum-cryptography-pqc)
+  on OpenSSL 3.5+ runtimes, such as Node.js 22.20+ and 24.5+) and identity
   verification between the client connector and the server-side proxy,
   independent of the database protocol.
 - **Convenience:** removes the requirement to use and distribute SSL
@@ -386,6 +388,74 @@ const clientOpts = await connector.getOptions({
   instanceConnectionName: 'my-project:region:my-instance',
   authType: AuthTypes.IAM,
 });
+```
+
+### Post-Quantum Cryptography (PQC)
+
+The Cloud SQL Node.js Connector establishes mTLS connections over TLS 1.3
+(`minVersion: 'TLSv1.3'`) using Node.js's built-in `node:tls` module with
+default curve preferences. When running on a Node.js runtime that includes
+**OpenSSL 3.5.0 or later**, the connector automatically offers and negotiates
+the hybrid post-quantum key exchange group **`X25519MLKEM768`** (ML-KEM-768
+combined with X25519) whenever the Cloud SQL instance supports it. No code
+changes or connector options are required.
+
+#### Node.js and OpenSSL runtime requirement
+
+Official Node.js distributions statically bundle OpenSSL rather than linking
+against the host operating system's OpenSSL library. Hybrid `X25519MLKEM768` key
+exchange is supported out of the box on official Node.js releases that bundle
+OpenSSL 3.5+:
+
+- **Node.js 22 LTS:** `>= 22.20.0`
+- **Node.js 24 LTS:** `>= 24.5.0`
+- **Node.js 25+:** all releases
+
+If you use a custom or Linux distribution-packaged Node.js binary that
+dynamically links against system OpenSSL, ensure the linked OpenSSL version is
+`3.5.0` or newer.
+
+You can check the OpenSSL version used by your Node.js runtime with:
+
+```sh
+node -p "process.versions.openssl"
+```
+
+An output of `3.5.0` or higher (for example, `3.5.8` or `3.6.5`) indicates that
+`X25519MLKEM768` key exchange is available.
+
+#### Backwards compatibility
+
+Hybrid post-quantum key exchange is backwards-compatible:
+
+- When running on OpenSSL 3.5+, `node:tls` advertises both hybrid
+  (`X25519MLKEM768`) and classical (`X25519`, `P-256`, etc.) groups in the TLS
+  1.3 `ClientHello`. If a Cloud SQL instance only offers classical groups, the
+  TLS handshake automatically falls back to classical `X25519` (or `P-256`)
+  without error.
+- Applications running on older Node.js patch releases with OpenSSL `< 3.5.0`
+  continue to connect over TLS 1.3 using classical key exchange.
+
+#### Opting out
+
+To disable post-quantum key exchange on the client (for example, to work around
+legacy network middleboxes that reject larger TLS 1.3 `ClientHello` records) and
+restrict TLS handshakes to classical curves, set `tls.DEFAULT_ECDH_CURVE` before
+opening connections (note that this changes the process-wide default for all
+`node:tls` connections that do not specify an explicit `ecdhCurve`):
+
+```js
+import tls from 'node:tls';
+
+tls.DEFAULT_ECDH_CURVE = 'X25519:prime256v1:secp384r1';
+```
+
+Alternatively, opt out without modifying application code by setting the
+`NODE_OPTIONS` environment variable (note that `NODE_OPTIONS` is also inherited
+by child Node.js processes):
+
+```sh
+export NODE_OPTIONS='--import=data:text/javascript,import%20tls%20from%20%22node:tls%22%3Btls.DEFAULT_ECDH_CURVE%3D%22X25519:prime256v1:secp384r1%22'
 ```
 
 ## Using With `Google Auth Library: Node.js Client` Credentials
