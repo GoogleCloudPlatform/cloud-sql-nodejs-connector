@@ -64,20 +64,20 @@
     "@sequelize/mssql": "^7.0.0-alpha.29",
     "@sequelize/mysql": "^7.0.0-alpha.29",
     "@sequelize/postgres": "^7.0.0-alpha.29",
-    "@types/node": "^24.19.1",
+    "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-prettier": "^5.5.7",
     "gts": "^5.3.1",
     "knex": "^3.3.0",
-    "mssql": "^12.7.4",
-    "mysql2": "^3.24.5",
+    "mssql": "^12.7.14",
+    "mysql2": "^3.24.6",
     "nock": "^14.0.17",
     "pg": "^8.23.1",
     "prisma": "^5.22.0",
-    "tap": "^21.8.0",
-    "tedious": "^20.3.3",
-    "typeorm": "^1.1.1",
+    "tap": "^21.8.1",
+    "tedious": "^20.3.8",
+    "typeorm": "^1.1.2",
     "typescript": "^5.9.3"
   },
   "engines": {
@@ -90,9 +90,12 @@
   "dependencies": {
     "@google-cloud/sql": "^0.25.0",
     "@googleapis/sqladmin": "^38.1.1",
-    "@grpc/grpc-js": "^1.14.5",
-    "gaxios": "^8.1.0",
-    "google-auth-library": "^11.1.0",
+    "@grpc/grpc-js": "^1.14.7",
+    "gaxios": "^8.3.2",
+    "google-auth-library": "^11.3.4",
     "p-throttle": "^8.1.1"
+  },
+  "overrides": {
+    "tmp": "^0.2.6"
   }
 }

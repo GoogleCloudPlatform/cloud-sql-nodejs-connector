@@ -57,9 +57,9 @@ jobs:
 
       - name: Verify code coverage. If your reading this and the step has failed, please add tests to cover your changes.
         run: |
-          echo "BASE BRANCH CODE COVERAGE is ${{ env.CUR_COVER }}%"
-          echo "PULL REQUEST CODE COVERAGE is ${{ env.PR_COVER }}%"
-          if (( PR_COVER - 2 > CUR_COVER )); then
+          echo "BASE BRANCH CODE COVERAGE is ${CUR_COVER}%"
+          echo "PULL REQUEST CODE COVERAGE is ${PR_COVER}%"
+          if (( PR_COVER < CUR_COVER - 2 )); then
             echo "Coverage check failed: PR reduces code coverage by more than 2%."
             exit 1;
           fi
