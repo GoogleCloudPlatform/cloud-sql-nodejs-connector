@@ -19,9 +19,9 @@ updates:
     schedule:
       interval: "daily"
     cooldown:
-      default-days: 7
+      default-days: 0 # zizmor: ignore[dependabot-cooldown]
     open-pull-requests-limit: 10
-    versioning-strategy: "increase-if-necessary"
+    versioning-strategy: "increase"
     commit-message:
       prefix: "deps"
     groups:
@@ -61,7 +61,7 @@ updates:
     schedule:
       interval: "daily"
     cooldown:
-      default-days: 7
+      default-days: 0 # zizmor: ignore[dependabot-cooldown]
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore"
